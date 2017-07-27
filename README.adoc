@@ -98,6 +98,7 @@ The basic end-to-end functionality is working, except for notifications, but the
 
 * https://github.com/awslabs/git-secrets[Git Secrets] -- Prevents you from committing secrets and credentials into git repositories
 * https://github.com/ezekg/git-hound[Git Hound] --  Git plugin that helps prevent sensitive data from being committed into a repository by sniffing potential commits against PCRE regular expressions.
+* https://github.com/michenriksen/gitrob[GitRob] -- Reconnaissance tool for GitHub organizations
 * http://pre-commit.com/[pre-commit] - A pre-commit framework, that includes the http://pre-commit.com/hooks.html[detect-aws-credentials] plugin
 * https://www.reddit.com/r/netsec/comments/5ll7ng/truffle_hog_a_tool_that_searches_entire_commit/[TruffleHog] -- A tool that Searches Entire Commit History in Git Repositories for High Entropy Strings to Find Secrets Accidentally Committed to Version Control
 * https://rtyley.github.io/bfg-repo-cleaner/[BFG Repo cleaner] - Removes large or troublesome blobs like git-filter-branch does
