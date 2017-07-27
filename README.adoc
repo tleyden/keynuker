@@ -2,7 +2,7 @@
 
 If you accidentally leak your AWS keys on GitHub, it won't be long before attackers scrape this information and https://web.archive.org/web/20160304044323/https://www.forbes.com/sites/runasandvik/2014/01/14/attackers-scrape-github-for-cloud-service-credentials-hijack-account-to-mine-virtual-currency/#41d040f67cf8:[hijack your account for nefarious purposes].  
 
-The goal for KeyNuker is to delete any AWS keys accidentally leaked to GitHub as soon as possible.  It does this by constantly monitoring Github activity for all AWS keys in your AWS accounts, across all Github users in your Github organization(s).  If an AWS key is detected to be leaked, regardless if it has an accompanying secret key, it will be deleted via the AWS API.
+KeyNuker scans public activity across all Github users in your Github organization(s) and proactively deletes any AWS keys that are accidentally leaked.  It gets the list of AWS keys to scan by directly connecting to the AWS API.
 
 == 🚁 System Overview
 
@@ -36,11 +36,11 @@ See the link:docs/install.adoc[Installation Instructions] for a step-by-step gui
 == ✅ Features
 
 . Noise-free because it scans actual AWS keys rather than taking a pattern matching approach that produces false positives
-. Takes actions rather than sending alerts that might introduce a delay in reaction time, or end up getting lost or ignored
+. Takes actions rather than sending alerts, since depending on people to respond to alerts might introduce a costly delay in reaction time
 . Covers all public github activity of users in your github org(s), since they might leak AWS keys on their personal repos or even 3rd party repos
 . Requires minimal IAM Permissions: `iam:DeleteAccessKey`, `iam:ListAccessKeys`, `iam:ListUsers`
-. Ultra-low baseline running cost due to serverless architecture -- if you have a small org, your cloud cost for running KeyNuker should be negligible, or even zero if you take advantage of a hosting free tier.   
-. Requires zero effort or workflow change for users
+. Ultra-low baseline running cost due to serverless architecture
+. Lowest common denominator and requires zero effort or workflow change for users
 
 == ⚪️ Roadmap / Goals
 
