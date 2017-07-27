@@ -6,7 +6,7 @@ KeyNuker scans public activity across all Github users in your Github organizati
 
 == 🚁 System Overview
 
-* Polling loop to monitor all AWS keys for users of the AWS account (currently only works with a single AWS account)
+* Polling loop to monitor all AWS keys for users of the AWS account
 * Polling loop to monitor Github activity of all users in your github organization(s)
 * Reactively nuke any AWS keys detected to have leaked to Github via the AWS API
 
