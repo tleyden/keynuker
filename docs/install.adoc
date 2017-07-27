@@ -69,17 +69,7 @@ In the bluemix web console:
 - Go to the **Permissions** section and **Generate API key**
 - Save the **Key** to the `KEYNUKER_DB_KEY` environment variable, and the **Password** to the `KEYNUKER_DB_SECRET_KEY` environment variable
 
-=== Apache CouchDB ===
-
-Alternatively, you should be able to use your own self-hosted Apache CouchDB
-
-TODO: add instructions
-
-=== Couchbase Sync Gateway ===
-
-Alternatively, https://github.com/couchbase/sync_gateway[Couchbase Sync Gateway] can also be used, since it has a REST API that is mostly compatible with Apache CouchDB
-
-TODO: add instructions
+Alternatively, you should be able to use your own self-hosted Apache CouchDB or https://github.com/couchbase/sync_gateway[Couchbase Sync Gateway] (which has a REST API that is mostly compatible with Apache CouchDB)
 
 == Create a Dockerhub account
 
