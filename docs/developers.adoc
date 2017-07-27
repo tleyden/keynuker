@@ -1,0 +1,20 @@
+
+
+== Running actions by hand
+
+If you want to poke around the system a little bit more, here is an example of running actions that make up a sequence by hand, so you can inspect the output of each phase:
+
+```
+$ wsk action invoke lookup-github-users-aws-keys --blocking --result > lookup-github-users-aws-keys.json
+$ wsk action invoke github-user-events-scanner --param-file lookup-github-users-aws-keys.json --blocking --result > github-user-events-scanner.json
+$ wsk action invoke nuke-leaked-aws-keys --param-file github-user-events-scanner.json --blocking --result
+
+```
+
+== Generating mocks
+
+The testing mocks are generated via:
+
+```
+$ ./generate.sh
+```

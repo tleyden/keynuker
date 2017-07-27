@@ -1,0 +1,192 @@
+[%hardbreaks]
+
+= KeyNuker Architecture / Technical Spec 
+:toc: left
+:toclevels: 3
+
+== Components
+
+. CouchDB Database
+. OpenWhisk Triggers / Actions / Rules
+
+== Poll AWS OpenWhisk Actions
+
+=== Poll AWS account for new AWS keys 
+
+.Inputs
+|===
+|Name |Example value
+|AWS Account ID | `1133324234`
+|AWS Key | `3434242ASD`
+|AWS Secret Key | `GGG3434242ASD`
+|AWS STS External ID | `BHDG3434242ASD`
+|===
+
+.Outputs
+|===
+|Name |Example value
+|AWS Keys Array | `[{"AWS_KEY": "YY89u98", "AWS_USERNAME": "joe.leaker"}, ...]`
+|===
+
+==== Steps 
+
+. Create AWS session via STS
+. Query list of all IAM users
+. For each IAM user
+.. Get list of AWS keys 
+. Return result
+
+=== Store new AWS keys in Database
+
+.Inputs
+|===
+|Name |Example value
+|AWS Account ID | `1133324234`
+|AWS Keys Array | `[{"AWS_KEY": "YY89u98", "AWS_USERNAME": "joe.leaker"}, ...]`
+|===
+ 
+
+.Outputs
+|===
+|Name |Example value
+|AWS Keys Array | `[{"AWS_KEY": "YY89u98", "Status": "added/updated"}, "DBID": "3242432", ...]`
+|===
+
+==== Steps 
+
+. DB bulk_docs command 
+. Return result
+
+== Update Github Org User List  
+
+=== Poll github orgs for user list 
+
+.Inputs
+|===
+|Name |Example value
+|KeyNukerOrg | `default`
+|GithubOrgs | `["Acme-Corp", "Acme-Labs"]`
+|===
+
+
+.Outputs
+|===
+|Name |Example value
+|GihubUsers | `[{"id": 234234, "login": "joeceo"}, ...]`
+|KeyNukerOrg | `default`
+|GithubOrgs | `["Acme-Corp", "Acme-Labs"]`
+|===
+
+=== Save github user list to DB 
+
+This can just use the clobber-db action to save in DB 
+
+== Process Github User Activity OpenWhisk Actions 
+
+=== Lookup github user list + AWS keys from db 
+
+.Inputs
+|===
+|Name |Example value
+|KeyNukerOrg | `default`
+|===
+
+.Outputs
+|===
+|Name |Example value
+|GihubUsers | `[{"id": 234234, "login": "joeceo"}, ...]`
+|AWS Keys Array | `[{"AWS_KEY": "YY89u98", "AWS_USERNAME": "joe.leaker"}, ...]`
+|===
+
+=== Scan Github user activity for keys 
+
+.Inputs
+|===
+|Name |Example value
+|KeyNukerOrg | `default`
+|GihubUsers | `[{"id": 234234, "login": "joeceo"}, ...]`
+|AWS Keys Array | `[{"AWS_KEY": "YY89u98", "AWS_USERNAME": "joe.leaker"}, ...]`
+|===
+
+.Outputs
+|===
+|Name |Example value
+|Leaked AWS Keys Array | `[{"AWS_KEY": "YY89u98", "DBID": "3242432"}, ...]`
+|===
+
+==== Steps 
+
+. For each user in githubusers
+.. Call gist feed api  
+... For each gist, get content and scan for leaked keys and append to result 
+.. Call github feed api
+... Process each event
+.... Complex event handling, including more calls out to github API 
+.... Scan content for leaked keys and append to result 
+
+==== Optimizations
+
+. Don't scan github events multiple times 
+
+==== Complexity 
+
+. Error handling 
+. API limits 
+
+== Nuke AWS Keys OpenWhisk Actions 
+
+=== Nuke leaked key on AWS 
+
+.Inputs
+|===
+|Name |Example value
+|Leaked AWS Key | `{"AWS_KEY": "YY89u98", "DBID": "3242432"}`
+|AWS Account ID | `1133324234`
+|AWS Key | `3434242ASD`
+|AWS Secret Key | `GGG3434242ASD`
+|AWS STS External ID | `BHDG3434242ASD`
+|===
+
+.Outputs 
+|===
+|Name |Example value
+|AWS API result | `ok/error`
+|===
+
+==== Steps 
+
+. Read leaked key from leaked-aws-keys kafka queue  (ideally should be done by previous action in action sequence)
+. Create AWS session 
+. Try to delete key 
+. If it fails, add to key-nuke-failures queue 
+. Otherwise add to nuked-keys queue   
+
+=== Notify admin / users about nuked key 
+  
+.Inputs
+|===
+|Name |Example value
+|Nuked AWS Key | `{"AWS_KEY": "YY89u98", "DBID": "3242432"}`
+|===
+
+.Outputs 
+|===
+|Name |Example value
+|Mailer API result | `ok/error`
+|===
+
+==== Steps 
+
+. Read nuked key from nuked-aws-keys kafka queue  (ideally should be done by previous action in action sequence)
+. Find admin email / user email via database lookup 
+
+
+== Version 2 changes required
+
+=== Multiple AWS accounts 
+
+=== Handle github rate limit issues 
+
+==== Take a pool of github access tokens
+
+==== Record and retry failed requests 

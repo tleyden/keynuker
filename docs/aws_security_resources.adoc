@@ -1,0 +1,68 @@
+[%hardbreaks]
+
+= AWS Security Resources
+:toc: left
+:toclevels: 3
+
+
+This is a reformatted version of https://gist.github.com/chanj/6c48c059ad4b72a60bf3[Jason Chan's AWS Security Resources Gist ]
+
+
+== Official AWS Security Resources
+
+* http://blogs.aws.amazon.com/security/[AWS Security Blog]
+* http://aws.amazon.com/security/security-bulletins/[Security Advisories]
+* http://media.amazonwebservices.com/pdf/AWS_Security_Whitepaper.pdf[Security Whitepaper (AWS Security Processes/Practices)]
+* http://media.amazonwebservices.com/AWS_Security_Best_Practices.pdf[Security Best Practices Whitepaper]
+* http://media.amazonwebservices.com/AWS_Risk_and_Compliance_Whitepaper.pdf[Risk and Compliance Whitepaper]
+* http://aws.amazon.com/security/[Security Center]
+* http://aws.amazon.com/compliance/[Compliance Center]
+* http://awspolicygen.s3.amazonaws.com/policygen.html[Policy Generator (auto build S3, IAM, etc. policies)]
+* http://docs.aws.amazon.com/IAM/latest/UsingPolicySimulatorGuide/iam-policy-simulator-guide.html[IAM Policy Simulator]
+* http://docs.aws.amazon.com/IAM/latest/UserGuide/IAMBestPractices.html[IAM Best Practices]
+* http://blogs.aws.amazon.com/security/post/Tx2KPWZJJ4S26H6/Demystifying-EC2-Resource-Level-Permissions[EC2 Resource-Level Permissions]
+
+== Other Relevant Official AWS Resources
+
+* https://www.youtube.com/channel/UCd6MoB9NC6uYN2grvUNT-Zg[YouTube Channel (RE:Invent talks, etc.)]
+* http://aws.amazon.com/blogs/aws/[AWS Blog]
+* https://aws.amazon.com/documentation/[AWS Documentation]
+* https://forums.aws.amazon.com/index.jspa[Discussion Forums]
+
+== Jason Chan's Talks and Slides on AWS and Cloud Security
+
+* http://vimeo.com/54157394[AppSecUSA 2012 Real World Cloud Security]
+* http://vimeo.com/79778836[LASCON 2013 Alternate Approaches to Product Security]
+* http://www.slideshare.net/jason_chan/amazon-web-services-security[SAINTCON 2014 AWS Security Training]
+* http://www.slideshare.net/jason_chan[Jason Chan's Slideshare page (lots of AWS and cloud security talks)]
+
+== Other Relevant AWS and Cloud Security Talks
+
+* https://www.youtube.com/watch?v=BKJL0s8Ocqs[Kevin Glisson (Netflix) AppSecUSA 2014 Monterey (inventory/testing system on AWS)]
+* https://www.youtube.com/watch?v=Q1wnjQ9Khdo[Ben Hagen (Netflix) AppSecUSA 2014 Cloud Security]
+* https://www.youtube.com/watch?v=y8nftRzbiXk[Erik Peterson (Veracode) AppSecUSA 2014 Attacking Amazon]
+* http://www.slideshare.net/zarfide/cloud-security-at-netflix-october-2013[Jay Zarfoss (Netflix) Cloud Security @ Netflix]
+* https://www.youtube.com/watch?v=U4hdPpDpsMw[Alex Stamos (Yahoo!) Building Cloud Security from Scratch RE:Invent 2012]
+* https://www.youtube.com/watch?v=GCnlFlq1-nw[Jonathan Chittenden (iSEC Partners) AppSec 2012 AWS Scout]
+
+== AWS Security Tools
+
+* https://github.com/Netflix/security_monkey[Security Monkey (Netflix OSS tool for monitoring AWS security configuration)]
+* https://github.com/prezi/reddalert[Reddalert (Prezi OSS tool for monitoring/alerting on top of Edda)]
+* http://andresriancho.github.io/nimbostratus/[Nimbostratus (tools for fingerprinting/exploiting AWS infrastructures)]
+* https://github.com/Netflix/edda[Edda (Netflix OSS tool for tracking AWS changes)]
+* https://github.com/Securosis/SecuritySquirrel[Securosis' Security Squirrel (POC cloud/secops automation suite)]
+* https://github.com/iSECPartners/Scout2[iSEC Partners' AWS Scout and Scout2 (IAM, EC2, S3 auditing)]
+* https://github.com/cloudsploit/scans[CloudSploit (AWS security auditing and evaluation)]
+* https://github.com/tleyden/keynuker[🔐💥 KeyNuker - nuke AWS keys accidentally leaked to Github]
+
+== Other Resources
+
+* https://github.com/nagwww[Nag Medida's (Netflix) collection of AWS hacks]
+* http://palakonda.org/2014/06/24/aws-security-25-tips-for-securing-aws/[Nag Medida's (Netflix) blog - 25 tips for securing AWS]
+* https://www.reddit.com/r/aws[Reddit's AWS subreddit]
+
+== Useful/Interesting Individual Posts and Articles
+
+* http://instagram-engineering.tumblr.com/post/89992572022/migrating-aws-fb[Instagram Engineering's Post #1 on EC2->VPC->FB Migration]
+* http://instagram-engineering.tumblr.com/post/100758229719/migrating-from-aws-to-aws[Instagram Engineering's Post #2 on EC2->VPC->FB Migration (Neti OSS release)]

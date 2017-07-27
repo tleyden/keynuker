@@ -1,0 +1,29 @@
+[%hardbreaks]
+
+= KeyNuker Test Spec
+:toc: left
+:toclevels: 3
+
+
+== Github Monitoring
+
+=== User posts content to personal repo
+
+It's not enough to just monitor a github org.  Users may post to their own repos outside the org.
+
+=== User posts content to private personal repo, makes public 
+
+If a user posts content to a private repo, and then makes it public, the entire repo will need to be scanned.
+
+=== User posts content too large to be sent via webhook
+
+According to github webhooks doc, if payload > 5MB, the webhook will be skipped.
+
+=== User posts a gist with aws keys 
+
+Normal user events API don't include gists!!  Need to track these separately
+
+=== User posts a ton of changes all at once
+
+This might cause the polling loop to exceed rate limit 
+

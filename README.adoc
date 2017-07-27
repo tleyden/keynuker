@@ -1,0 +1,123 @@
+
+
+If you accidentally leak your AWS keys on GitHub, it won't be long before attackers scrape this information and https://web.archive.org/web/20160304044323/https://www.forbes.com/sites/runasandvik/2014/01/14/attackers-scrape-github-for-cloud-service-credentials-hijack-account-to-mine-virtual-currency/#41d040f67cf8:[hijack your account for nefarious purposes].  
+
+The goal for KeyNuker is to delete any AWS keys accidentally leaked to GitHub as soon as possible.  It does this by constantly monitoring Github activity for all AWS keys in your AWS accounts, across all Github users in your Github organization(s).  If an AWS key is detected to be leaked, regardless if it has an accompanying secret key, it will be deleted via the AWS API.
+
+== 🚁 System Overview
+
+* Polling loop to monitor all AWS keys for users of the AWS account (currently only works with a single AWS account)
+* Polling loop to monitor Github activity of all users in your github organization(s)
+* Reactively nuke any AWS keys detected to have leaked to Github via the AWS API
+
+image::docs/diagrams/architecture.png[Architecture]
+
+== ⏱ System Interaction w/ Timeline
+
+image::docs/diagrams/dataflow.png[Data Flow]
+
+== 🛠 Installing KeyNuker 🔐💥
+
+KeyNuker is packaged as a series of https://github.com/apache/incubator-openwhisk[Apache OpenWhisk] actions, and can run anywhere that OpenWhisk can run.
+
+There is an included `install.py` script that automates the bulk of the installation:
+
+```
+$ git clone https://github.com/tleyden/keynuker.git
+$ python install.py
+$ wsk action list
+/yourusername_dev/github-user-events-scanner-nuker                     private sequence
+/yourusername_dev/fetch-aws-keys-write-doc                             private sequence
+etc ...
+```
+
+See the link:docs/install.adoc[Installation Instructions] for a step-by-step guide, including setting up dependent services and required environment variables.
+
+== ✅ Features
+
+. Noise-free because it scans actual AWS keys rather than taking a pattern matching approach that produces false positives
+. Takes actions rather than sending alerts that might introduce a delay in reaction time, or end up getting lost or ignored
+. Covers all public github activity of users in your github org(s), since they might leak AWS keys on their personal repos or even 3rd party repos
+. Requires minimal IAM Permissions: `iam:DeleteAccessKey`, `iam:ListAccessKeys`, `iam:ListUsers`
+. Ultra-low baseline running cost due to serverless architecture -- if you have a small org, your cloud cost for running KeyNuker should be negligible, or even zero if you take advantage of a hosting free tier.   
+. Requires zero effort or workflow change for users
+
+== ⚪️ Roadmap / Goals
+
+. Low-latency round trip between AWS keys leaking and being nuked.  Currently uses polling approach, but the goal is to layer a webhook approach on top in order to lower the latency.
+. Scale up to monitoring hundreds of AWS accounts and thousands of github organizations/repos/users.
+. Cove as much of the Github API surface area as possible (gists, issue comments, etc)
+. Pluggable architecture so that other cloud key providers (Google Cloud Platform, Azure, etc) and other leak sources (BitBucket, Jira, etc) can be added later.
+
+
+== 🏁 Project status: Early alpha stage
+
+The basic end-to-end functionality is working, except for notifications, but there are still a lot of places where AWS keys can leak to Github and go undetected:
+
+ * Github Gists
+ * Issue comments
+ * Any push request with more than 20 commits will only result in the first 20 commits will be scanned, and the rest will be ignored.
+ * Other Github API surface area that isn't covered yet
+
+
+== 📓 Documentation
+
+.Documentation
+|===
+|Doc |Link
+
+|README (this document)
+|link:README.adoc[README]
+
+|Installation guide
+|link:docs/install.adoc[Installation Instructions]
+
+|Developer guide
+|link:docs/developers.adoc[Developer guide]
+
+|Specification (out of date)
+|link:docs/specification.adoc[Specification]
+
+|Test Specification (just some notes)
+|link:docs/test_specification.adoc[Test Specification]
+
+|AWS Security Resources
+|link:docs/aws_security_resources.adoc[AWS Security Resources]
+
+|===
+
+
+== 📰 Articles on malicious key scraping
+
+* https://web.archive.org/web/20160304044323/https://www.forbes.com/sites/runasandvik/2014/01/14/attackers-scrape-github-for-cloud-service-credentials-hijack-account-to-mine-virtual-currency/#41d040f67cf8:[Attackers Scrape GitHub For Cloud Service Credentials, Hijack Account To Mine Virtual Currency]
+* https://web.archive.org/web/20170111080816/http://www.itnews.com.au/news/aws-urges-developers-to-scrub-github-of-secret-keys-375785[AWS urges developers to scrub GitHub of secret keys]
+* https://web.archive.org/web/20170205165621/https://www.theregister.co.uk/2015/01/06/dev_blunder_shows_github_crawling_with_keyslurping_bots/[Dev put AWS keys on Github. Then BAD THINGS happened]
+
+
+== 📁 Related Projects
+
+* https://github.com/awslabs/git-secrets[Git Secrets] -- Prevents you from committing secrets and credentials into git repositories
+* https://github.com/ezekg/git-hound[Git Hound] --  Git plugin that helps prevent sensitive data from being committed into a repository by sniffing potential commits against PCRE regular expressions.
+* http://pre-commit.com/[pre-commit] - A pre-commit framework, that includes the http://pre-commit.com/hooks.html[detect-aws-credentials] plugin
+* https://www.reddit.com/r/netsec/comments/5ll7ng/truffle_hog_a_tool_that_searches_entire_commit/[TruffleHog] -- A tool that Searches Entire Commit History in Git Repositories for High Entropy Strings to Find Secrets Accidentally Committed to Version Control
+* https://rtyley.github.io/bfg-repo-cleaner/[BFG Repo cleaner] - Removes large or troublesome blobs like git-filter-branch does
+
+== ⚙ Related Services
+
+* https://www.gitguardian.com/[Git Guardian] -- Scanning service that alerts you of text strings that appear to be API keys (Github and more)
+* https://github.com/cloudsploit[CloudSploit] -- Cloud security monitoring service / open source software which has a https://github.com/cloudsploit/scans/issues/10[feature request] very reminiscent of KeyNuker.
+* https://evident.io/[Evident.io]
+* https://dome9.com/iam-safety/[Dome9]
+* https://www.cloudconformity.com[CloudConformity]
+
+
+== 👀 Related Misc
+
+* https://www.reddit.com/r/aws/comments/6onzgb/what_aws_security_compliances_do_you_guys_have/[reddit/aws: What AWS security compliances do you guys have for your environment?]
+
+== 🔒 Security At Depth
+
+Taking a security-at-depth approach, in addition to running KeyNuker you should also consider the following precautions:
+
+- Use temporary AWS keys that require MFA
+- Minimize chance of AWS keys from ever leaking in the first place using tools such as https://github.com/awslabs/git-secrets[Git Secrets] which can be configured as a pre-commit hook.

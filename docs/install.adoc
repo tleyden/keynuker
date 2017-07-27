@@ -1,0 +1,250 @@
+[%hardbreaks]
+
+= 🛠 🔐💥 KeyNuker Installation
+:toc: left
+:toclevels: 3
+
+
+== Requirements overview
+
+- https://github.com/apache/incubator-openwhisk[Apache OpenWhisk] -- these docs assume you are using OpenWhisk on hosted Bluemix
+- CouchDB REST API compatible database -- these docs assume you are using Cloudant on hosted Bluemix
+- An AWS account in the organization you want to monitor, with permissions to create IAM users
+- Github account and access token
+- Go 1.8 and Python 2.x installed locally
+- Dockerhub account
+- Docker installed locally
+
+== Signup for Bluemix free tier
+
+. Signup for the http://www.bluemix.net[IBM Bluemix cloud] -- the free tier is good enough to get things running.
+. Download and install the OpenWhisk CLI
+
+It's also possible to get this running locally using the https://github.com/apache/incubator-openwhisk[Open Source version of OpenWhisk], but there aren't instructions for that yet.
+
+== Create AWS user with minimal IAM permissions
+
+In the AWS web admin UI, create a new IAM user called `KeyNuker` with only **Programmatic access** and assign that user the following policy:
+
+```
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Sid": "Stmt1499788629000",
+            "Effect": "Allow",
+            "Action": [
+                "iam:DeleteAccessKey",
+                "iam:ListAccessKeys",
+                "iam:ListUsers"
+            ],
+            "Resource": [
+                "*"
+            ]
+        }
+    ]
+}
+```
+
+Then under **Security credentials**, click the **Create access key** button to create a new AWS Access Key and Secret, which you should set as environment variables `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY`
+
+== Generate a github access token
+
+Login to github and go to https://github.com/settings/tokens/new[generate an access token].  The only permission needed is the `read:org` (Read org and team membership) permission.  You should be logged in as a user that is a **member** of the Github organization(s) that you want to monitor user activity for.
+
+You should set this in an environment variable called `GITHUB_ACCESS_TOKEN`
+
+Decide which github orgs you want to monitor, and set the `GITHUB_ORGS` environment variable accordingly.  If you want to monitor non-public users on those orgs (highly recommended), your `GITHUB_ACCESS_TOKEN` will need to be owned by a user that is a member of those github orgs.
+
+== Create a CouchDB compatible database
+
+=== Cloudant ===
+
+In the bluemix web console:
+
+- Create a new Cloudant service
+- Create a db named `keynuker`.  Set the `KEYNUKER_DB_NAME` environment variable to `keynuker`
+- Click the **API** button to get the API URL, and set the host part of the url to `KEYNUKER_DB_HOST`.  This should not include the leading `http` or `https`.
+- Click the database name to go to the dashboard for that database
+- Go to the **Permissions** section and **Generate API key**
+- Save the **Key** to the `KEYNUKER_DB_KEY` environment variable, and the **Password** to the `KEYNUKER_DB_SECRET_KEY` environment variable
+
+=== Apache CouchDB ===
+
+Alternatively, you should be able to use your own self-hosted Apache CouchDB
+
+TODO: add instructions
+
+=== Couchbase Sync Gateway ===
+
+Alternatively, https://github.com/couchbase/sync_gateway[Couchbase Sync Gateway] can also be used, since it has a REST API that is mostly compatible with Apache CouchDB
+
+TODO: add instructions
+
+== Create a Dockerhub account
+
+Signup on dockerhub if you don't already have an account, and set the `DOCKERHUB_USERNAME` environment variable to your dockerhub username.
+
+=== Login to docker repo ===
+
+```
+$ docker login
+```
+
+And provide your Dockerhub credentials.  This will be needed in a later step which pushes the built docker images to dockerhub.
+
+== Environment variables
+
+This is the full list of environment variables you should have set from the above steps.  These will be used by the commands in this document, such as `install.py`
+
+.Environment variables
+|===
+|Variable |Example |Description
+
+|KEYNUKER_ORG
+|default
+|The keynuker org (multi-tenancy).  Set this to "default" unless you are trying to juggle multiple environments.
+
+|KEYNUKER_DB_KEY
+|jhh343234jkk
+|DB access key
+
+|KEYNUKER_DB_SECRET_KEY
+|7a789888djhh343234jkk
+|DB secret access key
+
+|KEYNUKER_DB_HOST
+|787877rrr-021d-42dc-6c65-gjhg775b2ef-bluemix.cloudant.com
+|DB hostname
+
+|KEYNUKER_DB_NAME
+|keynuker
+|DB name
+
+|AWS_ACCESS_KEY_ID
+|7Z5HTGRHKO
+|AWS Access Key ID of AWS account being monitored, only needs limited IAM permissions
+
+|AWS_SECRET_ACCESS_KEY
+|sb67Gsj4OV7Z5HTGRHKO
+|AWS Secret Access Key ID of AWS account being monitored
+
+|GITHUB_ACCESS_TOKEN
+|902dcb6f5386e9f3ba
+|Github access token which has the :org read permission
+
+|GITHUB_ORGS
+|'["acme", "acme-labs"]'
+|The list of github orgs you would like to monitor.  The quoting is important: outer quotes as single quotes, inner quotes as double quotes
+
+|DOCKERHUB_USERNAME
+|tleyden5iwx
+|The dockerhub username where you have pushed your docker images
+
+|===
+
+
+== Install KeyNuker to OpenWhisk
+
+=== Run install.py ===
+
+The `install.py` script will do the following things:
+
+. Build Go binaries from source
+. Build docker images that include the Go binaries built in the previous step
+. Push the docker images to dockerhub
+. Create (or recreate) all of the OpenWhish actions, triggers, and rules
+
+```
+$ python install.py
+```
+
+== Verify installation
+
+=== List wsk actions
+
+```
+$ wsk action list
+```
+
+Should return a list of actions:
+
+```
+$ wsk action list
+actions
+/yourusername_dev/github-user-events-scanner-nuker                     private sequence
+/yourusername_dev/fetch-aws-keys-write-doc                             private sequence
+/yourusername_dev/github-user-aggregator-write-doc                     private sequence
+/yourusername_dev/write-doc                                            private blackbox
+/yourusername_dev/nuke-leaked-aws-keys                                 private blackbox
+/yourusername_dev/lookup-github-users-aws-keys                         private blackbox
+/yourusername_dev/github-user-events-scanner                           private blackbox
+/yourusername_dev/github-user-aggregator                               private blackbox
+/yourusername_dev/fetch-aws-keys                                       private blackbox
+```
+
+
+=== Manually invoke the github-user-events-scanner-nuker action sequence
+
+First run the action that will fetch all AWS keys and store them in the database:
+
+```
+$ wsk action invoke github-user-events-scanner-nuker --blocking --result
+```
+
+You should now have a doc in your database called `aws_keys_default`
+
+Then run the action that will aggregate all github users in your org and store that in the database:
+
+```
+$ wsk action invoke github-user-aggregator-write-doc --blocking --result
+```
+
+You should now have a doc in your database called `github_users_default`
+
+Invoke the action that will scan all recent events by the github users in `github_users_default` and look for leaked keys listed in `aws_keys_default`.
+
+```
+$ wsk action invoke github-user-events-scanner-nuker --blocking --result
+```
+
+Check the output, and assuming there weren't any leaked keys, you should see `"NukedKeyEvents": null,` in the returned JSON.  Also, you can see the latest scanned github event for each github user that was scanned.
+
+== End-to-end system test: leak a live AWS key
+
+=== Create IAM user with zero privileges
+
+In the AWS web admin UI, create a new IAM user called `KeyLeaker` with only **Programmatic access** and don't assign the user *any* policy whatsoever -- you should see a warning **This user has no permissions**
+
+=== Re-fetch AWS keys
+
+To avoid waiting for the `fetch_aws_keys` polling loop, trigger a refresh immediately by running:
+
+```
+$ wsk action invoke fetch-aws-keys-write-doc --blocking --result
+```
+
+You should see the `KeyLeaker` user listed along with an associated `AccessKeyId`
+
+=== Leak key to public or private github repo
+
+After creating the `KeyLeaker` user, it will generate an access key and secret.  Post that to either:
+
+* A public github repo using one of the github users in the org (presumably, your own github user account, which you are a member of the org)
+* A private github repo.  For this approach, you not only have to be in the github org, but you will also have to use a github access token with more permissions (the full **repo** permissions) and then run `wsk action update github_user_events_scanner -p GithubAccessToken "new_token"`
+
+==== Trigger Keynuker
+
+```
+$ wsk action invoke github-user-events-scanner-nuker --blocking --result
+```
+
+Or you can just wait 15 minutes for the alarm task to kick in
+
+
+==== Verify key is nuked
+
+* In the AWS web UI, if you reload the list of keys for the `KeyLeaker` user, it should be gone!
+* If you triggered `github-user-events-scanner-nuker` manually, you should see a non-nil value in the `NukedKeyEvents` JSON field.  Otherwise if it was triggered via an alarm, you can find the activation id via `wsk activation list` and then view the logs via `wsk activation logs [activation_id]`
+
+
