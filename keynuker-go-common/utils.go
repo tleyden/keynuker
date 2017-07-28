@@ -6,6 +6,7 @@ package keynuker_go_common
 import (
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"os"
 )
 
@@ -16,24 +17,15 @@ func GenerateDocId(docIdPrefix, keyNukerOrg string) string {
 	return fmt.Sprintf("%s_%s", docIdPrefix, keyNukerOrg)
 }
 
-func StdioFlagPresent() bool {
-
-	// arg0 - program name
-	// arg1 - input json (in the case we are using stdio interface)
-	// arg2 - "true" string to further indicate we are using stdio interface
-	if len(os.Args) >= 3 && os.Args[2] == "true" {
-		return true
-	}
-	return false
-
-}
-
 func InvokeActionStdIo(callback OpenWhiskCallback) {
 
-	// native actions receive one argument, the JSON object as a string
-	arg := os.Args[1]
+	// read everything available on stdin
+	bytes, err := ioutil.ReadAll(os.Stdin)
+	if err != nil {
+		panic(fmt.Sprintf("Error reading stdin.  Err: %v", err))
+	}
 
-	docWrapper, err := callback([]byte(arg))
+	docWrapper, err := callback(bytes)
 	if err != nil {
 		panic(fmt.Sprintf("Error calling callback.  Err: %v", err))
 	}
@@ -45,5 +37,4 @@ func InvokeActionStdIo(callback OpenWhiskCallback) {
 
 	// Write result doc to stdout
 	fmt.Printf("%s", string(outputBytes))
-
 }

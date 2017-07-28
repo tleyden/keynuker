@@ -16,26 +16,25 @@ import os
 
 def main():
 
-    build_docker()
+    build_binaries()
 
     install_openwhisk_actions() 
 
     print("Success!")
 
 
-def build_docker():
+def build_binaries():
     """
     Recursively process all directories in project, and every folder that has a Dockefile:
 
     - Build go binaries
-    - Build docker images
-    - Push docker images to dockerhub
+    - Package binaries into zip file
     """
-    for path in dirs_with_dockerfile():
-        print("Building docker image in path: {}".format(path))
-        build_docker_in_path(path)
+    for path in dirs_with_main():
+        print("Building action binary in path: {}".format(path))
+        build_binary_in_path(path)
 
-def build_docker_in_path(path):
+def build_binary_in_path(path):
     
     # Save the current working directory
     cwd = os.getcwd()
@@ -43,21 +42,27 @@ def build_docker_in_path(path):
     os.chdir(path)
 
     go_build_main()
-    docker_build()
-    docker_push() 
+    zip_binary_main()
 
     # Restore the original current working directory
     os.chdir(cwd) 
     
 def go_build_main():
     """
-    Build the main.go file into an "action" binary 
+    Build the main.go file into an "exec" binary 
     """
     assert_go_version()
 
     # Build the action binary 
-    subprocess.check_call("env GOOS=linux GOARCH=amd64 go build -o action main.go", shell=True)
+    subprocess.check_call("env GOOS=linux GOARCH=amd64 go build -o exec main.go", shell=True)
+ 
+def zip_binary_main():
+    """
+    Bundle the binary into a zip file
+    """
 
+    # Create the zip file
+    subprocess.check_call("zip action.zip exec", shell=True)
 
 def assert_go_version():
     """
@@ -68,59 +73,12 @@ def assert_go_version():
         raise Exception("Your go version is too old.  Must use go 1.8 or later" + 
             " due to https://groups.google.com/d/msg/golang-nuts/9SaVxumSc-Y/rNAI8R7_BAAJ") 
     
-def docker_build():
-    """
-    Generate and run a command like:
-
-    docker build -t youruser/fetch-aws-keys .
-    
-    - The dockerhub user will be discovered from an environment variable
-    - The dockerhub repo name will be disovered from the last path component of the current directory
-    """
-
-    dockerhub_user = discover_dockerhub_user()
-    dockerhub_repo = discover_dockerhub_repo()
-
-    subprocess.check_call("docker build -t {}/{} .".format(dockerhub_user, dockerhub_repo), shell=True)
-
-
-def discover_dockerhub_user():
-    dockerhub_user = os.environ.get("DOCKERHUB_USERNAME")
-    if dockerhub_user is None:
-        raise "You must set the DOCKERHUB_USERNAME environment variable"
-    return dockerhub_user
-
-def discover_dockerhub_repo():
-    # If we are in the /home/go/src/github.com/tleyden/keynuker/cmd/fetch-aws-keys directory,
-    # return the basename (fetch-aws-keys) which will be used to derive the name for the
-    # dockerhub repo to push to
-    return os.path.basename(os.getcwd())
-
-def discover_openwhisk_action():
-    # Just use the base name .. like the dockerhub repo
-    return discover_dockerhub_repo()
-
-def docker_push():
-    """
-    Generate and run a command like:
-
-    docker push youruser/fetch-aws-keys
-    
-    - The dockerhub user will be discovered from an environment variable
-    - The dockerhub repo name will be disovered from the last path component of the current directory
-    """
-    
-    dockerhub_user = discover_dockerhub_user()
-    dockerhub_repo = discover_dockerhub_repo()
-
-    subprocess.check_call("docker push {}/{}".format(dockerhub_user, dockerhub_repo), shell=True)
-
-def dirs_with_dockerfile():
+def dirs_with_main():
 
     result = []
 
-    for root, dirs, files in os.walk("."):
-        if "Dockerfile" in files:
+    for root, dirs, files in os.walk("cmd"):
+        if "main.go" in files:
             result.append(root)
 
     return result
@@ -164,7 +122,7 @@ def install_openwhisk_actions():
     }
 
     actions = []
-    for path in dirs_with_dockerfile():
+    for path in dirs_with_main():
         print("Installing OpenWhisk action for path: {}".format(path))
         action = install_openwhisk_action_in_path(action_params_to_env, path)
         actions.append(action)
@@ -234,7 +192,7 @@ def install_openwhisk_action_in_path(action_params_to_env, path):
     """
     This performs the equivalent of the command line:
 
-    wsk action create fetch_aws_keys --docker $DOCKERHUB_USERNAME/fetch-aws-keys --param AwsAccessKeyId "$AWS_ACCESS_KEY_ID" --param AwsSecretAccessKey "$AWS_SECRET_ACCESS_KEY" --param KeyNukerOrg "default"
+    wsk action create fetch_aws_keys --docker jamesthomas/custom_skeleton --param AwsAccessKeyId "$AWS_ACCESS_KEY_ID" --param AwsSecretAccessKey "$AWS_SECRET_ACCESS_KEY" --param KeyNukerOrg "default"
     
     Where the param values are pulled out of environment variables.  The param vals and their
     corresponding environment variable names are specified in the action_params_to_env dictionary
@@ -247,21 +205,19 @@ def install_openwhisk_action_in_path(action_params_to_env, path):
     
     os.chdir(path)
 
-    openwhisk_action = discover_openwhisk_action()
+    openwhisk_action = os.path.basename(os.getcwd())
     params_to_env = action_params_to_env[openwhisk_action]
 
     if not openwhisk_action_exists(openwhisk_action):
         install_openwhisk_action(
             openwhisk_action,
             params_to_env,
-            discover_dockerhub_user(),
             )
     else:
         delete_openwhisk_action(openwhisk_action)
         install_openwhisk_action(
             openwhisk_action,
             params_to_env,
-            discover_dockerhub_user(),
             )
 
 
@@ -356,20 +312,17 @@ def delete_openwhisk_rule(openwhisk_rule):
     subprocess.check_call(command, shell=True)
 
 
-def install_openwhisk_action(openwhisk_action, params_to_env, dockerhub_user):
+def install_openwhisk_action(openwhisk_action, params_to_env):
 
     expanded_params = expand_params(params_to_env)
 
     # Default the action timeout to 5 minutes, which is the max value on the hosted IBM bluemix platform
-    command = "wsk action create {} --timeout 300000 --docker {}/{} {}".format(
-        openwhisk_action,
-        dockerhub_user,
+    command = "wsk action create {} --timeout 300000 --docker jamesthomas/custom_skeleton action.zip {}".format(
         openwhisk_action,
         expanded_params,
     )
     
     subprocess.check_call(command, shell=True)
-
 
 def expand_params(params_to_env):
     """
@@ -414,12 +367,14 @@ def expand_params(params_to_env):
     return result 
 
 
-def update_openwhisk_action(openwhisk_action, params_to_env, dockerhub_user):
+def update_openwhisk_action(openwhisk_action, params_to_env):
     raise Exception("Not implemented")
 
 def openwhisk_action_exists(openwhisk_action):
-    # TODO: detect if it exists.  
-    return True
+    command = "wsk action get {}".format(
+        openwhisk_action,
+    )
+    return subprocess.call(command, shell=True) == 0
 
 def openwhisk_trigger_exists(openwhisk_trigger):
     # TODO: detect if it exists.  
