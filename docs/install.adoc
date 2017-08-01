@@ -12,8 +12,6 @@
 - An AWS account in the organization you want to monitor, with permissions to create IAM users
 - Github account and access token
 - Go 1.8 and Python 2.x installed locally
-- Dockerhub account
-- Docker installed locally
 
 == Signup for Bluemix free tier
 
@@ -71,18 +69,6 @@ In the bluemix web console:
 
 Alternatively, you should be able to use your own self-hosted Apache CouchDB or https://github.com/couchbase/sync_gateway[Couchbase Sync Gateway] (which has a REST API that is mostly compatible with Apache CouchDB)
 
-== Create a Dockerhub account
-
-Signup on dockerhub if you don't already have an account, and set the `DOCKERHUB_USERNAME` environment variable to your dockerhub username.
-
-=== Login to docker repo ===
-
-```
-$ docker login
-```
-
-And provide your Dockerhub credentials.  This will be needed in a later step which pushes the built docker images to dockerhub.
-
 == Environment variables
 
 This is the full list of environment variables you should have set from the above steps.  These will be used by the commands in this document, such as `install.py`
@@ -127,10 +113,6 @@ This is the full list of environment variables you should have set from the abov
 |'["acme", "acme-labs"]'
 |The list of github orgs you would like to monitor.  The quoting is important: outer quotes as single quotes, inner quotes as double quotes
 
-|DOCKERHUB_USERNAME
-|tleyden5iwx
-|The dockerhub username where you have pushed your docker images
-
 |===
 
 
@@ -141,8 +123,7 @@ This is the full list of environment variables you should have set from the abov
 The `install.py` script will do the following things:
 
 . Build Go binaries from source
-. Build docker images that include the Go binaries built in the previous step
-. Push the docker images to dockerhub
+. Package binaries into `action.zip` files that are used by the executing docker container  (search install.py for `--docker` for details)
 . Create (or recreate) all of the OpenWhish actions, triggers, and rules
 
 ```
