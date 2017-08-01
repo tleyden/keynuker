@@ -8,18 +8,11 @@ import (
 
 	"github.com/tleyden/keynuker"
 	"github.com/tleyden/keynuker/keynuker-go-common"
-	"github.com/tleyden/ow"
 )
 
 func main() {
 
-	switch keynuker_go_common.StdioFlagPresent() {
-	case true:
-		keynuker_go_common.InvokeActionStdIo(OpenWhiskCallback)
-	default:
-		ow.RegisterAction(OpenWhiskCallback)
-	}
-
+	keynuker_go_common.InvokeActionStdIo(OpenWhiskCallback)
 }
 
 func OpenWhiskCallback(value json.RawMessage) (interface{}, error) {

@@ -1,0 +1,22 @@
+service: keynuker
+
+provider:
+  name: openwhisk
+  runtime: binary 
+
+custom: 
+  credentials: ${file(credentials.yml)}
+  scripts:
+    hooks:
+      'package:initialize': npm run build
+
+functions:
+  github-user-aggregator:
+    handler: cmd/github-user-aggregator/main
+    parameters: 
+      GithubAccessToken: ${self:custom.credentials.GithubAccessToken}
+      GithubOrgs: ${self:custom.credentials.GithubOrgs}
+
+plugins:
+  - serverless-openwhisk
+  - serverless-plugin-scripts

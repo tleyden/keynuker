@@ -1,0 +1,13 @@
+{
+  "name": "keynuker",
+  "version": "0.1.0",
+  "description": "Monitor AWS keys for accidental leakage.",
+  "scripts": {
+    "postinstall": "npm link serverless-openwhisk",
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build": "env GOOS=linux GOARCH=amd64 go build -o cmd/github-user-aggregator/main cmd/github-user-aggregator/main.go"
+  },
+  "dependencies": {
+    "serverless-plugin-scripts": "^1.0.2"
+  }
+}

@@ -9,7 +9,6 @@ import (
 	_ "github.com/flimzy/kivik/driver/couchdb" // The CouchDB driver
 	"github.com/tleyden/keynuker"
 	"github.com/tleyden/keynuker/keynuker-go-common"
-	"github.com/tleyden/ow"
 )
 
 // This writes/updates a doc in CouchDB.  If the doc doesn't exist, it will write it.  If it does exist,
@@ -17,12 +16,7 @@ import (
 
 func main() {
 
-	switch keynuker_go_common.StdioFlagPresent() {
-	case true:
-		keynuker_go_common.InvokeActionStdIo(OpenWhiskCallback)
-	default:
-		ow.RegisterAction(OpenWhiskCallback)
-	}
+	keynuker_go_common.InvokeActionStdIo(OpenWhiskCallback)
 }
 
 func OpenWhiskCallback(value json.RawMessage) (interface{}, error) {
