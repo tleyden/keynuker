@@ -22,6 +22,7 @@ exec
 /cmd/write-doc/action
 /cmd/nuke-leaked-aws-keys/action
 /cmd/lookup-github-users-aws-keys/action
+/cmd/**/*.zip
 .serverless
 credentials.yml
 node_modules
