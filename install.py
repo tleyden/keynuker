@@ -2,10 +2,10 @@
 """
 Build and install KeyNuker 
 
-There are two major commands:
+There are two major pieces of functionality:
 
-   - Build-docker 
-        - Builds go binaries, docker images, and publishes to dockerhub
+   - Build-binaries
+        - Builds go binaries and packages into zip file
    - Install-OpenWhisk-Actions
         - Installs openwhisk actions via wsk utility to your configured OpenWhisk system
 
@@ -25,7 +25,7 @@ def main():
 
 def build_binaries():
     """
-    Recursively process all directories in project, and every folder that has a Dockefile:
+    Recursively process all directories in project, and every folder that has a main.go:
 
     - Build go binaries
     - Package binaries into zip file
@@ -192,7 +192,7 @@ def install_openwhisk_action_in_path(action_params_to_env, path):
     """
     This performs the equivalent of the command line:
 
-    wsk action create fetch_aws_keys --docker jamesthomas/custom_skeleton --param AwsAccessKeyId "$AWS_ACCESS_KEY_ID" --param AwsSecretAccessKey "$AWS_SECRET_ACCESS_KEY" --param KeyNukerOrg "default"
+    wsk action create fetch_aws_keys --docker tleyden5iwx/openwhisk-dockerskeleton --param AwsAccessKeyId "$AWS_ACCESS_KEY_ID" --param AwsSecretAccessKey "$AWS_SECRET_ACCESS_KEY" --param KeyNukerOrg "default"
     
     Where the param values are pulled out of environment variables.  The param vals and their
     corresponding environment variable names are specified in the action_params_to_env dictionary
@@ -317,7 +317,7 @@ def install_openwhisk_action(openwhisk_action, params_to_env):
     expanded_params = expand_params(params_to_env)
 
     # Default the action timeout to 5 minutes, which is the max value on the hosted IBM bluemix platform
-    command = "wsk action create {} --timeout 300000 --docker jamesthomas/custom_skeleton action.zip {}".format(
+    command = "wsk action create {} --timeout 300000 --docker tleyden5iwx/openwhisk-dockerskeleton action.zip {}".format(
         openwhisk_action,
         expanded_params,
     )
@@ -371,7 +371,7 @@ def update_openwhisk_action(openwhisk_action, params_to_env):
     raise Exception("Not implemented")
 
 def openwhisk_action_exists(openwhisk_action):
-    command = "wsk action get {}".format(
+    command = "wsk action get {} parameters".format(
         openwhisk_action,
     )
     return subprocess.call(command, shell=True) == 0
