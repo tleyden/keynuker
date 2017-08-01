@@ -189,7 +189,7 @@ actions
 First run the action that will fetch all AWS keys and store them in the database:
 
 ```
-$ wsk action invoke github-user-events-scanner-nuker --blocking --result
+$ wsk action invoke fetch-aws-keys-write-doc --blocking --result
 ```
 
 You should now have a doc in your database called `aws_keys_default`
