@@ -34,7 +34,7 @@ func OpenWhiskCallback(value json.RawMessage) (interface{}, error) {
 		params.KeyNukerOrg = keynuker_go_common.DefaultKeyNukerOrg
 	}
 
-	docWrapper, err := keynuker.GithubUserAggregator(params)
+	docWrapper, err := keynuker.AggregateGithubUsers(params)
 	if err != nil {
 		return nil, err
 	}
