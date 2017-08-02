@@ -48,12 +48,15 @@ func NukeLeakedAwsKeys(params ParamsNukeLeakedAwsKeys) (doc DocumentNukeLeakedAw
 		// Create IAM client with the session.
 		svc := iam.New(sess)
 
+		// Nuke the key from AWS
 		deleteAccessKeyInput := &iam.DeleteAccessKeyInput{
 			AccessKeyId: leakedKeyEvent.AccessKeyMetadata.AccessKeyId,
 			UserName:    leakedKeyEvent.AccessKeyMetadata.UserName,
 		}
 		deleteAccessKeyOutput, errDelKey := svc.DeleteAccessKey(deleteAccessKeyInput)
 		if errDelKey != nil {
+			// TODO: if the error is "Err: NoSuchEntity: The Access Key with id ****** cannot be found.", no need to return error and cause a panic
+			// TODO: can be fixed by first querying API and making sure Access Key actually exists.  (may have already been nuked)
 			return doc, errDelKey
 		}
 
