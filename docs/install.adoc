@@ -99,7 +99,7 @@ This is the full list of environment variables you should have set from the abov
 
 |TARGET_AWS_ACCOUNTS
 |'[{"AwsAccessKeyId": "******", "AwsSecretAccessKey": "******"}]'
-|AWS Access Key ID and secret of AWS account being monitored, only needs limited IAM permissions
+|AWS Access Key ID and secret of AWS account(s) being monitored, only needs limited IAM permissions
 
 |GITHUB_ACCESS_TOKEN
 |902dcb6f5386e9f3ba
@@ -126,92 +126,14 @@ The `install.py` script will do the following things:
 $ python install.py
 ```
 
-== Verify installation
-
-=== List wsk actions
-
-```
-$ wsk action list
-```
-
-Should return a list of actions:
+Congrats!  KeyNuker is now installed.  You can do a quick verification by running `wsk action list`, which should return a list of actions:
 
 ```
 $ wsk action list
 actions
 /yourusername_dev/github-user-events-scanner-nuker                     private sequence
 /yourusername_dev/fetch-aws-keys-write-doc                             private sequence
-/yourusername_dev/github-user-aggregator-write-doc                     private sequence
-/yourusername_dev/write-doc                                            private blackbox
-/yourusername_dev/nuke-leaked-aws-keys                                 private blackbox
-/yourusername_dev/lookup-github-users-aws-keys                         private blackbox
-/yourusername_dev/github-user-events-scanner                           private blackbox
-/yourusername_dev/github-user-aggregator                               private blackbox
-/yourusername_dev/fetch-aws-keys                                       private blackbox
+etc ...
 ```
 
-
-=== Manually invoke the github-user-events-scanner-nuker action sequence
-
-First run the action that will fetch all AWS keys and store them in the database:
-
-```
-$ wsk action invoke fetch-aws-keys-write-doc --blocking --result
-```
-
-You should now have a doc in your database called `aws_keys_default`
-
-Then run the action that will aggregate all github users in your org and store that in the database:
-
-```
-$ wsk action invoke github-user-aggregator-write-doc --blocking --result
-```
-
-You should now have a doc in your database called `github_users_default`
-
-Invoke the action that will scan all recent events by the github users in `github_users_default` and look for leaked keys listed in `aws_keys_default`.
-
-```
-$ wsk action invoke github-user-events-scanner-nuker --blocking --result
-```
-
-Check the output, and assuming there weren't any leaked keys, you should see `"NukedKeyEvents": null,` in the returned JSON.  Also, you can see the latest scanned github event for each github user that was scanned.
-
-== End-to-end system test: leak a live AWS key
-
-=== Create IAM user with zero privileges
-
-In the AWS web admin UI, create a new IAM user called `KeyLeaker` with only **Programmatic access** and don't assign the user *any* policy whatsoever -- you should see a warning **This user has no permissions**
-
-=== Re-fetch AWS keys
-
-To avoid waiting for the `fetch_aws_keys` polling loop, trigger a refresh immediately by running:
-
-```
-$ wsk action invoke fetch-aws-keys-write-doc --blocking --result
-```
-
-You should see the `KeyLeaker` user listed along with an associated `AccessKeyId`
-
-=== Leak key to public or private github repo
-
-After creating the `KeyLeaker` user, it will generate an access key and secret.  Post that to either:
-
-* A public github repo using one of the github users in the org (presumably, your own github user account, which you are a member of the org)
-* A private github repo.  For this approach, you not only have to be in the github org, but you will also have to use a github access token with more permissions (the full **repo** permissions) and then run `wsk action update github_user_events_scanner -p GithubAccessToken "new_token"`
-
-==== Trigger Keynuker
-
-```
-$ wsk action invoke github-user-events-scanner-nuker --blocking --result
-```
-
-Or you can just wait 15 minutes for the alarm task to kick in
-
-
-==== Verify key is nuked
-
-* In the AWS web UI, if you reload the list of keys for the `KeyLeaker` user, it should be gone!
-* If you triggered `github-user-events-scanner-nuker` manually, you should see a non-nil value in the `NukedKeyEvents` JSON field.  Otherwise if it was triggered via an alarm, you can find the activation id via `wsk activation list` and then view the logs via `wsk activation logs [activation_id]`
-
-
+To further verify your setup, continue on to link:verify.adoc[Verifying your installation]
