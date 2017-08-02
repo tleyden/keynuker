@@ -1,12 +1,13 @@
 package keynuker
 
 import (
-	"testing"
-	"os"
-	"github.com/tleyden/keynuker/keynuker-go-common"
-	"github.com/stretchr/testify/assert"
-	"log"
 	"encoding/json"
+	"log"
+	"os"
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/tleyden/keynuker/keynuker-go-common"
 )
 
 func TestFetchAwsKeys(t *testing.T) {
@@ -23,13 +24,13 @@ func TestFetchAwsKeys(t *testing.T) {
 
 	targetAwsAccounts := []TargetAwsAccount{
 		{
-			AwsAccessKeyId: awsAccessKeyId,
+			AwsAccessKeyId:     awsAccessKeyId,
 			AwsSecretAccessKey: awsSecretAccessKey,
 		},
 	}
 
 	params := ParamsFetchAwsKeys{
-		KeyNukerOrg: "default",
+		KeyNukerOrg:       "default",
 		TargetAwsAccounts: targetAwsAccounts,
 	}
 

@@ -4,16 +4,16 @@
 package keynuker
 
 import (
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/iam"
-	"github.com/couchbaselabs/go.assert"
-	"github.com/google/go-github/github"
-	"github.com/tleyden/keynuker/keynuker-github"
-	"github.com/tleyden/keynuker/keynuker-go-common"
 	"log"
 	"os"
 	"testing"
 	"time"
+
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/service/iam"
+	"github.com/couchbaselabs/go.assert"
+	"github.com/google/go-github/github"
+	"github.com/tleyden/keynuker/keynuker-go-common"
 )
 
 func TestNukeLeakedAwsKeys(t *testing.T) {
@@ -28,7 +28,7 @@ func TestNukeLeakedAwsKeys(t *testing.T) {
 		t.Skip("You must define environment variable %s to run this test", keynuker_go_common.EnvVarKeyNukerTestAwsSecretAccessKey)
 	}
 
-	leakedKeyEvent := keynuker_github.LeakedKeyEvent{
+	leakedKeyEvent := LeakedKeyEvent{
 		AccessKeyMetadata: iam.AccessKeyMetadata{
 			AccessKeyId: aws.String("******"),
 			UserName:    aws.String("******"),
@@ -39,14 +39,14 @@ func TestNukeLeakedAwsKeys(t *testing.T) {
 	githubCheckpointEvent := &github.Event{
 		CreatedAt: aws.Time(time.Now().Add(time.Hour * -24)),
 	}
-	githubEventCheckpoints := keynuker_github.GithubEventCheckpoints{}
+	githubEventCheckpoints := GithubEventCheckpoints{}
 	githubEventCheckpoints["tleyden"] = githubCheckpointEvent
 
 	params := ParamsNukeLeakedAwsKeys{
 		KeyNukerOrg:            "default",
 		AwsAccessKeyId:         awsAccessKeyId,
 		AwsSecretAccessKey:     awsSecretAccessKey,
-		LeakedKeyEvents:        []keynuker_github.LeakedKeyEvent{leakedKeyEvent},
+		LeakedKeyEvents:        []LeakedKeyEvent{leakedKeyEvent},
 		GithubEventCheckpoints: githubEventCheckpoints,
 	}
 

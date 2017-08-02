@@ -14,23 +14,22 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/iam"
 	"github.com/google/go-github/github"
-	"github.com/tleyden/keynuker/keynuker-github"
 	"github.com/tleyden/keynuker/keynuker-go-common"
 )
 
 type GithubUserEventsScanner struct {
-	fetcher keynuker_github.GithubUserEventFetcher
+	fetcher GithubUserEventFetcher
 }
 
 // The result of scanning a user's github events
 type ScanResult struct {
 	CheckpointEvent *github.Event // Latest event scanned
 	User            *github.User
-	LeakedKeyEvents []keynuker_github.LeakedKeyEvent
+	LeakedKeyEvents []LeakedKeyEvent
 	Error           error
 }
 
-func NewGithubUserEventsScanner(fetcher keynuker_github.GithubUserEventFetcher) *GithubUserEventsScanner {
+func NewGithubUserEventsScanner(fetcher GithubUserEventFetcher) *GithubUserEventsScanner {
 
 	return &GithubUserEventsScanner{
 		fetcher: fetcher,
@@ -80,10 +79,10 @@ func (gues GithubUserEventsScanner) ScanAwsKeys(params ParamsScanGithubUserEvent
 	}()
 
 	// Accumulate any leaked key events here
-	leakedKeyEvents := []keynuker_github.LeakedKeyEvent{}
+	leakedKeyEvents := []LeakedKeyEvent{}
 
 	// Resulting checkpoints after processing
-	githubEventCheckpoints := keynuker_github.GithubEventCheckpoints{}
+	githubEventCheckpoints := GithubEventCheckpoints{}
 
 	collectedResultsWaitGroup := sync.WaitGroup{}
 	collectedResultsWaitGroup.Add(1)
@@ -133,7 +132,7 @@ func (gues GithubUserEventsScanner) scanAwsKeysForUser(ctx context.Context, user
 
 	scanResult.User = user
 
-	fetchUserEventsInput := keynuker_github.FetchUserEventsInput{
+	fetchUserEventsInput := FetchUserEventsInput{
 		Username: *user.Login,
 	}
 
@@ -165,7 +164,7 @@ func (gues GithubUserEventsScanner) scanAwsKeysForUser(ctx context.Context, user
 		// Scan for leaked keys
 		log.Printf("User: %v. Scanning %d bytes of content for event: %v", *user.Login, len(downstreamEventContent), *userEvent.ID)
 
-		keyScanner := keynuker_github.NewAwsKeyScanner()
+		keyScanner := NewAwsKeyScanner()
 		leakedKeys, nearbyContent, err := keyScanner.Scan(params.AccessKeyMetadata, downstreamEventContent)
 		if err != nil {
 			scanResult.Error = fmt.Errorf("Failed to scan event content.  Event: %+v Error: %v", userEvent, err)
@@ -177,7 +176,7 @@ func (gues GithubUserEventsScanner) scanAwsKeysForUser(ctx context.Context, user
 
 		// Create LeakedKeyEvents from leaked keys, append to result
 		for _, leakedKey := range leakedKeys {
-			leakedKeyEvent := keynuker_github.LeakedKeyEvent{
+			leakedKeyEvent := LeakedKeyEvent{
 				AccessKeyMetadata: leakedKey,
 				GithubUser:        user,
 				GithubEvent:       userEvent,
@@ -220,7 +219,7 @@ type ParamsScanGithubUserEventsForAwsKeys struct {
 	AccessKeyMetadata []iam.AccessKeyMetadata
 
 	// Track the latest event processed for each user in GithubUsers by keeping per-user checkpoints
-	GithubEventCheckpoints keynuker_github.GithubEventCheckpoints
+	GithubEventCheckpoints GithubEventCheckpoints
 }
 
 func (p ParamsScanGithubUserEventsForAwsKeys) Validate() error {
@@ -242,7 +241,7 @@ func (p ParamsScanGithubUserEventsForAwsKeys) WithDefaults() ParamsScanGithubUse
 
 	// If GithubEventCheckpoints is nil, create an empty map
 	if returnParams.GithubEventCheckpoints == nil {
-		returnParams.GithubEventCheckpoints = keynuker_github.GithubEventCheckpoints{}
+		returnParams.GithubEventCheckpoints = GithubEventCheckpoints{}
 	}
 
 	// For each github user that doesn't have a checkpoint event, create an artificial one
@@ -264,8 +263,8 @@ func (p ParamsScanGithubUserEventsForAwsKeys) WithDefaults() ParamsScanGithubUse
 
 type DocumentScanGithubUserEventsForAwsKeys struct {
 	Id                     string `json:"_id"`
-	LeakedKeyEvents        []keynuker_github.LeakedKeyEvent
-	GithubEventCheckpoints keynuker_github.GithubEventCheckpoints
+	LeakedKeyEvents        []LeakedKeyEvent
+	GithubEventCheckpoints GithubEventCheckpoints
 }
 
 type DocumentWrapperScanGithubUserEventsForAwsKeys struct {

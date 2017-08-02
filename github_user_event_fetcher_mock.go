@@ -6,7 +6,7 @@
 * THIS FILE MUST NEVER BE EDITED MANUALLY
  */
 
-package keynuker_github
+package keynuker
 
 import (
 	"fmt"

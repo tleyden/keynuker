@@ -4,51 +4,9 @@
 package keynuker
 
 import (
-	"context"
-	"fmt"
-
 	"github.com/google/go-github/github"
-	"github.com/tleyden/keynuker/keynuker-github"
-	"github.com/tleyden/keynuker/keynuker-go-common"
 )
 
-// Given a list of github orgs, aggregate all of the users that belong in the orgs
-// and emit a json to stdout with those users.
-// Intended to be run as an OpenWhisk Action
-func GithubUserAggregator(params ParamsGithubUserAggregator) (DocumentWrapperGithubUserAggregator, error) {
-
-	// Document ID for output parameter, which allows downstream job to stick into a DB
-	docId := keynuker_go_common.GenerateDocId(
-		keynuker_go_common.DocIdPrefixGithubUsers,
-		params.KeyNukerOrg,
-	)
-
-	// Create a github user aggregator helper
-	ghUserAggregator := keynuker_github.NewGithubUserAggregator(
-		params.GithubOrgs,
-		params.GithubAccessToken,
-	)
-
-	// Call out to Github API to get aggregated members of orgs
-	users, err := ghUserAggregator.ListMembers(context.Background())
-	if err != nil {
-		return DocumentWrapperGithubUserAggregator{}, fmt.Errorf("Error listing members for orgs: %v.  Error: %v", params.GithubOrgs, err)
-	}
-
-	// Create result doc
-	doc := DocumentGithubUserAggregator{
-		Id:          docId,
-		GithubUsers: users,
-	}
-
-	// Create result doc wrapper
-	docWrapper := DocumentWrapperGithubUserAggregator{
-		Doc:   doc,
-		DocId: docId,
-	}
-	return docWrapper, nil
-
-}
 
 type ParamsGithubUserAggregator struct {
 

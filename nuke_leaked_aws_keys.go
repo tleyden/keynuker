@@ -8,7 +8,6 @@ import (
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/iam"
-	"github.com/tleyden/keynuker/keynuker-github"
 )
 
 // . Connect to AWS
@@ -44,7 +43,7 @@ func NukeLeakedAwsKeys(params ParamsNukeLeakedAwsKeys) (doc DocumentNukeLeakedAw
 			return doc, errDelKey
 		}
 
-		nukedKeyEvent := keynuker_github.NukedKeyEvent{
+		nukedKeyEvent := NukedKeyEvent{
 			LeakedKeyEvent:        leakedKeyEvent,
 			DeleteAccessKeyOutput: deleteAccessKeyOutput,
 		}
@@ -73,16 +72,16 @@ type ParamsNukeLeakedAwsKeys struct {
 	KeyNukerOrg string
 
 	// The leaked keys to nuke
-	LeakedKeyEvents []keynuker_github.LeakedKeyEvent
+	LeakedKeyEvents []LeakedKeyEvent
 
 	// The keep per-user checkpoints which will be validated/propagated after keys are successfully nuked
-	GithubEventCheckpoints keynuker_github.GithubEventCheckpoints
+	GithubEventCheckpoints GithubEventCheckpoints
 }
 
 type DocumentNukeLeakedAwsKeys struct {
 	Id                     string `json:"_id"`
-	NukedKeyEvents         []keynuker_github.NukedKeyEvent
-	GithubEventCheckpoints keynuker_github.GithubEventCheckpoints
+	NukedKeyEvents         []NukedKeyEvent
+	GithubEventCheckpoints GithubEventCheckpoints
 }
 
 func (p ParamsNukeLeakedAwsKeys) Validate() error {
