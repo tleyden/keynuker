@@ -41,10 +41,16 @@ func TestNukeLeakedAwsKeys(t *testing.T) {
 	githubEventCheckpoints := GithubEventCheckpoints{}
 	githubEventCheckpoints["tleyden"] = githubCheckpointEvent
 
+	targetAwsAccounts := []TargetAwsAccount{
+		{
+			AwsAccessKeyId:     awsAccessKeyId,
+			AwsSecretAccessKey: awsSecretAccessKey,
+		},
+	}
+
 	params := ParamsNukeLeakedAwsKeys{
 		KeyNukerOrg:            "default",
-		AwsAccessKeyId:         awsAccessKeyId,
-		AwsSecretAccessKey:     awsSecretAccessKey,
+		TargetAwsAccounts:      targetAwsAccounts,
 		LeakedKeyEvents:        []LeakedKeyEvent{leakedKeyEvent},
 		GithubEventCheckpoints: githubEventCheckpoints,
 	}
