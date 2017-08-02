@@ -4,20 +4,19 @@
 package keynuker
 
 import (
+	"github.com/stretchr/testify/assert"
 	"log"
 	"os"
 	"testing"
 	"time"
-	"github.com/stretchr/testify/assert"
 
+	"encoding/json"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/google/go-github/github"
 	"github.com/tleyden/keynuker/keynuker-go-common"
-	"encoding/json"
 )
 
 func TestNukeLeakedAwsKeys(t *testing.T) {
-
 
 	targetAwsAccountsRaw, ok := os.LookupEnv(keynuker_go_common.EnvVarKeyNukerTestTargetAwsAccounts)
 	if !ok {
@@ -28,7 +27,6 @@ func TestNukeLeakedAwsKeys(t *testing.T) {
 
 	err := json.Unmarshal([]byte(targetAwsAccountsRaw), &targetAwsAccounts)
 	assert.NoError(t, err, "Unexpected Error")
-
 
 	leakedKeyEvent := LeakedKeyEvent{
 		AccessKeyMetadata: FetchedAwsAccessKey{
@@ -43,7 +41,6 @@ func TestNukeLeakedAwsKeys(t *testing.T) {
 	}
 	githubEventCheckpoints := GithubEventCheckpoints{}
 	githubEventCheckpoints["tleyden"] = githubCheckpointEvent
-
 
 	params := ParamsNukeLeakedAwsKeys{
 		KeyNukerOrg:            "default",
