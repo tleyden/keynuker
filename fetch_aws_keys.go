@@ -154,18 +154,18 @@ type FetchedAwsAccessKey struct {
 	// The name of the IAM user that the key is associated with.
 	UserName *string `min:"1" type:"string"`
 
-	// The AWS access key used to fetch.  Need to track since this same key will need to be used to nuke as well
-	FetcherAwsAccessKeyId string
+	// The AWS access key used to monitor this AWS account's keys.  Need to track since this same key will need to be used to nuke as well
+	MonitorAwsAccessKeyId string
 }
 
 // Create a new FetchedAwsAccessKey
-func NewFetchedAwsAccessKey(accessKeyMetadata *iam.AccessKeyMetadata, fetcherAwsAccessKeyId string) *FetchedAwsAccessKey {
+func NewFetchedAwsAccessKey(accessKeyMetadata *iam.AccessKeyMetadata, monitorAwsAccessKeyId string) *FetchedAwsAccessKey {
 	return &FetchedAwsAccessKey{
 		AccessKeyId:           accessKeyMetadata.AccessKeyId,
 		CreateDate:            accessKeyMetadata.CreateDate,
 		Status:                accessKeyMetadata.Status,
 		UserName:              accessKeyMetadata.UserName,
-		FetcherAwsAccessKeyId: fetcherAwsAccessKeyId,
+		MonitorAwsAccessKeyId: monitorAwsAccessKeyId,
 	}
 }
 
