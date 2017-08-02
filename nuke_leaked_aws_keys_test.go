@@ -20,8 +20,8 @@ import (
 
 // This is an integration test that can only be run with some manual setup:
 //
-// 1. Choose one of your target AWS accounts, and get the AwsAccessKeyId associated with that account and replace TargetAccountAwsAccessKeyId below
-// 2. In that account, create an IAM user with no permissions and create and AWS access key / secret for that user, and replace LeakedAwsAccessKeyId below
+// 1. Choose one of your target AWS accounts, and get the AwsAccessKeyId associated with that account and use it to replace TargetAccountAwsAccessKeyId below
+// 2. In that account, create an IAM user called 'KeyLeaker' with no permissions and create an AWS access key / secret for that user, and use it to replace LeakedAwsAccessKeyId below
 // 3. Run the test, it should pass
 // 4. They key should be nuked on the actual AWS account
 func TestNukeLeakedAwsKeys(t *testing.T) {
