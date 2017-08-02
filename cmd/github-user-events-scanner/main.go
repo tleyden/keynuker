@@ -32,7 +32,7 @@ func OpenWhiskCallback(value json.RawMessage) (interface{}, error) {
 
 	params = params.WithDefaults()
 
-	fetcher := NewGoGithubUserEventFetcher(params.GithubAccessToken)
+	fetcher := keynuker.NewGoGithubUserEventFetcher(params.GithubAccessToken)
 
 	scanner := keynuker.NewGithubUserEventsScanner(fetcher)
 
