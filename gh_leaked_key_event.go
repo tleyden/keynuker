@@ -19,6 +19,13 @@ type LeakedKeyEvent struct {
 	NearbyContent []byte
 }
 
+// Is the key that was leaked the same (limited permission) key that keynuker is using to monitor aws?
+// Don't nuke it, since this key has very limited permissions and is needed to nuke other keys.
+// Should raise serious alarms if this ever happens.
+func(l LeakedKeyEvent) LeakedKeyIsMonitorKey() bool {
+	return *l.AccessKeyMetadata.AccessKeyId == l.AccessKeyMetadata.MonitorAwsAccessKeyId
+}
+
 type NukedKeyEvent struct {
 	LeakedKeyEvent LeakedKeyEvent
 

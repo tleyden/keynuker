@@ -19,12 +19,18 @@ func NukeLeakedAwsKeys(params ParamsNukeLeakedAwsKeys) (doc DocumentNukeLeakedAw
 
 	for _, leakedKeyEvent := range params.LeakedKeyEvents {
 
+		// Don't nuke the key that keynuker itself is using!
+		if leakedKeyEvent.LeakedKeyIsMonitorKey() {
+			return doc, fmt.Errorf("Cannot nuke the key being used to monitor.  LeakedKeyEvent: %+v", leakedKeyEvent)
+		}
+
+		// Find which target AWS account this leaked key is associated with
 		targetAwsAccount, err := FindAwsAccount(params.TargetAwsAccounts, leakedKeyEvent.AccessKeyMetadata.MonitorAwsAccessKeyId)
 		if err != nil {
 			return doc, err
 		}
 
-		// Create AWS session
+		// Create AWS session on target AWS account
 		sess, err := session.NewSession(&aws.Config{
 			Credentials: credentials.NewCredentials(
 				&credentials.StaticProvider{Value: credentials.Value{
