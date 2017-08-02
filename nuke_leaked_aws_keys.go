@@ -5,6 +5,8 @@ package keynuker
 
 import (
 	"fmt"
+	"strings"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
@@ -94,15 +96,14 @@ type DocumentNukeLeakedAwsKeys struct {
 
 func (p ParamsNukeLeakedAwsKeys) Validate() error {
 	return nil
-
 }
 
 func FindAwsAccount(targetAwsAccounts []TargetAwsAccount, monitorAwsAccessKeyId string) (TargetAwsAccount, error) {
 	for _, targetAwsAccount := range targetAwsAccounts {
-		if targetAwsAccount.AwsSecretAccessKey == monitorAwsAccessKeyId {
+		if strings.TrimSpace(targetAwsAccount.AwsAccessKeyId) == strings.TrimSpace(monitorAwsAccessKeyId) {
 			return targetAwsAccount, nil
 		}
 	}
-	return TargetAwsAccount{}, fmt.Errorf("Could not find TargetAwsAccount with monitorAwsAccessKeyId: %v in %v", monitorAwsAccessKeyId, targetAwsAccounts)
+	return TargetAwsAccount{}, fmt.Errorf("Could not find TargetAwsAccount with monitorAwsAccessKeyId: |%v| in %+v", monitorAwsAccessKeyId, targetAwsAccounts)
 
 }

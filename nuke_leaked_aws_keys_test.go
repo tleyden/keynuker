@@ -4,18 +4,21 @@
 package keynuker
 
 import (
-	"github.com/stretchr/testify/assert"
 	"log"
 	"os"
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
+
 	"encoding/json"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/google/go-github/github"
 	"github.com/tleyden/keynuker/keynuker-go-common"
 )
 
+// TODO: document how to run this test manually.
 func TestNukeLeakedAwsKeys(t *testing.T) {
 
 	targetAwsAccountsRaw, ok := os.LookupEnv(keynuker_go_common.EnvVarKeyNukerTestTargetAwsAccounts)
@@ -30,8 +33,9 @@ func TestNukeLeakedAwsKeys(t *testing.T) {
 
 	leakedKeyEvent := LeakedKeyEvent{
 		AccessKeyMetadata: FetchedAwsAccessKey{
-			AccessKeyId: aws.String("******"),
-			UserName:    aws.String("******"),
+			AccessKeyId:           aws.String("******"),
+			UserName:              aws.String("******"),
+			MonitorAwsAccessKeyId: targetAwsAccounts[0].AwsAccessKeyId,
 		},
 	}
 
@@ -58,5 +62,26 @@ func TestNukeLeakedAwsKeys(t *testing.T) {
 	assert.True(t, err != nil)
 
 	assert.True(t, len(doc.NukedKeyEvents) == 1)
+
+}
+
+func TestFindAwsAccount(t *testing.T) {
+
+	monitorAwsAccessKeyId := "TestAwsAccessKeyId"
+
+	targetAwsAccounts := []TargetAwsAccount{
+		{
+			AwsAccessKeyId:     monitorAwsAccessKeyId,
+			AwsSecretAccessKey: "TestAwsSecretAccessKey",
+		},
+		{
+			AwsAccessKeyId:     "TestAwsAccessKeyId2",
+			AwsSecretAccessKey: "TestAwsSecretAccessKey2",
+		},
+	}
+
+	targetAwsAccount, err := FindAwsAccount(targetAwsAccounts, monitorAwsAccessKeyId)
+	assert.NoError(t, err, "Unexpected error")
+	assert.EqualValues(t, targetAwsAccount.AwsAccessKeyId, monitorAwsAccessKeyId)
 
 }
