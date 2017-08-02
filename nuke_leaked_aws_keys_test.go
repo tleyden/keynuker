@@ -18,7 +18,12 @@ import (
 	"github.com/tleyden/keynuker/keynuker-go-common"
 )
 
-// TODO: document how to run this test manually.
+// This is an integration test that can only be run with some manual setup:
+//
+// 1. Choose one of your target AWS accounts, and get the AwsAccessKeyId associated with that account and replace TargetAccountAwsAccessKeyId below
+// 2. In that account, create an IAM user with no permissions and create and AWS access key / secret for that user, and replace LeakedAwsAccessKeyId below
+// 3. Run the test, it should pass
+// 4. They key should be nuked on the actual AWS account
 func TestNukeLeakedAwsKeys(t *testing.T) {
 
 	targetAwsAccountsRaw, ok := os.LookupEnv(keynuker_go_common.EnvVarKeyNukerTestTargetAwsAccounts)
@@ -33,9 +38,9 @@ func TestNukeLeakedAwsKeys(t *testing.T) {
 
 	leakedKeyEvent := LeakedKeyEvent{
 		AccessKeyMetadata: FetchedAwsAccessKey{
-			AccessKeyId:           aws.String("******"),
-			UserName:              aws.String("******"),
-			MonitorAwsAccessKeyId: targetAwsAccounts[0].AwsAccessKeyId,
+			AccessKeyId:           aws.String("LeakedAwsAccessKeyId"),  // <-- replace w/ your own val
+			UserName:              aws.String("KeyLeaker"),
+			MonitorAwsAccessKeyId: "TargetAccountAwsAccessKeyId",  // <-- replace w/ your own val
 		},
 	}
 
@@ -44,7 +49,7 @@ func TestNukeLeakedAwsKeys(t *testing.T) {
 		CreatedAt: aws.Time(time.Now().Add(time.Hour * -24)),
 	}
 	githubEventCheckpoints := GithubEventCheckpoints{}
-	githubEventCheckpoints["tleyden"] = githubCheckpointEvent
+	githubEventCheckpoints["githubuser"] = githubCheckpointEvent
 
 	params := ParamsNukeLeakedAwsKeys{
 		KeyNukerOrg:            "default",
@@ -59,8 +64,7 @@ func TestNukeLeakedAwsKeys(t *testing.T) {
 	if err != nil {
 		log.Printf("NukeLeakedAwsKeys() returned err: %v", err)
 	}
-	assert.True(t, err != nil)
-
+	assert.True(t, err == nil)
 	assert.True(t, len(doc.NukedKeyEvents) == 1)
 
 }
