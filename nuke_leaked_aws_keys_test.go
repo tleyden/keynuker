@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/iam"
 	"github.com/couchbaselabs/go.assert"
 	"github.com/google/go-github/github"
 	"github.com/tleyden/keynuker/keynuker-go-common"
@@ -29,7 +28,7 @@ func TestNukeLeakedAwsKeys(t *testing.T) {
 	}
 
 	leakedKeyEvent := LeakedKeyEvent{
-		AccessKeyMetadata: iam.AccessKeyMetadata{
+		AccessKeyMetadata: FetchedAwsAccessKey{
 			AccessKeyId: aws.String("******"),
 			UserName:    aws.String("******"),
 		},

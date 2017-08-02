@@ -14,7 +14,6 @@ import (
 	"fmt"
 
 	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/iam"
 	"github.com/google/go-github/github"
 	"github.com/stretchr/testify/assert"
 	"github.com/tleyden/keynuker/keynuker-go-common"
@@ -28,8 +27,8 @@ func TestScanGithubUserEventsForAwsKeys(t *testing.T) {
 
 	leakedKey := "FakeAccessKey"
 
-	accessKeyMetadata := []iam.AccessKeyMetadata{
-		iam.AccessKeyMetadata{
+	accessKeyMetadata := []FetchedAwsAccessKey{
+		{
 			AccessKeyId: aws.String(leakedKey),
 			UserName:    aws.String("fakeuser@test.com"),
 		},

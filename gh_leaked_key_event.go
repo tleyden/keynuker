@@ -10,7 +10,7 @@ import (
 )
 
 type LeakedKeyEvent struct {
-	AccessKeyMetadata iam.AccessKeyMetadata
+	AccessKeyMetadata FetchedAwsAccessKey
 
 	GithubUser *github.User
 

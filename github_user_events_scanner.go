@@ -12,7 +12,6 @@ import (
 	"sync"
 
 	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/iam"
 	"github.com/google/go-github/github"
 	"github.com/tleyden/keynuker/keynuker-go-common"
 )
@@ -216,7 +215,7 @@ type ParamsScanGithubUserEventsForAwsKeys struct {
 	GithubUsers []*github.User
 
 	// AWS access keys to scan for
-	AccessKeyMetadata []iam.AccessKeyMetadata
+	AccessKeyMetadata []FetchedAwsAccessKey
 
 	// Track the latest event processed for each user in GithubUsers by keeping per-user checkpoints
 	GithubEventCheckpoints GithubEventCheckpoints

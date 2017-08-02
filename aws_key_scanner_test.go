@@ -5,17 +5,17 @@ package keynuker
 
 import (
 	"fmt"
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/iam"
-	"github.com/couchbaselabs/go.assert"
 	"testing"
+
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/couchbaselabs/go.assert"
 )
 
 func TestAwsKeyScanner(t *testing.T) {
 
 	leakedKey := "FakeAccessKey"
-	accessKeyMetadata := []iam.AccessKeyMetadata{
-		iam.AccessKeyMetadata{
+	accessKeyMetadata := []FetchedAwsAccessKey{
+		{
 			AccessKeyId: aws.String(leakedKey),
 			UserName:    aws.String("fakeuser@test.com"),
 		},
