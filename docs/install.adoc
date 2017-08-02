@@ -44,7 +44,7 @@ In the AWS web admin UI, create a new IAM user called `KeyNuker` with only **Pro
 }
 ```
 
-Then under **Security credentials**, click the **Create access key** button to create a new AWS Access Key and Secret, which you should set as environment variables `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY`
+Then under **Security credentials**, click the **Create access key** button to create a new AWS Access Key and Secret, which you should use to set the environment variable `TARGET_AWS_ACCOUNTS` as described below
 
 == Generate a github access token
 
@@ -97,13 +97,9 @@ This is the full list of environment variables you should have set from the abov
 |keynuker
 |DB name
 
-|AWS_ACCESS_KEY_ID
-|7Z5HTGRHKO
-|AWS Access Key ID of AWS account being monitored, only needs limited IAM permissions
-
-|AWS_SECRET_ACCESS_KEY
-|sb67Gsj4OV7Z5HTGRHKO
-|AWS Secret Access Key ID of AWS account being monitored
+|TARGET_AWS_ACCOUNTS
+|'[{"AwsAccessKeyId": "******", "AwsSecretAccessKey": "******"}]'
+|AWS Access Key ID and secret of AWS account being monitored, only needs limited IAM permissions
 
 |GITHUB_ACCESS_TOKEN
 |902dcb6f5386e9f3ba

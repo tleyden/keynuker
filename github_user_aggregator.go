@@ -8,14 +8,14 @@ import (
 	"fmt"
 
 	"github.com/google/go-github/github"
-	"github.com/tleyden/keynuker/keynuker-github"
+	"github.com/tleyden/keynuker-history/keynuker-github"
 	"github.com/tleyden/keynuker/keynuker-go-common"
 )
 
 // Given a list of github orgs, aggregate all of the users that belong in the orgs
 // and emit a json to stdout with those users.
 // Intended to be run as an OpenWhisk Action
-func GithubUserAggregator(params ParamsGithubUserAggregator) (DocumentWrapperGithubUserAggregator, error) {
+func AggregateGithubUsers(params ParamsGithubUserAggregator) (DocumentWrapperGithubUserAggregator, error) {
 
 	// Document ID for output parameter, which allows downstream job to stick into a DB
 	docId := keynuker_go_common.GenerateDocId(

@@ -4,32 +4,32 @@
 package keynuker
 
 import (
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/iam"
-	"github.com/couchbaselabs/go.assert"
-	"github.com/google/go-github/github"
-	"github.com/tleyden/keynuker/keynuker-github"
-	"github.com/tleyden/keynuker/keynuker-go-common"
+	"github.com/stretchr/testify/assert"
 	"log"
 	"os"
 	"testing"
 	"time"
+
+	"encoding/json"
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/google/go-github/github"
+	"github.com/tleyden/keynuker/keynuker-go-common"
 )
 
 func TestNukeLeakedAwsKeys(t *testing.T) {
 
-	awsAccessKeyId, ok := os.LookupEnv(keynuker_go_common.EnvVarKeyNukerTestAwsAccessKeyId)
+	targetAwsAccountsRaw, ok := os.LookupEnv(keynuker_go_common.EnvVarKeyNukerTestTargetAwsAccounts)
 	if !ok {
-		t.Skip("You must define environment variable %s to run this test", keynuker_go_common.EnvVarKeyNukerTestAwsAccessKeyId)
+		t.Skip("You must define environment variable %s to run this test", keynuker_go_common.EnvVarKeyNukerTestTargetAwsAccounts)
 	}
 
-	awsSecretAccessKey, ok := os.LookupEnv(keynuker_go_common.EnvVarKeyNukerTestAwsSecretAccessKey)
-	if !ok {
-		t.Skip("You must define environment variable %s to run this test", keynuker_go_common.EnvVarKeyNukerTestAwsSecretAccessKey)
-	}
+	targetAwsAccounts := []TargetAwsAccount{}
 
-	leakedKeyEvent := keynuker_github.LeakedKeyEvent{
-		AccessKeyMetadata: iam.AccessKeyMetadata{
+	err := json.Unmarshal([]byte(targetAwsAccountsRaw), &targetAwsAccounts)
+	assert.NoError(t, err, "Unexpected Error")
+
+	leakedKeyEvent := LeakedKeyEvent{
+		AccessKeyMetadata: FetchedAwsAccessKey{
 			AccessKeyId: aws.String("******"),
 			UserName:    aws.String("******"),
 		},
@@ -39,14 +39,13 @@ func TestNukeLeakedAwsKeys(t *testing.T) {
 	githubCheckpointEvent := &github.Event{
 		CreatedAt: aws.Time(time.Now().Add(time.Hour * -24)),
 	}
-	githubEventCheckpoints := keynuker_github.GithubEventCheckpoints{}
+	githubEventCheckpoints := GithubEventCheckpoints{}
 	githubEventCheckpoints["tleyden"] = githubCheckpointEvent
 
 	params := ParamsNukeLeakedAwsKeys{
 		KeyNukerOrg:            "default",
-		AwsAccessKeyId:         awsAccessKeyId,
-		AwsSecretAccessKey:     awsSecretAccessKey,
-		LeakedKeyEvents:        []keynuker_github.LeakedKeyEvent{leakedKeyEvent},
+		TargetAwsAccounts:      targetAwsAccounts,
+		LeakedKeyEvents:        []LeakedKeyEvent{leakedKeyEvent},
 		GithubEventCheckpoints: githubEventCheckpoints,
 	}
 

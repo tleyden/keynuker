@@ -4,11 +4,11 @@
 package keynuker
 
 import (
+	"fmt"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/iam"
-	"github.com/tleyden/keynuker/keynuker-github"
 )
 
 // . Connect to AWS
@@ -17,23 +17,28 @@ import (
 // . Return doc with nuked keys and validated github event checkpoints
 func NukeLeakedAwsKeys(params ParamsNukeLeakedAwsKeys) (doc DocumentNukeLeakedAwsKeys, err error) {
 
-	// Create AWS session
-	sess, err := session.NewSession(&aws.Config{
-		Credentials: credentials.NewCredentials(
-			&credentials.StaticProvider{Value: credentials.Value{
-				AccessKeyID:     params.AwsAccessKeyId,
-				SecretAccessKey: params.AwsSecretAccessKey,
-			}},
-		),
-	})
-	if err != nil {
-		return doc, err
-	}
-
-	// Create IAM client with the session.
-	svc := iam.New(sess)
-
 	for _, leakedKeyEvent := range params.LeakedKeyEvents {
+
+		targetAwsAccount, err := FindAwsAccount(params.TargetAwsAccounts, leakedKeyEvent.AccessKeyMetadata.MonitorAwsAccessKeyId)
+		if err != nil {
+			return doc, err
+		}
+
+		// Create AWS session
+		sess, err := session.NewSession(&aws.Config{
+			Credentials: credentials.NewCredentials(
+				&credentials.StaticProvider{Value: credentials.Value{
+					AccessKeyID:     targetAwsAccount.AwsAccessKeyId,
+					SecretAccessKey: targetAwsAccount.AwsSecretAccessKey,
+				}},
+			),
+		})
+		if err != nil {
+			return doc, err
+		}
+
+		// Create IAM client with the session.
+		svc := iam.New(sess)
 
 		deleteAccessKeyInput := &iam.DeleteAccessKeyInput{
 			AccessKeyId: leakedKeyEvent.AccessKeyMetadata.AccessKeyId,
@@ -44,7 +49,7 @@ func NukeLeakedAwsKeys(params ParamsNukeLeakedAwsKeys) (doc DocumentNukeLeakedAw
 			return doc, errDelKey
 		}
 
-		nukedKeyEvent := keynuker_github.NukedKeyEvent{
+		nukedKeyEvent := NukedKeyEvent{
 			LeakedKeyEvent:        leakedKeyEvent,
 			DeleteAccessKeyOutput: deleteAccessKeyOutput,
 		}
@@ -62,30 +67,36 @@ func NukeLeakedAwsKeys(params ParamsNukeLeakedAwsKeys) (doc DocumentNukeLeakedAw
 
 type ParamsNukeLeakedAwsKeys struct {
 
-	// The aws access key to connect as.  This only needs permissions to list IAM users and access keys,
-	// and delete access keys (in the case they are nuked)
-	AwsAccessKeyId string
-
-	// The secret access key corresponding to AwsAccessKeyId
-	AwsSecretAccessKey string
+	// The list of AWS accounts in scope
+	TargetAwsAccounts []TargetAwsAccount
 
 	// This is the name of the KeyNuker "org/tenant".  Defaults to "default", but allows to be extended multi-tenant.
 	KeyNukerOrg string
 
 	// The leaked keys to nuke
-	LeakedKeyEvents []keynuker_github.LeakedKeyEvent
+	LeakedKeyEvents []LeakedKeyEvent
 
 	// The keep per-user checkpoints which will be validated/propagated after keys are successfully nuked
-	GithubEventCheckpoints keynuker_github.GithubEventCheckpoints
+	GithubEventCheckpoints GithubEventCheckpoints
 }
 
 type DocumentNukeLeakedAwsKeys struct {
 	Id                     string `json:"_id"`
-	NukedKeyEvents         []keynuker_github.NukedKeyEvent
-	GithubEventCheckpoints keynuker_github.GithubEventCheckpoints
+	NukedKeyEvents         []NukedKeyEvent
+	GithubEventCheckpoints GithubEventCheckpoints
 }
 
 func (p ParamsNukeLeakedAwsKeys) Validate() error {
 	return nil
+
+}
+
+func FindAwsAccount(targetAwsAccounts []TargetAwsAccount, monitorAwsAccessKeyId string) (TargetAwsAccount, error) {
+	for _, targetAwsAccount := range targetAwsAccounts {
+		if targetAwsAccount.AwsSecretAccessKey == monitorAwsAccessKeyId {
+			return targetAwsAccount, nil
+		}
+	}
+	return TargetAwsAccount{}, fmt.Errorf("Could not find TargetAwsAccount with monitorAwsAccessKeyId: %v in %v", monitorAwsAccessKeyId, targetAwsAccounts)
 
 }

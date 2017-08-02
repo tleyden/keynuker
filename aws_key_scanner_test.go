@@ -1,21 +1,21 @@
 // Licensed to the Apache Software Foundation (ASF) under one or more contributor license agreements;
 // and to You under the Apache License, Version 2.0.  See LICENSE in project root for full license + copyright.
 
-package keynuker_github
+package keynuker
 
 import (
 	"fmt"
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/iam"
-	"github.com/couchbaselabs/go.assert"
 	"testing"
+
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/couchbaselabs/go.assert"
 )
 
 func TestAwsKeyScanner(t *testing.T) {
 
 	leakedKey := "FakeAccessKey"
-	accessKeyMetadata := []iam.AccessKeyMetadata{
-		iam.AccessKeyMetadata{
+	accessKeyMetadata := []FetchedAwsAccessKey{
+		{
 			AccessKeyId: aws.String(leakedKey),
 			UserName:    aws.String("fakeuser@test.com"),
 		},

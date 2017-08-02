@@ -12,14 +12,12 @@ import (
 
 	"context"
 	"fmt"
+
 	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/iam"
 	"github.com/google/go-github/github"
 	"github.com/stretchr/testify/assert"
-	"github.com/tleyden/keynuker/keynuker-github"
 	"github.com/tleyden/keynuker/keynuker-go-common"
 )
-
 
 func TestScanGithubUserEventsForAwsKeys(t *testing.T) {
 
@@ -29,8 +27,8 @@ func TestScanGithubUserEventsForAwsKeys(t *testing.T) {
 
 	leakedKey := "FakeAccessKey"
 
-	accessKeyMetadata := []iam.AccessKeyMetadata{
-		iam.AccessKeyMetadata{
+	accessKeyMetadata := []FetchedAwsAccessKey{
+		{
 			AccessKeyId: aws.String(leakedKey),
 			UserName:    aws.String("fakeuser@test.com"),
 		},
@@ -51,13 +49,13 @@ func TestScanGithubUserEventsForAwsKeys(t *testing.T) {
 	githubCheckpointEvent := &github.Event{
 		CreatedAt: aws.Time(time.Now().Add(time.Hour * -24)),
 	}
-	githubEventCheckpoints := keynuker_github.GithubEventCheckpoints{}
+	githubEventCheckpoints := GithubEventCheckpoints{}
 	githubEventCheckpoints[*githubUser.Login] = githubCheckpointEvent
 	githubEventCheckpoints[*githubUserNoEvents.Login] = githubCheckpointEvent
 
-	var fetcher keynuker_github.GithubUserEventFetcher
-	var mockFetcher *keynuker_github.GithubUserEventFetcherMock
-	var liveGithubFetcher *keynuker_github.GoGithubUserEventFetcher
+	var fetcher GithubUserEventFetcher
+	var mockFetcher *GithubUserEventFetcherMock
+	var liveGithubFetcher *GoGithubUserEventFetcher
 
 	var mockGithubEvent1 *github.Event
 	var mockGithubEvent2 *github.Event
@@ -65,13 +63,13 @@ func TestScanGithubUserEventsForAwsKeys(t *testing.T) {
 	switch useMockFetcher {
 	case true:
 		// Create mock user event fetcher
-		mockFetcher = keynuker_github.NewGithubUserEventFetcherMock()
+		mockFetcher = NewGithubUserEventFetcherMock()
 
 		for _, mockGithubUser := range githubUsers {
-			switch  mockGithubUser {
+			switch mockGithubUser {
 			case githubUser:
 				// Tee up a response to call to fetcher.FetchUserEvents() that returns a single event
-				expectedFetchUserEventsInput := keynuker_github.FetchUserEventsInput{
+				expectedFetchUserEventsInput := FetchUserEventsInput{
 					Username:            *githubUser.Login,
 					SinceEventTimestamp: githubCheckpointEvent.CreatedAt,
 				}
@@ -104,7 +102,7 @@ func TestScanGithubUserEventsForAwsKeys(t *testing.T) {
 					nil, // no error
 				)
 			case githubUserNoEvents:
-				expectedFetchUserEventsInput := keynuker_github.FetchUserEventsInput{
+				expectedFetchUserEventsInput := FetchUserEventsInput{
 					Username:            *githubUserNoEvents.Login,
 					SinceEventTimestamp: githubCheckpointEvent.CreatedAt,
 				}
@@ -126,11 +124,10 @@ func TestScanGithubUserEventsForAwsKeys(t *testing.T) {
 			t.Skip("You must define environment variable keynuker_test_gh_access_token to run this test")
 		}
 
-		liveGithubFetcher = keynuker_github.NewGoGithubUserEventFetcher(accessToken)
+		liveGithubFetcher = NewGoGithubUserEventFetcher(accessToken)
 
 		fetcher = liveGithubFetcher
 	}
-
 
 	params := ParamsScanGithubUserEventsForAwsKeys{
 		AccessKeyMetadata:      accessKeyMetadata,
@@ -143,7 +140,6 @@ func TestScanGithubUserEventsForAwsKeys(t *testing.T) {
 	// Create events scanner and run
 	scanner := NewGithubUserEventsScanner(fetcher)
 	docWrapper, err := scanner.ScanAwsKeys(params)
-
 
 	if useMockFetcher {
 

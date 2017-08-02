@@ -31,7 +31,6 @@ func WriteDocToDb(params ParamsWriteDoc) (interface{}, error) {
 
 }
 
-
 func WriteDocToCloudant(params ParamsWriteDoc) (interface{}, error) {
 
 	ctx := context.TODO()
@@ -115,7 +114,6 @@ func (p ParamsWriteDoc) IsFaunaDb() bool {
 	return strings.Contains(p.Host, "fauna")
 }
 
-
 // Experimenting w/ FaunaDB
 
 var (
@@ -161,7 +159,6 @@ func WriteDocToFauna(params ParamsWriteDoc) (interface{}, error) {
 		return nil, err
 	}
 
-
 	readTestDoc := map[string]interface{}{}
 	//err = val.Get(&readTestDoc)
 	//if err != nil {
@@ -169,7 +166,6 @@ func WriteDocToFauna(params ParamsWriteDoc) (interface{}, error) {
 	//}
 
 	_ = val.At(data).Get(&readTestDoc)
-
 
 	// fmt.Printf("readTestDoc: %+v", readTestDoc)
 

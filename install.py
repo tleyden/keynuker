@@ -91,8 +91,7 @@ def install_openwhisk_actions():
     # the value from 
     action_params_to_env = {
         "fetch-aws-keys":{
-            "AwsAccessKeyId": "AWS_ACCESS_KEY_ID",
-            "AwsSecretAccessKey": "AWS_SECRET_ACCESS_KEY",
+            "TargetAwsAccounts": "TARGET_AWS_ACCOUNTS",
             "KeyNukerOrg": "KEYNUKER_ORG",
         },
         "github-user-aggregator": {
@@ -110,8 +109,7 @@ def install_openwhisk_actions():
             "dbname": "KEYNUKER_DB_NAME",
         },
         "nuke-leaked-aws-keys": {
-            "AwsAccessKeyId": "AWS_ACCESS_KEY_ID",
-            "AwsSecretAccessKey": "AWS_SECRET_ACCESS_KEY",
+            "TargetAwsAccounts": "TARGET_AWS_ACCOUNTS",
         },
         "write-doc": {
             "username": "KEYNUKER_DB_KEY",
@@ -348,7 +346,11 @@ def expand_params(params_to_env):
     for paramName, envVarName in params_to_env.iteritems():
         if paramName == "GithubOrgs":
             # This needs special handling since it's an array
-            continue  
+            continue
+        if paramName == "TargetAwsAccounts":
+            # This needs special handling since it's an array
+            continue
+
         envVarVal = os.environ.get(envVarName)
         if envVarVal is None:
             raise Exception("You must set the {} environment variable".format(envVarName))
@@ -362,6 +364,12 @@ def expand_params(params_to_env):
         envVarName = params_to_env["GithubOrgs"]
         envVarVal = os.environ.get(envVarName)
         result += " --param GithubOrgs "
+        result += "\'{}\'".format(envVarVal)
+
+    if "TargetAwsAccounts" in params_to_env:
+        envVarName = params_to_env["TargetAwsAccounts"]
+        envVarVal = os.environ.get(envVarName)
+        result += " --param TargetAwsAccounts "
         result += "\'{}\'".format(envVarVal)
 
     return result 

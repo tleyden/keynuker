@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 
 	"github.com/tleyden/keynuker"
-	"github.com/tleyden/keynuker/keynuker-github"
 	"github.com/tleyden/keynuker/keynuker-go-common"
 )
 
@@ -33,7 +32,7 @@ func OpenWhiskCallback(value json.RawMessage) (interface{}, error) {
 
 	params = params.WithDefaults()
 
-	fetcher := keynuker_github.NewGoGithubUserEventFetcher(params.GithubAccessToken)
+	fetcher := keynuker.NewGoGithubUserEventFetcher(params.GithubAccessToken)
 
 	scanner := keynuker.NewGithubUserEventsScanner(fetcher)
 
