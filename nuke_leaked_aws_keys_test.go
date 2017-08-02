@@ -8,24 +8,27 @@ import (
 	"os"
 	"testing"
 	"time"
+	"github.com/stretchr/testify/assert"
 
 	"github.com/aws/aws-sdk-go/aws"
-	"github.com/couchbaselabs/go.assert"
 	"github.com/google/go-github/github"
 	"github.com/tleyden/keynuker/keynuker-go-common"
+	"encoding/json"
 )
 
 func TestNukeLeakedAwsKeys(t *testing.T) {
 
-	awsAccessKeyId, ok := os.LookupEnv(keynuker_go_common.EnvVarKeyNukerTestAwsAccessKeyId)
+
+	targetAwsAccountsRaw, ok := os.LookupEnv(keynuker_go_common.EnvVarKeyNukerTestTargetAwsAccounts)
 	if !ok {
-		t.Skip("You must define environment variable %s to run this test", keynuker_go_common.EnvVarKeyNukerTestAwsAccessKeyId)
+		t.Skip("You must define environment variable %s to run this test", keynuker_go_common.EnvVarKeyNukerTestTargetAwsAccounts)
 	}
 
-	awsSecretAccessKey, ok := os.LookupEnv(keynuker_go_common.EnvVarKeyNukerTestAwsSecretAccessKey)
-	if !ok {
-		t.Skip("You must define environment variable %s to run this test", keynuker_go_common.EnvVarKeyNukerTestAwsSecretAccessKey)
-	}
+	targetAwsAccounts := []TargetAwsAccount{}
+
+	err := json.Unmarshal([]byte(targetAwsAccountsRaw), &targetAwsAccounts)
+	assert.NoError(t, err, "Unexpected Error")
+
 
 	leakedKeyEvent := LeakedKeyEvent{
 		AccessKeyMetadata: FetchedAwsAccessKey{
@@ -41,12 +44,6 @@ func TestNukeLeakedAwsKeys(t *testing.T) {
 	githubEventCheckpoints := GithubEventCheckpoints{}
 	githubEventCheckpoints["tleyden"] = githubCheckpointEvent
 
-	targetAwsAccounts := []TargetAwsAccount{
-		{
-			AwsAccessKeyId:     awsAccessKeyId,
-			AwsSecretAccessKey: awsSecretAccessKey,
-		},
-	}
 
 	params := ParamsNukeLeakedAwsKeys{
 		KeyNukerOrg:            "default",

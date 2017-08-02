@@ -26,9 +26,5 @@ const (
 
 	EnvVarKeyNukerTestDbPassword = "KEYNUKER_DB_SECRET_KEY"
 
-	EnvVarKeyNukerTestAwsAccessKeyId = "AWS_ACCESS_KEY_ID"
-
-	EnvVarKeyNukerTestAwsSecretAccessKey = "AWS_SECRET_ACCESS_KEY"
-
-	EnvVarKeyNukerTestAwsAccountId = "AWS_ACCOUNT_ID"
+	EnvVarKeyNukerTestTargetAwsAccounts = "TARGET_AWS_ACCOUNTS"
 )

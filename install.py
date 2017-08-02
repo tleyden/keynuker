@@ -91,8 +91,7 @@ def install_openwhisk_actions():
     # the value from 
     action_params_to_env = {
         "fetch-aws-keys":{
-            "AwsAccessKeyId": "AWS_ACCESS_KEY_ID",
-            "AwsSecretAccessKey": "AWS_SECRET_ACCESS_KEY",
+            "TargetAwsAccounts": "TARGET_AWS_ACCOUNTS",
             "KeyNukerOrg": "KEYNUKER_ORG",
         },
         "github-user-aggregator": {
@@ -110,8 +109,7 @@ def install_openwhisk_actions():
             "dbname": "KEYNUKER_DB_NAME",
         },
         "nuke-leaked-aws-keys": {
-            "AwsAccessKeyId": "AWS_ACCESS_KEY_ID",
-            "AwsSecretAccessKey": "AWS_SECRET_ACCESS_KEY",
+            "TargetAwsAccounts": "TARGET_AWS_ACCOUNTS",
         },
         "write-doc": {
             "username": "KEYNUKER_DB_KEY",

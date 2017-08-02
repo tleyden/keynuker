@@ -12,22 +12,15 @@ import (
 
 func TestFetchAwsKeys(t *testing.T) {
 
-	awsAccessKeyId, ok := os.LookupEnv(keynuker_go_common.EnvVarKeyNukerTestAwsAccessKeyId)
+	targetAwsAccountsRaw, ok := os.LookupEnv(keynuker_go_common.EnvVarKeyNukerTestTargetAwsAccounts)
 	if !ok {
-		t.Skip("You must define environment variable %s to run this test", keynuker_go_common.EnvVarKeyNukerTestAwsAccessKeyId)
+		t.Skip("You must define environment variable %s to run this test", keynuker_go_common.EnvVarKeyNukerTestTargetAwsAccounts)
 	}
 
-	awsSecretAccessKey, ok := os.LookupEnv(keynuker_go_common.EnvVarKeyNukerTestAwsSecretAccessKey)
-	if !ok {
-		t.Skip("You must define environment variable %s to run this test", keynuker_go_common.EnvVarKeyNukerTestAwsSecretAccessKey)
-	}
+	targetAwsAccounts := []TargetAwsAccount{}
 
-	targetAwsAccounts := []TargetAwsAccount{
-		{
-			AwsAccessKeyId:     awsAccessKeyId,
-			AwsSecretAccessKey: awsSecretAccessKey,
-		},
-	}
+	err := json.Unmarshal([]byte(targetAwsAccountsRaw), &targetAwsAccounts)
+	assert.NoError(t, err, "Unexpected Error")
 
 	params := ParamsFetchAwsKeys{
 		KeyNukerOrg:       "default",
