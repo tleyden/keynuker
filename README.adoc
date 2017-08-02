@@ -72,14 +72,11 @@ The basic end-to-end functionality is working, except for notifications, but the
 |Installation guide
 |link:docs/install.adoc[Installation Instructions]
 
+|Post-installation verification
+|link:docs/verify.adoc[Verify Installation]
+
 |Developer guide
 |link:docs/developers.adoc[Developer guide]
-
-|Specification (out of date)
-|link:docs/specification.adoc[Specification]
-
-|Test Specification (just some notes)
-|link:docs/test_specification.adoc[Test Specification]
 
 |AWS Security Resources
 |link:docs/aws_security_resources.adoc[AWS Security Resources]
