@@ -20,15 +20,27 @@ import (
 
 // This is an integration test that can only be run with some manual setup:
 //
-// 1. Choose one of your target AWS accounts, and get the AwsAccessKeyId associated with that account and use it to replace TargetAccountAwsAccessKeyId below
-// 2. In that account, create an IAM user called 'KeyLeaker' with no permissions and create an AWS access key / secret for that user, and use it to replace LeakedAwsAccessKeyId below
+// 1. Choose one of your target AWS accounts, and get the AwsAccessKeyId associated with that account and
+//    use it to set EnvVarKeyNukerTestLeakedAwsAccessKeyId env var
+// 2. In that account, create an IAM user called 'KeyLeaker' with no permissions and create an AWS access
+//    key / secret for that user, and use it to set EnvVarKeyNukerTestTargetAccountAwsAccessKeyId env var
 // 3. Run the test, it should pass
-// 4. They key should be nuked on the actual AWS account
+// 4. Verify the key was nuked from the actual AWS account
 func TestNukeLeakedAwsKeys(t *testing.T) {
 
 	targetAwsAccountsRaw, ok := os.LookupEnv(keynuker_go_common.EnvVarKeyNukerTestTargetAwsAccounts)
 	if !ok {
 		t.Skip("You must define environment variable %s to run this test", keynuker_go_common.EnvVarKeyNukerTestTargetAwsAccounts)
+	}
+
+	leakedAwsAccessKeyId, ok := os.LookupEnv(keynuker_go_common.EnvVarKeyNukerTestLeakedAwsAccessKeyId)
+	if !ok {
+		t.Skip("You must define environment variable %s to run this test", keynuker_go_common.EnvVarKeyNukerTestLeakedAwsAccessKeyId)
+	}
+
+	targetAccountAwsAccessKeyId, ok := os.LookupEnv(keynuker_go_common.EnvVarKeyNukerTestTargetAccountAwsAccessKeyId)
+	if !ok {
+		t.Skip("You must define environment variable %s to run this test", keynuker_go_common.EnvVarKeyNukerTestTargetAccountAwsAccessKeyId)
 	}
 
 	targetAwsAccounts := []TargetAwsAccount{}
@@ -38,9 +50,9 @@ func TestNukeLeakedAwsKeys(t *testing.T) {
 
 	leakedKeyEvent := LeakedKeyEvent{
 		AccessKeyMetadata: FetchedAwsAccessKey{
-			AccessKeyId:           aws.String("LeakedAwsAccessKeyId"),  // <-- replace w/ your own val
+			AccessKeyId:           aws.String(leakedAwsAccessKeyId),
 			UserName:              aws.String("KeyLeaker"),
-			MonitorAwsAccessKeyId: "TargetAccountAwsAccessKeyId",  // <-- replace w/ your own val
+			MonitorAwsAccessKeyId: targetAccountAwsAccessKeyId,
 		},
 	}
 
