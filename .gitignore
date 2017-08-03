@@ -26,3 +26,4 @@ exec
 .serverless
 credentials.yml
 node_modules
+/environments
