@@ -36,4 +36,7 @@ const (
 
 	EnvVarKeyNukerTestGithubOrgs = "GITHUB_ORGS"
 
+	EnvVarKeyNukerTestGithubLeakTargetRepo = "KEYNUKER_GITHUB_LEAK_TARGET_REPO"
+
+
 )

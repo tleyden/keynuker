@@ -58,23 +58,19 @@ type KeyLeakScenario interface {
 	Cleanup() error
 }
 
-type LeakKeyViaCommit struct{
+type LeakKeyViaNewGithubIssue struct{
 	GithubAccessToken string
+	GithubRepoLeakTargetRepo string
 }
 
-func NewLeakKeyViaCommit(githubAccessToken string) *LeakKeyViaCommit {
-	return &LeakKeyViaCommit{
+func NewLeakKeyViaCommit(githubAccessToken, targetGithubRepo string) *LeakKeyViaNewGithubIssue {
+	return &LeakKeyViaNewGithubIssue{
 		GithubAccessToken: githubAccessToken,
+		GithubRepoLeakTargetRepo: targetGithubRepo,
 	}
 }
 
-func (lkvc LeakKeyViaCommit) Leak(accessKey *iam.AccessKey) error {
-
-	// TODO: commit a change to a private github repo in the github org
-	// TODO: being monitored.
-
-	// TODO: parameterize this
-	githubRepoLeakTargetRepo := "keynuker-playground"
+func (lkvc LeakKeyViaNewGithubIssue) Leak(accessKey *iam.AccessKey) error {
 
 	githubApiClient := NewGithubClientWrapper(lkvc.GithubAccessToken)
 
@@ -92,19 +88,22 @@ func (lkvc LeakKeyViaCommit) Leak(accessKey *iam.AccessKey) error {
 		Title: aws.String("KeyNuker Leaked Key 🔐 End-to-End Test"),
 		Body: aws.String(fmt.Sprintf("Nukable 🔐💥 Key: %v.  Keynuker Project url: github.com/tleyden/keynuker", *accessKey.AccessKeyId)),
 	}
-	githubApiClient.ApiClient.Issues.Create(ctx, *user.Login, githubRepoLeakTargetRepo, issueRequest)
+	_, _, err = githubApiClient.ApiClient.Issues.Create(ctx, *user.Login, lkvc.GithubRepoLeakTargetRepo, issueRequest)
+	if err != nil {
+		return err
+	}
 
+	return nil
 
-	return fmt.Errorf("TODO: leak key on github repo")
 }
 
-func (lkvc LeakKeyViaCommit) Cleanup() error {
+func (lkvc LeakKeyViaNewGithubIssue) Cleanup() error {
 	return nil
 }
 
 func (e EndToEndIntegrationTest) GetEndToEndKeyLeakScenarios() []KeyLeakScenario {
 	return []KeyLeakScenario{
-		NewLeakKeyViaCommit(e.GithubAccessToken),
+		NewLeakKeyViaCommit(e.GithubAccessToken, e.GithubRepoLeakTargetRepo),
 	}
 }
 
@@ -114,6 +113,8 @@ type EndToEndIntegrationTest struct {
 	AwsSession  *session.Session
 	GithubAccessToken string
 	GithubOrgs []string
+	GithubRepoLeakTargetRepo string
+
 }
 
 func NewEndToEndIntegrationTest() *EndToEndIntegrationTest {
@@ -123,9 +124,16 @@ func NewEndToEndIntegrationTest() *EndToEndIntegrationTest {
 
 func (e *EndToEndIntegrationTest) InitGithubAccess() error {
 
+	githubRepoLeakTargetRepo, ok := os.LookupEnv(keynuker_go_common.EnvVarKeyNukerTestGithubLeakTargetRepo)
+	if !ok {
+		return fmt.Errorf("You must define environment variable %v to run this test", keynuker_go_common.EnvVarKeyNukerTestGithubLeakTargetRepo)
+	}
+	e.GithubRepoLeakTargetRepo = githubRepoLeakTargetRepo
+
+
 	githubAccessToken, ok := os.LookupEnv(keynuker_go_common.EnvVarKeyNukerTestGithubAccessToken)
 	if !ok {
-		return fmt.Errorf("You must define environment variable keynuker_test_gh_access_token to run this test")
+		return fmt.Errorf("You must define environment variable %v to run this test", keynuker_go_common.EnvVarKeyNukerTestGithubAccessToken)
 	}
 	e.GithubAccessToken = githubAccessToken
 
@@ -177,7 +185,7 @@ func (e *EndToEndIntegrationTest) InitAwsIamSession() error {
 
 func (e EndToEndIntegrationTest) Run() error {
 
-	SetArtificialErrorInjection(true)
+	SetArtificialErrorInjection(false)
 
 	keyLeakScenarios := e.GetEndToEndKeyLeakScenarios()
 	for _, keyLeakScenario := range keyLeakScenarios {
@@ -306,7 +314,9 @@ func (e EndToEndIntegrationTest) RunKeyNuker(accessKeyToNuke *iam.AccessKey) (er
 		AccessKeyMetadata: fetchedAwsKeys.Doc.AccessKeyMetadata,
 	}
 
-	paramsScanGithubUserEventsForAwsKeys = paramsScanGithubUserEventsForAwsKeys.WithDefaultCheckpoints(time.Hour * -12)
+	recentEventTimeWindow := time.Minute * -10  // Last 5 seconds would probably work too, but give it some margin of error
+
+	paramsScanGithubUserEventsForAwsKeys = paramsScanGithubUserEventsForAwsKeys.WithDefaultCheckpoints(recentEventTimeWindow)
 
 	fetcher := NewGoGithubUserEventFetcher(e.GithubAccessToken)
 
@@ -328,7 +338,7 @@ func (e EndToEndIntegrationTest) RunKeyNuker(accessKeyToNuke *iam.AccessKey) (er
 
 	resultNukeLeakedAwsKeys, err := NukeLeakedAwsKeys(params)
 	if err != nil {
-		return err
+		return fmt.Errorf("Error nuking leaked aws keys: %v", err)
 	}
 
 	if len(resultNukeLeakedAwsKeys.NukedKeyEvents) <= 0 {

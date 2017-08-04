@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"strings"
 
+	"log"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
@@ -53,12 +55,21 @@ func NukeLeakedAwsKeys(params ParamsNukeLeakedAwsKeys) (doc DocumentNukeLeakedAw
 			AccessKeyId: leakedKeyEvent.AccessKeyMetadata.AccessKeyId,
 			UserName:    leakedKeyEvent.AccessKeyMetadata.UserName,
 		}
+		log.Printf("Nuking key: %v", *leakedKeyEvent.AccessKeyMetadata.AccessKeyId)
 		deleteAccessKeyOutput, errDelKey := svc.DeleteAccessKey(deleteAccessKeyInput)
-		if errDelKey != nil {
-			// TODO: if the error is "Err: NoSuchEntity: The Access Key with id ****** cannot be found.", no need to return error and cause a panic
-			// TODO: can be fixed by first querying API and making sure Access Key actually exists.  (may have already been nuked)
+
+		log.Printf("errDelKey: %v, %+v, type: %T", errDelKey, errDelKey, errDelKey)
+
+		// Only consider it an error if it's not a "KeyNotFound error", which means the key was already nuked
+		if errDelKey != nil && !IsKeyNotFoundError(errDelKey) {
 			return doc, errDelKey
 		}
+
+		//if errDelKey != nil {
+		//	// TODO: if the error is "Err: NoSuchEntity: The Access Key with id ****** cannot be found.", no need to return error and cause a panic
+		//	// TODO: can be fixed by first querying API and making sure Access Key actually exists.  (may have already been nuked)
+		//	return doc, errDelKey
+		//}
 
 		nukedKeyEvent := NukedKeyEvent{
 			LeakedKeyEvent:        leakedKeyEvent,
@@ -74,6 +85,25 @@ func NukeLeakedAwsKeys(params ParamsNukeLeakedAwsKeys) (doc DocumentNukeLeakedAw
 
 	return doc, nil
 
+}
+
+func IsKeyNotFoundError(err error) bool {
+	// awsErr, ok := err.(awserr.BatchedErrors)
+	//if awsErr, ok := err.(awserr.Error); ok {
+	//
+	//
+	//}
+
+	if err == nil {
+		return false
+	}
+
+	// Otherwise resort to a string search
+	if strings.Contains(err.Error(), "NoSuchEntity") && strings.Contains(err.Error(), "cannot be found") {
+		return true
+	}
+
+	return false
 }
 
 type ParamsNukeLeakedAwsKeys struct {
