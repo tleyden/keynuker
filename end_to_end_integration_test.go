@@ -11,6 +11,9 @@ import (
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/iam"
+	"log"
+	"github.com/tleyden/keynuker-history"
+	"encoding/json"
 )
 
 // - Create a test AWS user w/ minimal permissions
@@ -126,7 +129,9 @@ func (e EndToEndIntegrationTest) Run() error {
 			return fmt.Errorf("Error running testScenario: %v", err)
 		}
 
-		RunKeyNuker()
+		if err := e.RunKeyNuker(); err != nil {
+			return fmt.Errorf("Error running keynuker: %v", err)
+		}
 
 		nuked, err := e.VerifyKeyNuked(awsAccessKey)
 		if err != nil {
@@ -144,7 +149,10 @@ func (e EndToEndIntegrationTest) Run() error {
 
 	}
 
+	return nil
+
 }
+
 
 // NOTE: the aws key will need more permissions than usual, will need to be able to create AWS keys.
 // Also, the aws key must be owned by a user named "KeyNuker"
@@ -192,3 +200,59 @@ func (e EndToEndIntegrationTest) VerifyKeyNuked(nukedAccessKey *iam.AccessKey) (
 	return true, nil
 
 }
+
+func (e EndToEndIntegrationTest) RunKeyNuker() (err error) {
+
+	// ------------------------ Fetch Aws Keys -------------------------
+
+	targetAwsAccounts, err := GetTargetAwsAccountsFromEnv()
+	if err != nil {
+		return err
+	}
+
+	params := ParamsFetchAwsKeys{
+		KeyNukerOrg:       "default",
+		TargetAwsAccounts: targetAwsAccounts,
+	}
+
+	fetchedAwsKeys, err := FetchAwsKeys(params)
+	if err != nil {
+		return err
+	}
+	log.Printf("fetchedAwsKeys: %v", fetchedAwsKeys)
+
+	// ------------------------ Github User Aggregator -------------------------
+
+	var params keynuker.ParamsGithubUserAggregator
+
+
+	// Must have a github access token
+	if params.GithubAccessToken == "" {
+		return nil, fmt.Errorf("You must supply the GithubAccessToken")
+	}
+
+	// If no keynuker org is specified, use "default"
+	if params.KeyNukerOrg == "" {
+		params.KeyNukerOrg = keynuker_go_common.DefaultKeyNukerOrg
+	}
+
+	docWrapper, err := keynuker.AggregateGithubUsers(params)
+	if err != nil {
+		return nil, err
+	}
+
+
+
+	// ------------------------ Github User Events Scanner -------------------------
+
+
+
+	// ------------------------ Nuke Leaked Aws Keys -------------------------
+
+
+
+
+
+}
+
+
