@@ -40,6 +40,10 @@ func TestEndToEndIntegration(t *testing.T) {
 		t.Fatalf("Error setting up test: %v", err)
 	}
 
+	if err := endToEndIntegrationTest.InitGithubAccess(); err != nil {
+		t.Fatalf("Error setting up test: %v", err)
+	}
+
 	if err := endToEndIntegrationTest.Run(); err != nil {
 		t.Fatalf("Error running test: %v", err)
 	}
@@ -51,12 +55,23 @@ type KeyLeakScenario interface {
 	Cleanup() error
 }
 
-type LeakKeyViaCommit struct{}
+type LeakKeyViaCommit struct{
+	GithubAccessToken string
+}
+
+func NewLeakKeyViaCommit(githubAccessToken string) *LeakKeyViaCommit {
+	return &LeakKeyViaCommit{
+		GithubAccessToken: githubAccessToken,
+	}
+}
 
 func (lkvc LeakKeyViaCommit) Leak(accessKey *iam.AccessKey) error {
 
 	// TODO: commit a change to a private github repo in the github org
 	// TODO: being monitored.
+
+	githubApiClient := NewGithubClientWrapper(lkvc.GithubAccessToken)
+
 
 	return fmt.Errorf("TODO: leak key on github repo")
 }
@@ -65,7 +80,7 @@ func (lkvc LeakKeyViaCommit) Cleanup() error {
 	return nil
 }
 
-func GetEndToEndKeyLeakScenarios() []KeyLeakScenario {
+func (e EndToEndIntegrationTest) GetEndToEndKeyLeakScenarios() []KeyLeakScenario {
 	return []KeyLeakScenario{
 		LeakKeyViaCommit{},
 	}
@@ -75,10 +90,29 @@ type EndToEndIntegrationTest struct {
 	IamUsername string
 	IamService  *iam.IAM
 	AwsSession  *session.Session
+	GithubAccessToken string
+	GithubOrgs []string
 }
 
 func NewEndToEndIntegrationTest() *EndToEndIntegrationTest {
 	return &EndToEndIntegrationTest{}
+}
+
+
+func (e *EndToEndIntegrationTest) InitGithubAccess() error {
+
+	githubAccessToken, ok := os.LookupEnv(keynuker_go_common.EnvVarKeyNukerTestGithubAccessToken)
+	if !ok {
+		return fmt.Errorf("You must define environment variable keynuker_test_gh_access_token to run this test")
+	}
+	e.GithubAccessToken = githubAccessToken
+
+	githubOrgs, err := GetGithubOrgsFromEnv()
+	if err != nil {
+		return err
+	}
+	e.GithubOrgs = githubOrgs
+
 }
 
 func (e *EndToEndIntegrationTest) InitAwsIamSession() error {
@@ -121,7 +155,7 @@ func (e EndToEndIntegrationTest) Run() error {
 
 	SetArtificialErrorInjection(true)
 
-	keyLeakScenarios := GetEndToEndKeyLeakScenarios()
+	keyLeakScenarios := e.GetEndToEndKeyLeakScenarios()
 	for _, keyLeakScenario := range keyLeakScenarios {
 
 		awsAccessKey, err := e.CreateKeyToLeak()
@@ -227,20 +261,10 @@ func (e EndToEndIntegrationTest) RunKeyNuker(accessKeyToNuke *iam.AccessKey) (er
 
 	// ------------------------ Github User Aggregator -------------------------
 
-	githubAccessToken, ok := os.LookupEnv(keynuker_go_common.EnvVarKeyNukerTestGithubAccessToken)
-	if !ok {
-		return fmt.Errorf("You must define environment variable keynuker_test_gh_access_token to run this test")
-	}
-
-	githubOrgs, err := GetGithubOrgsFromEnv()
-	if err != nil {
-		return err
-	}
-
 	paramsAggregateGithubUsers := ParamsGithubUserAggregator{
 		KeyNukerOrg:       keyNukerOrg,
-		GithubAccessToken: githubAccessToken,
-		GithubOrgs:        githubOrgs,
+		GithubAccessToken: e.GithubAccessToken,
+		GithubOrgs:        e.GithubOrgs,
 	}
 
 	resultAggregateGithubUsers, err := AggregateGithubUsers(paramsAggregateGithubUsers)
@@ -252,14 +276,14 @@ func (e EndToEndIntegrationTest) RunKeyNuker(accessKeyToNuke *iam.AccessKey) (er
 
 	paramsScanGithubUserEventsForAwsKeys := ParamsScanGithubUserEventsForAwsKeys{
 		KeyNukerOrg:       keyNukerOrg,
-		GithubAccessToken: githubAccessToken,
+		GithubAccessToken: e.GithubAccessToken,
 		GithubUsers:       resultAggregateGithubUsers.Doc.GithubUsers,
 		AccessKeyMetadata: fetchedAwsKeys.Doc.AccessKeyMetadata,
 	}
 
 	paramsScanGithubUserEventsForAwsKeys = paramsScanGithubUserEventsForAwsKeys.WithDefaultCheckpoints(time.Hour * -12)
 
-	fetcher := NewGoGithubUserEventFetcher(githubAccessToken)
+	fetcher := NewGoGithubUserEventFetcher(e.GithubAccessToken)
 
 	scanner := NewGithubUserEventsScanner(fetcher)
 
