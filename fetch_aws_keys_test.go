@@ -12,6 +12,8 @@ import (
 
 func TestFetchAwsKeys(t *testing.T) {
 
+	SkipIfIntegrationsTestsNotEnabled(t)
+
 	targetAwsAccountsRaw, ok := os.LookupEnv(keynuker_go_common.EnvVarKeyNukerTestTargetAwsAccounts)
 	if !ok {
 		t.Skip("You must define environment variable %s to run this test", keynuker_go_common.EnvVarKeyNukerTestTargetAwsAccounts)

@@ -15,6 +15,8 @@ import (
 
 func TestWriteDoc(t *testing.T) {
 
+	SkipIfIntegrationsTestsNotEnabled(t)
+
 	dbHost, ok := os.LookupEnv(keynuker_go_common.EnvVarKeyNukerTestDbHost)
 	if !ok {
 		t.Skip("You must define environment variable %s to run this test", keynuker_go_common.EnvVarKeyNukerTestDbHost)

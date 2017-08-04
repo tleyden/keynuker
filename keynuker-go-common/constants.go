@@ -32,4 +32,6 @@ const (
 
 	EnvVarKeyNukerTestTargetAccountAwsAccessKeyId = "TARGET_ACCOUNT_AWS_ACCESS_KEY_ID"
 
+	EnvVarKeyNukerTestIntegrationTestsEnabled = "KEYNUKER_INTEGRATION_TESTS_ENABLED"
+
 )

@@ -15,9 +15,11 @@ import (
 // Not much of a unit test, just allows running ghUserAggregator.ListMembers() by hand in isolation
 func TestGithubUserAggregator(t *testing.T) {
 
+	SkipIfIntegrationsTestsNotEnabled(t)
+
 	accessToken, ok := os.LookupEnv(keynuker_go_common.EnvVarKeyNukerTestGithubAccessToken)
 	if !ok {
-		t.Skip("You must define environment variable keynuker_test_gh_access_token to run this test")
+		t.Skipf("You must define environment variable keynuker_test_gh_access_token to run this test")
 	}
 
 	ghOrgs := []string{

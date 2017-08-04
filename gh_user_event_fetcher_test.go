@@ -16,6 +16,8 @@ import (
 // Not much of a unit test, just makes it easy to run ghUserEventFetcher.FetchUserEvents() by hand in isolation
 func TestGithubUserEventFetcher(t *testing.T) {
 
+	SkipIfIntegrationsTestsNotEnabled(t)
+	
 	accessToken, ok := os.LookupEnv(keynuker_go_common.EnvVarKeyNukerTestGithubAccessToken)
 	if !ok {
 		t.Skip("You must define environment variable keynuker_test_gh_access_token to run this test")
@@ -39,6 +41,8 @@ func TestGithubUserEventFetcher(t *testing.T) {
 
 // Not much of aunit test, just makes it easy to run ghUserEventFetcher.FetchDownstreamContent() by hand in isolation
 func TestGithubUserEventDownstreamContentFetcher(t *testing.T) {
+
+	SkipIfIntegrationsTestsNotEnabled(t)
 
 	accessToken, ok := os.LookupEnv(keynuker_go_common.EnvVarKeyNukerTestGithubAccessToken)
 	if !ok {
