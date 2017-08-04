@@ -59,8 +59,6 @@ func NukeLeakedAwsKeys(params ParamsNukeLeakedAwsKeys) (doc DocumentNukeLeakedAw
 		log.Printf("Nuking key: %v", *leakedKeyEvent.AccessKeyMetadata.AccessKeyId)
 		deleteAccessKeyOutput, errDelKey := svc.DeleteAccessKey(deleteAccessKeyInput)
 
-		log.Printf("errDelKey: %v, %+v, type: %T", errDelKey, errDelKey, errDelKey)
-
 		// Only consider it an error if it's not a "KeyNotFound error", which means the key was already nuked
 		if errDelKey != nil && !IsKeyNotFoundError(errDelKey) {
 			return doc, errDelKey
@@ -83,7 +81,7 @@ func NukeLeakedAwsKeys(params ParamsNukeLeakedAwsKeys) (doc DocumentNukeLeakedAw
 }
 
 func IsKeyNotFoundError(err error) bool {
-	
+
 	if awsErr, ok := err.(awserr.Error); ok {
 		if awsErr.Code() == "NoSuchEntity" {
 			return true

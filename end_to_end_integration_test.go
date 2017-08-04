@@ -185,6 +185,7 @@ func (e *EndToEndIntegrationTest) InitAwsIamSession() error {
 
 func (e EndToEndIntegrationTest) Run() error {
 
+	// Set this to true to verify that the end-to-end integration test catches a real bug
 	SetArtificialErrorInjection(false)
 
 	keyLeakScenarios := e.GetEndToEndKeyLeakScenarios()
@@ -329,6 +330,8 @@ func (e EndToEndIntegrationTest) RunKeyNuker(accessKeyToNuke *iam.AccessKey) (er
 
 	// ------------------------ Nuke Leaked Aws Keys -------------------------
 
+	log.Printf("LeakedKeyEvents: %+v", scanAwsKeysResults.LeakedKeyEvents)
+
 	params := ParamsNukeLeakedAwsKeys{
 		KeyNukerOrg:            keyNukerOrg,
 		TargetAwsAccounts:      targetAwsAccounts,
@@ -345,13 +348,15 @@ func (e EndToEndIntegrationTest) RunKeyNuker(accessKeyToNuke *iam.AccessKey) (er
 		return fmt.Errorf("Expected a key to be nuked, but none were nuked.  result: %+v", resultNukeLeakedAwsKeys)
 	}
 
-	nukedKeyEvent := resultNukeLeakedAwsKeys.NukedKeyEvents[0]
-	if *nukedKeyEvent.LeakedKeyEvent.AccessKeyMetadata.AccessKeyId != *accessKeyToNuke.AccessKeyId {
-		return fmt.Errorf(
-			"Expected to nuke: %v, but nuked: %v",
-			*accessKeyToNuke.AccessKeyId,
-			*nukedKeyEvent.LeakedKeyEvent.AccessKeyMetadata.AccessKeyId,
-		)
+	for _, nukedKeyEvent := range resultNukeLeakedAwsKeys.NukedKeyEvents {
+		log.Printf("NukedKeyEvent: %+v", nukedKeyEvent)
+		if *nukedKeyEvent.LeakedKeyEvent.AccessKeyMetadata.AccessKeyId != *accessKeyToNuke.AccessKeyId {
+			return fmt.Errorf(
+				"Expected to nuke: %v, but nuked: %v",
+				*accessKeyToNuke.AccessKeyId,
+				*nukedKeyEvent.LeakedKeyEvent.AccessKeyMetadata.AccessKeyId,
+			)
+		}
 	}
 
 	return nil
