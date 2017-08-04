@@ -4,15 +4,13 @@
 package keynuker
 
 import (
-	"testing"
-	"github.com/couchbaselabs/go.assert"
 	"fmt"
-	"github.com/aws/aws-sdk-go/aws/session"
+	"testing"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
+	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/iam"
-	"os/user"
-	"go/doc"
 )
 
 // - Create a test AWS user w/ minimal permissions
@@ -44,15 +42,20 @@ func TestEndToEndIntegration(t *testing.T) {
 
 type KeyLeakScenario interface {
 	Leak(accessKey *iam.AccessKey) error
+	Cleanup() error
 }
 
-type LeakKeyViaCommit struct {}
+type LeakKeyViaCommit struct{}
 
 func (lkvc LeakKeyViaCommit) Leak(accessKey *iam.AccessKey) error {
 
 	// TODO: commit a change to a private github repo in the github org
 	// TODO: being monitored.
 
+	return nil
+}
+
+func (lkvc LeakKeyViaCommit) Cleanup() error {
 	return nil
 }
 
@@ -63,8 +66,9 @@ func GetEndToEndKeyLeakScenarios() []KeyLeakScenario {
 }
 
 type EndToEndIntegrationTest struct {
-	IamService *iam.IAM
-	AwsSession *session.Session
+	IamUsername string
+	IamService  *iam.IAM
+	AwsSession  *session.Session
 }
 
 func NewEndToEndIntegrationTest() *EndToEndIntegrationTest {
@@ -72,6 +76,9 @@ func NewEndToEndIntegrationTest() *EndToEndIntegrationTest {
 }
 
 func (e *EndToEndIntegrationTest) InitAwsIamSession() error {
+
+	// Todo: figure out a better way than hardcoding this
+	e.IamUsername = "KeyNuker"
 
 	targetAwsAccounts, err := GetTargetAwsAccountsFromEnv()
 	if err != nil {
@@ -108,13 +115,10 @@ func (e EndToEndIntegrationTest) Run() error {
 
 	SetArtificialErrorInjection(true)
 
-	// Todo: figure out a better way than hardcoding this
-	testIAMUsername := "KeyNuker"
-
 	keyLeakScenarios := GetEndToEndKeyLeakScenarios()
 	for _, keyLeakScenario := range keyLeakScenarios {
 
-		awsAccessKey, err := CreateKeyToLeak(testIAMUsername)
+		awsAccessKey, err := e.CreateKeyToLeak()
 		if err != nil {
 			return err
 		}
@@ -124,7 +128,7 @@ func (e EndToEndIntegrationTest) Run() error {
 
 		RunKeyNuker()
 
-		nuked, err := VerifyKeyNuked(awsAccessKey)
+		nuked, err := e.VerifyKeyNuked(awsAccessKey)
 		if err != nil {
 			return fmt.Errorf("Error verifying key was nuked: %v", err)
 		}
@@ -134,83 +138,57 @@ func (e EndToEndIntegrationTest) Run() error {
 			return fmt.Errorf("Key %v should have been nuked, but it wasn't", *awsAccessKey.AccessKeyId)
 		}
 
-		keyLeakScenario.Cleanup()
+		if err := keyLeakScenario.Cleanup(); err != nil {
+			return fmt.Errorf("Error cleaning up keyleak scenario: %v", err)
+		}
 
-
-	}
-
-
-}
-
-
-func VerifyKeyNuked() {
-
-	listAccessKeysInput := &iam.ListAccessKeysInput{
-		UserName: user.UserName,
-		MaxItems: aws.Int64(1000),
-	}
-
-	listAccessKeysOutput, err := svc.ListAccessKeys(listAccessKeysInput)
-	if err != nil {
-		return DocumentWrapperFetchAwsKeys{}, fmt.Errorf("Error listing access keys for user: %v.  Err: %v", user, err)
-	}
-
-	// Panic if more than 1K results, which is not handled
-	if *listAccessKeysOutput.IsTruncated {
-		// TODO: remove panic and put in a paginated loop.  Move to tleyden/awsutils + unit tests against mocks
-		return DocumentWrapperFetchAwsKeys{}, fmt.Errorf("Output is truncated and this code does not handle it")
-	}
-
-	for _, accessKeyMetadata := range listAccessKeysOutput.AccessKeyMetadata {
-
-		fetchedAwsAccessKey := NewFetchedAwsAccessKey(
-			accessKeyMetadata,
-			targetAwsAccount.AwsAccessKeyId,
-		)
-
-		doc.AccessKeyMetadata = append(doc.AccessKeyMetadata, *fetchedAwsAccessKey)
 	}
 
 }
 
 // NOTE: the aws key will need more permissions than usual, will need to be able to create AWS keys.
 // Also, the aws key must be owned by a user named "KeyNuker"
-func CreateKeyToLeak(awsUserName string) (accessKey *iam.AccessKey, err error) {
-
-	targetAwsAccounts, err := GetTargetAwsAccountsFromEnv()
-	if err != nil {
-		return nil, err
-	}
-
-	// Just use the first aws account
-	targetAwsAccount := targetAwsAccounts[0]
-
-	// Create AWS session
-	sess, err := session.NewSession(&aws.Config{
-		Credentials: credentials.NewCredentials(
-			&credentials.StaticProvider{Value: credentials.Value{
-				AccessKeyID:     targetAwsAccount.AwsAccessKeyId,
-				SecretAccessKey: targetAwsAccount.AwsSecretAccessKey,
-			}},
-		),
-	})
-	if err != nil {
-		return nil, fmt.Errorf("Error creating aws session: %v", err)
-	}
-
-	// Create IAM client with the session.
-	svc := iam.New(sess)
+func (e EndToEndIntegrationTest) CreateKeyToLeak() (accessKey *iam.AccessKey, err error) {
 
 	// Discover list of IAM users in account
 	createAccessKeyInput := &iam.CreateAccessKeyInput{
-		UserName: aws.String(awsUserName),
+		UserName: aws.String(e.IamUsername),
 	}
-	createAccessKeyOutput, err := svc.CreateAccessKey(createAccessKeyInput)
+	createAccessKeyOutput, err := e.IamService.CreateAccessKey(createAccessKeyInput)
 	if err != nil {
 		return nil, fmt.Errorf("Error creating access key: %v", err)
 	}
 
 	return createAccessKeyOutput.AccessKey, nil
 
+}
+
+func (e EndToEndIntegrationTest) VerifyKeyNuked(nukedAccessKey *iam.AccessKey) (nuked bool, err error) {
+
+	listAccessKeysInput := &iam.ListAccessKeysInput{
+		UserName: aws.String(e.IamUsername),
+		MaxItems: aws.Int64(1000),
+	}
+
+	listAccessKeysOutput, err := e.IamService.ListAccessKeys(listAccessKeysInput)
+	if err != nil {
+		return false, fmt.Errorf("Error listing access keys for user: %v. Err: %v", e.IamUsername, err)
+	}
+
+	// Panic if more than 1K results, which is not handled
+	if *listAccessKeysOutput.IsTruncated {
+		// TODO: remove panic and put in a paginated loop.  Move to tleyden/awsutils + unit tests against mocks
+		return false, fmt.Errorf("Output is truncated and this code does not handle it")
+	}
+
+	for _, accessKeyMetadata := range listAccessKeysOutput.AccessKeyMetadata {
+
+		if *accessKeyMetadata.AccessKeyId == *nukedAccessKey.AccessKeyId {
+			// Ugh, found the key that was supposed to be nuked.  Something is not working.
+			return false, nil
+		}
+	}
+
+	return true, nil
 
 }
