@@ -102,6 +102,11 @@ func (p ParamsNukeLeakedAwsKeys) Validate() error {
 }
 
 func FindAwsAccount(targetAwsAccounts []TargetAwsAccount, monitorAwsAccessKeyId string) (TargetAwsAccount, error) {
+
+	if ArtificialErrorInjection() {
+		return FindAwsAccountArtificialError(targetAwsAccounts, monitorAwsAccessKeyId)
+	}
+
 	for _, targetAwsAccount := range targetAwsAccounts {
 		if strings.TrimSpace(targetAwsAccount.AwsAccessKeyId) == strings.TrimSpace(monitorAwsAccessKeyId) {
 			return targetAwsAccount, nil
