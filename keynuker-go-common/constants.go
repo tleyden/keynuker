@@ -32,4 +32,11 @@ const (
 
 	EnvVarKeyNukerTestTargetAccountAwsAccessKeyId = "TARGET_ACCOUNT_AWS_ACCESS_KEY_ID"
 
+	EnvVarKeyNukerTestIntegrationTestsEnabled = "KEYNUKER_INTEGRATION_TESTS_ENABLED"
+
+	EnvVarKeyNukerTestGithubOrgs = "GITHUB_ORGS"
+
+	EnvVarKeyNukerTestGithubLeakTargetRepo = "KEYNUKER_GITHUB_LEAK_TARGET_REPO"
+
+
 )

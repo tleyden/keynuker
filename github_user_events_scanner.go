@@ -229,7 +229,7 @@ func (p ParamsScanGithubUserEventsForAwsKeys) Validate() error {
 	return nil
 }
 
-func (p ParamsScanGithubUserEventsForAwsKeys) WithDefaults() ParamsScanGithubUserEventsForAwsKeys {
+func (p ParamsScanGithubUserEventsForAwsKeys) WithDefaultKeynukerOrg() ParamsScanGithubUserEventsForAwsKeys {
 
 	returnParams := p
 
@@ -237,6 +237,19 @@ func (p ParamsScanGithubUserEventsForAwsKeys) WithDefaults() ParamsScanGithubUse
 	if returnParams.KeyNukerOrg == "" {
 		returnParams.KeyNukerOrg = keynuker_go_common.DefaultKeyNukerOrg
 	}
+
+	return returnParams
+
+}
+
+// Update params to set the github event checkpoints to have a recent time window so that it doesn't scan every single
+// user event (which can take too long) in the absence of actual stored checkpoints, which aren't fully working yet
+// as of the time of this writing.
+//
+// Example recentTimeWindow: time.Duration(time.Hour * -12)
+func (p ParamsScanGithubUserEventsForAwsKeys) WithDefaultCheckpoints(recentTimeWindow time.Duration) ParamsScanGithubUserEventsForAwsKeys {
+
+	returnParams := p
 
 	// If GithubEventCheckpoints is nil, create an empty map
 	if returnParams.GithubEventCheckpoints == nil {
@@ -250,7 +263,7 @@ func (p ParamsScanGithubUserEventsForAwsKeys) WithDefaults() ParamsScanGithubUse
 		_, ok := returnParams.GithubEventCheckpoints.CheckpointForUser(githubUser)
 		if !ok {
 			githubCheckpointEvent := &github.Event{
-				CreatedAt: aws.Time(time.Now().Add(time.Hour * -12)),
+				CreatedAt: aws.Time(time.Now().Add(recentTimeWindow)),  // eg, time.Hour * -12
 			}
 			returnParams.GithubEventCheckpoints[*githubUser.Login] = githubCheckpointEvent
 		}

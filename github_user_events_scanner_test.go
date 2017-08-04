@@ -21,7 +21,8 @@ import (
 
 func TestScanGithubUserEventsForAwsKeys(t *testing.T) {
 
-	useMockFetcher := true
+	// Unless integration tests are enabled, use mock fetcher
+	useMockFetcher := !IntegrationTestsEnabled()
 
 	accessToken := "github_access_token"
 

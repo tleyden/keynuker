@@ -23,6 +23,8 @@ import (
 
 func TestLookupGithubUsersAwsKeys(t *testing.T) {
 
+	SkipIfIntegrationsTestsNotEnabled(t)
+
 	dbHost, ok := os.LookupEnv(keynuker_go_common.EnvVarKeyNukerTestDbHost)
 	if !ok {
 		t.Skip("You must define environment variable %s to run this test", keynuker_go_common.EnvVarKeyNukerTestDbHost)
@@ -69,6 +71,8 @@ type TestReproKivikIssueDoc struct {
 
 // See https://github.com/flimzy/kivik/issues/156
 func TestReproKivikIssue(t *testing.T) {
+
+	SkipIfIntegrationsTestsNotEnabled(t)
 
 	dbHost, ok := os.LookupEnv(keynuker_go_common.EnvVarKeyNukerTestDbHost)
 	if !ok {

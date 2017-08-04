@@ -28,19 +28,21 @@ import (
 // 4. Verify the key was nuked from the actual AWS account
 func TestNukeLeakedAwsKeys(t *testing.T) {
 
+	SkipIfIntegrationsTestsNotEnabled(t)
+
 	targetAwsAccountsRaw, ok := os.LookupEnv(keynuker_go_common.EnvVarKeyNukerTestTargetAwsAccounts)
 	if !ok {
-		t.Skip("You must define environment variable %s to run this test", keynuker_go_common.EnvVarKeyNukerTestTargetAwsAccounts)
+		t.Skipf("You must define environment variable %s to run this test", keynuker_go_common.EnvVarKeyNukerTestTargetAwsAccounts)
 	}
 
 	leakedAwsAccessKeyId, ok := os.LookupEnv(keynuker_go_common.EnvVarKeyNukerTestLeakedAwsAccessKeyId)
 	if !ok {
-		t.Skip("You must define environment variable %s to run this test", keynuker_go_common.EnvVarKeyNukerTestLeakedAwsAccessKeyId)
+		t.Skipf("You must define environment variable %s to run this test", keynuker_go_common.EnvVarKeyNukerTestLeakedAwsAccessKeyId)
 	}
 
 	targetAccountAwsAccessKeyId, ok := os.LookupEnv(keynuker_go_common.EnvVarKeyNukerTestTargetAccountAwsAccessKeyId)
 	if !ok {
-		t.Skip("You must define environment variable %s to run this test", keynuker_go_common.EnvVarKeyNukerTestTargetAccountAwsAccessKeyId)
+		t.Skipf("You must define environment variable %s to run this test", keynuker_go_common.EnvVarKeyNukerTestTargetAccountAwsAccessKeyId)
 	}
 
 	targetAwsAccounts := []TargetAwsAccount{}
