@@ -13,6 +13,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/iam"
+	"github.com/aws/aws-sdk-go/aws/awserr"
 )
 
 // . Connect to AWS
@@ -65,12 +66,6 @@ func NukeLeakedAwsKeys(params ParamsNukeLeakedAwsKeys) (doc DocumentNukeLeakedAw
 			return doc, errDelKey
 		}
 
-		//if errDelKey != nil {
-		//	// TODO: if the error is "Err: NoSuchEntity: The Access Key with id ****** cannot be found.", no need to return error and cause a panic
-		//	// TODO: can be fixed by first querying API and making sure Access Key actually exists.  (may have already been nuked)
-		//	return doc, errDelKey
-		//}
-
 		nukedKeyEvent := NukedKeyEvent{
 			LeakedKeyEvent:        leakedKeyEvent,
 			DeleteAccessKeyOutput: deleteAccessKeyOutput,
@@ -88,11 +83,12 @@ func NukeLeakedAwsKeys(params ParamsNukeLeakedAwsKeys) (doc DocumentNukeLeakedAw
 }
 
 func IsKeyNotFoundError(err error) bool {
-	// awsErr, ok := err.(awserr.BatchedErrors)
-	//if awsErr, ok := err.(awserr.Error); ok {
-	//
-	//
-	//}
+	
+	if awsErr, ok := err.(awserr.Error); ok {
+		if awsErr.Code() == "NoSuchEntity" {
+			return true
+		}
+	}
 
 	if err == nil {
 		return false
