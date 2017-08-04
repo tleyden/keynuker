@@ -17,7 +17,7 @@ import (
 func TestGithubUserEventFetcher(t *testing.T) {
 
 	SkipIfIntegrationsTestsNotEnabled(t)
-	
+
 	accessToken, ok := os.LookupEnv(keynuker_go_common.EnvVarKeyNukerTestGithubAccessToken)
 	if !ok {
 		t.Skip("You must define environment variable keynuker_test_gh_access_token to run this test")

@@ -14,15 +14,10 @@ func TestFetchAwsKeys(t *testing.T) {
 
 	SkipIfIntegrationsTestsNotEnabled(t)
 
-	targetAwsAccountsRaw, ok := os.LookupEnv(keynuker_go_common.EnvVarKeyNukerTestTargetAwsAccounts)
-	if !ok {
-		t.Skip("You must define environment variable %s to run this test", keynuker_go_common.EnvVarKeyNukerTestTargetAwsAccounts)
+	targetAwsAccounts, err := GetTargetAwsAccountsFromEnv()
+	if err != nil {
+		t.Skip("Error getting target aws accounts from env: %v", err)
 	}
-
-	targetAwsAccounts := []TargetAwsAccount{}
-
-	err := json.Unmarshal([]byte(targetAwsAccountsRaw), &targetAwsAccounts)
-	assert.NoError(t, err, "Unexpected Error")
 
 	params := ParamsFetchAwsKeys{
 		KeyNukerOrg:       "default",
