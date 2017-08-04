@@ -7,13 +7,16 @@ import (
 	"fmt"
 	"testing"
 
+	"log"
+	"os"
+
+	"time"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/iam"
-	"log"
-	"github.com/tleyden/keynuker-history"
-	"encoding/json"
+	"github.com/tleyden/keynuker/keynuker-go-common"
 )
 
 // - Create a test AWS user w/ minimal permissions
@@ -55,7 +58,7 @@ func (lkvc LeakKeyViaCommit) Leak(accessKey *iam.AccessKey) error {
 	// TODO: commit a change to a private github repo in the github org
 	// TODO: being monitored.
 
-	return nil
+	return fmt.Errorf("TODO: leak key on github repo")
 }
 
 func (lkvc LeakKeyViaCommit) Cleanup() error {
@@ -129,7 +132,7 @@ func (e EndToEndIntegrationTest) Run() error {
 			return fmt.Errorf("Error running testScenario: %v", err)
 		}
 
-		if err := e.RunKeyNuker(); err != nil {
+		if err := e.RunKeyNuker(awsAccessKey); err != nil {
 			return fmt.Errorf("Error running keynuker: %v", err)
 		}
 
@@ -152,7 +155,6 @@ func (e EndToEndIntegrationTest) Run() error {
 	return nil
 
 }
-
 
 // NOTE: the aws key will need more permissions than usual, will need to be able to create AWS keys.
 // Also, the aws key must be owned by a user named "KeyNuker"
@@ -201,7 +203,9 @@ func (e EndToEndIntegrationTest) VerifyKeyNuked(nukedAccessKey *iam.AccessKey) (
 
 }
 
-func (e EndToEndIntegrationTest) RunKeyNuker() (err error) {
+func (e EndToEndIntegrationTest) RunKeyNuker(accessKeyToNuke *iam.AccessKey) (err error) {
+
+	keyNukerOrg := keynuker_go_common.DefaultKeyNukerOrg
 
 	// ------------------------ Fetch Aws Keys -------------------------
 
@@ -210,12 +214,12 @@ func (e EndToEndIntegrationTest) RunKeyNuker() (err error) {
 		return err
 	}
 
-	params := ParamsFetchAwsKeys{
-		KeyNukerOrg:       "default",
+	paramsFetchAwsKeys := ParamsFetchAwsKeys{
+		KeyNukerOrg:       keyNukerOrg,
 		TargetAwsAccounts: targetAwsAccounts,
 	}
 
-	fetchedAwsKeys, err := FetchAwsKeys(params)
+	fetchedAwsKeys, err := FetchAwsKeys(paramsFetchAwsKeys)
 	if err != nil {
 		return err
 	}
@@ -223,36 +227,74 @@ func (e EndToEndIntegrationTest) RunKeyNuker() (err error) {
 
 	// ------------------------ Github User Aggregator -------------------------
 
-	var params keynuker.ParamsGithubUserAggregator
-
-
-	// Must have a github access token
-	if params.GithubAccessToken == "" {
-		return nil, fmt.Errorf("You must supply the GithubAccessToken")
+	githubAccessToken, ok := os.LookupEnv(keynuker_go_common.EnvVarKeyNukerTestGithubAccessToken)
+	if !ok {
+		return fmt.Errorf("You must define environment variable keynuker_test_gh_access_token to run this test")
 	}
 
-	// If no keynuker org is specified, use "default"
-	if params.KeyNukerOrg == "" {
-		params.KeyNukerOrg = keynuker_go_common.DefaultKeyNukerOrg
-	}
-
-	docWrapper, err := keynuker.AggregateGithubUsers(params)
+	githubOrgs, err := GetGithubOrgsFromEnv()
 	if err != nil {
-		return nil, err
+		return err
 	}
 
+	paramsAggregateGithubUsers := ParamsGithubUserAggregator{
+		KeyNukerOrg:       keyNukerOrg,
+		GithubAccessToken: githubAccessToken,
+		GithubOrgs:        githubOrgs,
+	}
 
+	resultAggregateGithubUsers, err := AggregateGithubUsers(paramsAggregateGithubUsers)
+	if err != nil {
+		return err
+	}
 
 	// ------------------------ Github User Events Scanner -------------------------
 
+	paramsScanGithubUserEventsForAwsKeys := ParamsScanGithubUserEventsForAwsKeys{
+		KeyNukerOrg:       keyNukerOrg,
+		GithubAccessToken: githubAccessToken,
+		GithubUsers:       resultAggregateGithubUsers.Doc.GithubUsers,
+		AccessKeyMetadata: fetchedAwsKeys.Doc.AccessKeyMetadata,
+	}
 
+	paramsScanGithubUserEventsForAwsKeys = paramsScanGithubUserEventsForAwsKeys.WithDefaultCheckpoints(time.Hour * -12)
+
+	fetcher := NewGoGithubUserEventFetcher(githubAccessToken)
+
+	scanner := NewGithubUserEventsScanner(fetcher)
+
+	scanAwsKeysResults, err := scanner.ScanAwsKeys(paramsScanGithubUserEventsForAwsKeys)
+	if err != nil {
+		return err
+	}
 
 	// ------------------------ Nuke Leaked Aws Keys -------------------------
 
+	params := ParamsNukeLeakedAwsKeys{
+		KeyNukerOrg:            keyNukerOrg,
+		TargetAwsAccounts:      targetAwsAccounts,
+		LeakedKeyEvents:        scanAwsKeysResults.LeakedKeyEvents,
+		GithubEventCheckpoints: scanAwsKeysResults.GithubEventCheckpoints,
+	}
 
+	resultNukeLeakedAwsKeys, err := NukeLeakedAwsKeys(params)
+	if err != nil {
+		return err
+	}
 
+	if len(resultNukeLeakedAwsKeys.NukedKeyEvents) <= 0 {
+		return fmt.Errorf("Expected a key to be nuked, but none were nuked.  result: %+v", resultNukeLeakedAwsKeys)
+	}
 
+	nukedKeyEvent := resultNukeLeakedAwsKeys.NukedKeyEvents[0]
+	if *nukedKeyEvent.LeakedKeyEvent.AccessKeyMetadata.AccessKeyId != *accessKeyToNuke.AccessKeyId {
+		return fmt.Errorf(
+			"Expected to nuke: %v, but nuked: %v",
+			*accessKeyToNuke.AccessKeyId,
+			*nukedKeyEvent.LeakedKeyEvent.AccessKeyMetadata.AccessKeyId,
+		)
+	}
+
+	return nil
 
 }
-
-

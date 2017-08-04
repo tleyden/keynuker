@@ -4,12 +4,13 @@
 package keynuker
 
 import (
-	"testing"
-	"os"
-	"github.com/tleyden/keynuker/keynuker-go-common"
-	"fmt"
-	"strings"
 	"encoding/json"
+	"fmt"
+	"os"
+	"strings"
+	"testing"
+
+	"github.com/tleyden/keynuker/keynuker-go-common"
 )
 
 var (
@@ -76,5 +77,27 @@ func GetTargetAwsAccountsFromEnv() (targetAwsAccounts []TargetAwsAccount, err er
 	}
 
 	return targetAwsAccounts, nil
+
+}
+
+func GetGithubOrgsFromEnv() (githubOrgs []string, err error) {
+
+	githubOrgsRaw, ok := os.LookupEnv(keynuker_go_common.EnvVarKeyNukerTestGithubOrgs)
+	if !ok {
+		return []string{}, fmt.Errorf("You must define environment variable %s to run this test", keynuker_go_common.EnvVarKeyNukerTestGithubOrgs)
+	}
+
+	githubOrgs = []string{}
+
+	err = json.Unmarshal([]byte(githubOrgsRaw), &githubOrgs)
+	if err != nil {
+		return githubOrgs, fmt.Errorf("Unexpected Error: %v", err)
+	}
+
+	if len(githubOrgs) == 0 {
+		return githubOrgs, fmt.Errorf("No github orgs")
+	}
+
+	return githubOrgs, nil
 
 }

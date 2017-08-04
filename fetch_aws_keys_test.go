@@ -3,11 +3,9 @@ package keynuker
 import (
 	"encoding/json"
 	"log"
-	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/tleyden/keynuker/keynuker-go-common"
 )
 
 func TestFetchAwsKeys(t *testing.T) {

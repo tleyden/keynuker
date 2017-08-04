@@ -34,4 +34,6 @@ const (
 
 	EnvVarKeyNukerTestIntegrationTestsEnabled = "KEYNUKER_INTEGRATION_TESTS_ENABLED"
 
+	EnvVarKeyNukerTestGithubOrgs = "GITHUB_ORGS"
+
 )

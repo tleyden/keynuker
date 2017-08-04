@@ -8,6 +8,7 @@ import (
 
 	"github.com/tleyden/keynuker"
 	"github.com/tleyden/keynuker/keynuker-go-common"
+	"time"
 )
 
 // Scan Github user events for AWS keys
@@ -30,7 +31,9 @@ func OpenWhiskCallback(value json.RawMessage) (interface{}, error) {
 		return params, err
 	}
 
-	params = params.WithDefaults()
+	params = params.WithDefaultKeynukerOrg()
+
+	params = params.WithDefaultCheckpoints(time.Hour * -12)
 
 	fetcher := keynuker.NewGoGithubUserEventFetcher(params.GithubAccessToken)
 
