@@ -18,6 +18,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/iam"
 	"github.com/tleyden/keynuker/keynuker-go-common"
 	"context"
+	"github.com/google/go-github/github"
 )
 
 // - Create a test AWS user w/ minimal permissions
@@ -72,6 +73,9 @@ func (lkvc LeakKeyViaCommit) Leak(accessKey *iam.AccessKey) error {
 	// TODO: commit a change to a private github repo in the github org
 	// TODO: being monitored.
 
+	// TODO: parameterize this
+	githubRepoLeakTargetRepo := "keynuker-playground"
+
 	githubApiClient := NewGithubClientWrapper(lkvc.GithubAccessToken)
 
 	ctx := context.Background()
@@ -81,9 +85,14 @@ func (lkvc LeakKeyViaCommit) Leak(accessKey *iam.AccessKey) error {
 		return err
 	}
 	username := *user.Name
-	log.Printf("github username: %v", username)
 
-	// githubApiClient.ApiClient.Issues.Create()
+	log.Printf("github login: %v, name: %v", *user.Login, username)
+
+	issueRequest := &github.IssueRequest{
+		Title: aws.String("KeyNuker Leaked Key 🔐 End-to-End Test"),
+		Body: aws.String(fmt.Sprintf("Nukable 🔐💥 Key: %v.  Keynuker Project url: github.com/tleyden/keynuker", *accessKey.AccessKeyId)),
+	}
+	githubApiClient.ApiClient.Issues.Create(ctx, *user.Login, githubRepoLeakTargetRepo, issueRequest)
 
 
 	return fmt.Errorf("TODO: leak key on github repo")
