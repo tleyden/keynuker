@@ -17,9 +17,11 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/iam"
 	"github.com/tleyden/keynuker/keynuker-go-common"
+	"context"
 )
 
 // - Create a test AWS user w/ minimal permissions
+//     - Note: this was simplified and so it just re-uses the KeyNuker user and leaks a key under that account
 // - Loop over leaked key scenarios
 //    - Create AWS key #1
 //    - Scenario 1: Commit and push text file to github private repo w/ leaked key
@@ -72,6 +74,17 @@ func (lkvc LeakKeyViaCommit) Leak(accessKey *iam.AccessKey) error {
 
 	githubApiClient := NewGithubClientWrapper(lkvc.GithubAccessToken)
 
+	ctx := context.Background()
+
+	user, _, err := githubApiClient.ApiClient.Users.Get(ctx, "")
+	if err != nil {
+		return err
+	}
+	username := *user.Name
+	log.Printf("github username: %v", username)
+
+	// githubApiClient.ApiClient.Issues.Create()
+
 
 	return fmt.Errorf("TODO: leak key on github repo")
 }
@@ -82,7 +95,7 @@ func (lkvc LeakKeyViaCommit) Cleanup() error {
 
 func (e EndToEndIntegrationTest) GetEndToEndKeyLeakScenarios() []KeyLeakScenario {
 	return []KeyLeakScenario{
-		LeakKeyViaCommit{},
+		NewLeakKeyViaCommit(e.GithubAccessToken),
 	}
 }
 
@@ -112,6 +125,8 @@ func (e *EndToEndIntegrationTest) InitGithubAccess() error {
 		return err
 	}
 	e.GithubOrgs = githubOrgs
+
+	return nil
 
 }
 
@@ -162,6 +177,7 @@ func (e EndToEndIntegrationTest) Run() error {
 		if err != nil {
 			return err
 		}
+
 		if err := keyLeakScenario.Leak(awsAccessKey); err != nil {
 			return fmt.Errorf("Error running testScenario: %v", err)
 		}
