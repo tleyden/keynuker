@@ -55,60 +55,6 @@ func TestEndToEndIntegration(t *testing.T) {
 
 }
 
-type KeyLeakScenario interface {
-	Leak(accessKey *iam.AccessKey) error
-	Cleanup() error
-}
-
-type LeakKeyViaNewGithubIssue struct {
-	GithubAccessToken        string
-	GithubRepoLeakTargetRepo string
-}
-
-func NewLeakKeyViaCommit(githubAccessToken, targetGithubRepo string) *LeakKeyViaNewGithubIssue {
-	return &LeakKeyViaNewGithubIssue{
-		GithubAccessToken:        githubAccessToken,
-		GithubRepoLeakTargetRepo: targetGithubRepo,
-	}
-}
-
-func (lkvc LeakKeyViaNewGithubIssue) Leak(accessKey *iam.AccessKey) error {
-
-	githubApiClient := NewGithubClientWrapper(lkvc.GithubAccessToken)
-
-	ctx := context.Background()
-
-	user, _, err := githubApiClient.ApiClient.Users.Get(ctx, "")
-	if err != nil {
-		return err
-	}
-	username := *user.Name
-
-	log.Printf("github login: %v, name: %v", *user.Login, username)
-
-	issueRequest := &github.IssueRequest{
-		Title: aws.String("KeyNuker Leaked Key 🔐 End-to-End Test"),
-		Body:  aws.String(fmt.Sprintf("Nukable 🔐💥 Key: %v.  Keynuker Project url: github.com/tleyden/keynuker", *accessKey.AccessKeyId)),
-	}
-	_, _, err = githubApiClient.ApiClient.Issues.Create(ctx, *user.Login, lkvc.GithubRepoLeakTargetRepo, issueRequest)
-	if err != nil {
-		return err
-	}
-
-	return nil
-
-}
-
-func (lkvc LeakKeyViaNewGithubIssue) Cleanup() error {
-	return nil
-}
-
-func (e EndToEndIntegrationTest) GetEndToEndKeyLeakScenarios() []KeyLeakScenario {
-	return []KeyLeakScenario{
-		NewLeakKeyViaCommit(e.GithubAccessToken, e.GithubRepoLeakTargetRepo),
-	}
-}
-
 type EndToEndIntegrationTest struct {
 	IamUsername              string
 	IamService               *iam.IAM
@@ -177,7 +123,7 @@ func (e *EndToEndIntegrationTest) InitAwsIamSession() error {
 	e.AwsSession = sess
 	e.IamService = svc
 
-	// Discover IAM username based on aws key 
+	// Discover IAM username based on aws key
 	username, err := e.DiscoverIAMUsernameForKey(e.TargetAwsAccount.AwsAccessKeyId)
 	if err != nil {
 		return err
@@ -272,6 +218,12 @@ func (e EndToEndIntegrationTest) Run() error {
 
 	return nil
 
+}
+
+func (e EndToEndIntegrationTest) GetEndToEndKeyLeakScenarios() []KeyLeakScenario {
+	return []KeyLeakScenario{
+		NewLeakKeyViaCommit(e.GithubAccessToken, e.GithubRepoLeakTargetRepo),
+	}
 }
 
 // NOTE: the aws key will need more permissions than usual, will need to be able to create AWS keys.
@@ -430,3 +382,52 @@ func (e EndToEndIntegrationTest) RunKeyNuker(accessKeyToNuke *iam.AccessKey) (er
 	return nil
 
 }
+
+type KeyLeakScenario interface {
+	Leak(accessKey *iam.AccessKey) error
+	Cleanup() error
+}
+
+type LeakKeyViaNewGithubIssue struct {
+	GithubAccessToken        string
+	GithubRepoLeakTargetRepo string
+}
+
+func NewLeakKeyViaCommit(githubAccessToken, targetGithubRepo string) *LeakKeyViaNewGithubIssue {
+	return &LeakKeyViaNewGithubIssue{
+		GithubAccessToken:        githubAccessToken,
+		GithubRepoLeakTargetRepo: targetGithubRepo,
+	}
+}
+
+func (lkvc LeakKeyViaNewGithubIssue) Leak(accessKey *iam.AccessKey) error {
+
+	githubApiClient := NewGithubClientWrapper(lkvc.GithubAccessToken)
+
+	ctx := context.Background()
+
+	user, _, err := githubApiClient.ApiClient.Users.Get(ctx, "")
+	if err != nil {
+		return err
+	}
+	username := *user.Name
+
+	log.Printf("github login: %v, name: %v", *user.Login, username)
+
+	issueRequest := &github.IssueRequest{
+		Title: aws.String("KeyNuker Leaked Key 🔐 End-to-End Test"),
+		Body:  aws.String(fmt.Sprintf("Nukable 🔐💥 Key: %v.  Keynuker Project url: github.com/tleyden/keynuker", *accessKey.AccessKeyId)),
+	}
+	_, _, err = githubApiClient.ApiClient.Issues.Create(ctx, *user.Login, lkvc.GithubRepoLeakTargetRepo, issueRequest)
+	if err != nil {
+		return err
+	}
+
+	return nil
+
+}
+
+func (lkvc LeakKeyViaNewGithubIssue) Cleanup() error {
+	return nil
+}
+
