@@ -12,13 +12,14 @@ import (
 
 	"time"
 
+	"context"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/iam"
-	"github.com/tleyden/keynuker/keynuker-go-common"
-	"context"
 	"github.com/google/go-github/github"
+	"github.com/tleyden/keynuker/keynuker-go-common"
 )
 
 // - Create a test AWS user w/ minimal permissions
@@ -39,14 +40,15 @@ func TestEndToEndIntegration(t *testing.T) {
 
 	endToEndIntegrationTest := NewEndToEndIntegrationTest()
 
+	// Setup
 	if err := endToEndIntegrationTest.InitAwsIamSession(); err != nil {
 		t.Fatalf("Error setting up test: %v", err)
 	}
-
 	if err := endToEndIntegrationTest.InitGithubAccess(); err != nil {
 		t.Fatalf("Error setting up test: %v", err)
 	}
 
+	// Run the full end-to-end integration test
 	if err := endToEndIntegrationTest.Run(); err != nil {
 		t.Fatalf("Error running test: %v", err)
 	}
@@ -58,14 +60,14 @@ type KeyLeakScenario interface {
 	Cleanup() error
 }
 
-type LeakKeyViaNewGithubIssue struct{
-	GithubAccessToken string
+type LeakKeyViaNewGithubIssue struct {
+	GithubAccessToken        string
 	GithubRepoLeakTargetRepo string
 }
 
 func NewLeakKeyViaCommit(githubAccessToken, targetGithubRepo string) *LeakKeyViaNewGithubIssue {
 	return &LeakKeyViaNewGithubIssue{
-		GithubAccessToken: githubAccessToken,
+		GithubAccessToken:        githubAccessToken,
 		GithubRepoLeakTargetRepo: targetGithubRepo,
 	}
 }
@@ -86,7 +88,7 @@ func (lkvc LeakKeyViaNewGithubIssue) Leak(accessKey *iam.AccessKey) error {
 
 	issueRequest := &github.IssueRequest{
 		Title: aws.String("KeyNuker Leaked Key 🔐 End-to-End Test"),
-		Body: aws.String(fmt.Sprintf("Nukable 🔐💥 Key: %v.  Keynuker Project url: github.com/tleyden/keynuker", *accessKey.AccessKeyId)),
+		Body:  aws.String(fmt.Sprintf("Nukable 🔐💥 Key: %v.  Keynuker Project url: github.com/tleyden/keynuker", *accessKey.AccessKeyId)),
 	}
 	_, _, err = githubApiClient.ApiClient.Issues.Create(ctx, *user.Login, lkvc.GithubRepoLeakTargetRepo, issueRequest)
 	if err != nil {
@@ -108,19 +110,18 @@ func (e EndToEndIntegrationTest) GetEndToEndKeyLeakScenarios() []KeyLeakScenario
 }
 
 type EndToEndIntegrationTest struct {
-	IamUsername string
-	IamService  *iam.IAM
-	AwsSession  *session.Session
-	GithubAccessToken string
-	GithubOrgs []string
+	IamUsername              string
+	IamService               *iam.IAM
+	AwsSession               *session.Session
+	TargetAwsAccount         TargetAwsAccount
+	GithubAccessToken        string
+	GithubOrgs               []string
 	GithubRepoLeakTargetRepo string
-
 }
 
 func NewEndToEndIntegrationTest() *EndToEndIntegrationTest {
 	return &EndToEndIntegrationTest{}
 }
-
 
 func (e *EndToEndIntegrationTest) InitGithubAccess() error {
 
@@ -129,7 +130,6 @@ func (e *EndToEndIntegrationTest) InitGithubAccess() error {
 		return fmt.Errorf("You must define environment variable %v to run this test", keynuker_go_common.EnvVarKeyNukerTestGithubLeakTargetRepo)
 	}
 	e.GithubRepoLeakTargetRepo = githubRepoLeakTargetRepo
-
 
 	githubAccessToken, ok := os.LookupEnv(keynuker_go_common.EnvVarKeyNukerTestGithubAccessToken)
 	if !ok {
@@ -149,8 +149,6 @@ func (e *EndToEndIntegrationTest) InitGithubAccess() error {
 
 func (e *EndToEndIntegrationTest) InitAwsIamSession() error {
 
-	// Todo: figure out a better way than hardcoding this
-	e.IamUsername = "KeyNuker"
 
 	targetAwsAccounts, err := GetTargetAwsAccountsFromEnv()
 	if err != nil {
@@ -158,14 +156,14 @@ func (e *EndToEndIntegrationTest) InitAwsIamSession() error {
 	}
 
 	// Just use the first aws account
-	targetAwsAccount := targetAwsAccounts[0]
+	e.TargetAwsAccount = targetAwsAccounts[0]
 
 	// Create AWS session
 	sess, err := session.NewSession(&aws.Config{
 		Credentials: credentials.NewCredentials(
 			&credentials.StaticProvider{Value: credentials.Value{
-				AccessKeyID:     targetAwsAccount.AwsAccessKeyId,
-				SecretAccessKey: targetAwsAccount.AwsSecretAccessKey,
+				AccessKeyID:     e.TargetAwsAccount.AwsAccessKeyId,
+				SecretAccessKey: e.TargetAwsAccount.AwsSecretAccessKey,
 			}},
 		),
 	})
@@ -179,7 +177,59 @@ func (e *EndToEndIntegrationTest) InitAwsIamSession() error {
 	e.AwsSession = sess
 	e.IamService = svc
 
+	// Discover IAM username based on aws key 
+	username, err := e.DiscoverIAMUsernameForKey(e.TargetAwsAccount.AwsAccessKeyId)
+	if err != nil {
+		return err
+	}
+
+	e.IamUsername = username
+
 	return nil
+
+}
+
+// List all users
+// For each user
+// List all keys
+// If you find the AwsAccessKeyId param, return the current user
+func (e EndToEndIntegrationTest) DiscoverIAMUsernameForKey(AwsAccessKeyId string) (username string, err error) {
+
+	// Fetch list of IAM users
+	iamUsers, err := FetchIAMUsers(e.IamService)
+	if err != nil {
+		return "", err
+	}
+
+	for _, user := range iamUsers {
+
+		listAccessKeysInput := &iam.ListAccessKeysInput{
+			UserName: user.UserName,
+			MaxItems: aws.Int64(1000),
+		}
+
+		listAccessKeysOutput, err := e.IamService.ListAccessKeys(listAccessKeysInput)
+		if err != nil {
+			return "", fmt.Errorf("Error listing access keys for user: %v.  Err: %v", user, err)
+		}
+
+		// Panic if more than 1K results, which is not handled
+		if *listAccessKeysOutput.IsTruncated {
+			// TODO: remove panic and put in a paginated loop.  Move to tleyden/awsutils + unit tests against mocks
+			return "", fmt.Errorf("Output is truncated and this code does not handle it")
+		}
+
+		for _, accessKeyMetadata := range listAccessKeysOutput.AccessKeyMetadata {
+
+			if *accessKeyMetadata.AccessKeyId == AwsAccessKeyId {
+				return *user.UserName, nil
+			}
+
+		}
+
+	}
+
+	return "", fmt.Errorf("Unable to lookup username for key")
 
 }
 
@@ -210,7 +260,7 @@ func (e EndToEndIntegrationTest) Run() error {
 		}
 
 		if !nuked {
-			// TODO: ManuallyNukeKey(awsAccessKey) <-- otherwise, leaves residue
+			e.CleanupUnNuked(awsAccessKey)
 			return fmt.Errorf("Key %v should have been nuked, but it wasn't", *awsAccessKey.AccessKeyId)
 		}
 
@@ -228,7 +278,6 @@ func (e EndToEndIntegrationTest) Run() error {
 // Also, the aws key must be owned by a user named "KeyNuker"
 func (e EndToEndIntegrationTest) CreateKeyToLeak() (accessKey *iam.AccessKey, err error) {
 
-	// Discover list of IAM users in account
 	createAccessKeyInput := &iam.CreateAccessKeyInput{
 		UserName: aws.String(e.IamUsername),
 	}
@@ -238,6 +287,25 @@ func (e EndToEndIntegrationTest) CreateKeyToLeak() (accessKey *iam.AccessKey, er
 	}
 
 	return createAccessKeyOutput.AccessKey, nil
+
+}
+
+// If the initial attempt to nuke the key failed for some reason, maybe a bug, nuke it here
+func (e EndToEndIntegrationTest) CleanupUnNuked(accessKeyNukeFailed *iam.AccessKey) (err error) {
+
+	// Nuke the key from AWS
+	deleteAccessKeyInput := &iam.DeleteAccessKeyInput{
+		AccessKeyId: accessKeyNukeFailed.AccessKeyId,
+		UserName:    accessKeyNukeFailed.UserName,
+	}
+	_, errDelKey := e.IamService.DeleteAccessKey(deleteAccessKeyInput)
+
+	// Only consider it an error if it's not a "KeyNotFound error", which means the key was already nuked
+	if errDelKey != nil && !IsKeyNotFoundError(errDelKey) {
+		return nil
+	}
+
+	return err
 
 }
 
@@ -315,7 +383,7 @@ func (e EndToEndIntegrationTest) RunKeyNuker(accessKeyToNuke *iam.AccessKey) (er
 		AccessKeyMetadata: fetchedAwsKeys.Doc.AccessKeyMetadata,
 	}
 
-	recentEventTimeWindow := time.Minute * -10  // Last 5 seconds would probably work too, but give it some margin of error
+	recentEventTimeWindow := time.Minute * -10 // Last 5 seconds would probably work too, but give it some margin of error
 
 	paramsScanGithubUserEventsForAwsKeys = paramsScanGithubUserEventsForAwsKeys.WithDefaultCheckpoints(recentEventTimeWindow)
 
