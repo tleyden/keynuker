@@ -391,43 +391,81 @@ type KeyLeakScenario interface {
 type LeakKeyViaNewGithubIssue struct {
 	GithubAccessToken        string
 	GithubRepoLeakTargetRepo string
+	GithubClientWrapper *GithubClientWrapper
 }
 
 func NewLeakKeyViaCommit(githubAccessToken, targetGithubRepo string) *LeakKeyViaNewGithubIssue {
-	return &LeakKeyViaNewGithubIssue{
+	leakKeyViaNewGithubIssue := &LeakKeyViaNewGithubIssue{
 		GithubAccessToken:        githubAccessToken,
 		GithubRepoLeakTargetRepo: targetGithubRepo,
 	}
+	leakKeyViaNewGithubIssue.GithubClientWrapper = NewGithubClientWrapper(githubAccessToken)
+	return leakKeyViaNewGithubIssue
 }
 
 func (lkvc LeakKeyViaNewGithubIssue) Leak(accessKey *iam.AccessKey) error {
 
-	githubApiClient := NewGithubClientWrapper(lkvc.GithubAccessToken)
-
 	ctx := context.Background()
 
-	user, _, err := githubApiClient.ApiClient.Users.Get(ctx, "")
+	// Find out the github username (aka user login)
+	user, _, err := lkvc.GithubClientWrapper.ApiClient.Users.Get(ctx, "")
 	if err != nil {
 		return err
 	}
-	username := *user.Name
 
-	log.Printf("github login: %v, name: %v", *user.Login, username)
+	// Make sure the target repo exists and is private, otherwise try to create it
+	if err := lkvc.CreateOrVerifyTargetRepo(user); err != nil {
+		return err
+	}
 
+	// Post an issue with a comment that has leaked aws key
 	issueRequest := &github.IssueRequest{
 		Title: aws.String("KeyNuker Leaked Key 🔐 End-to-End Test"),
-		Body:  aws.String(fmt.Sprintf("Nukable 🔐💥 Key: %v.  Keynuker Project url: github.com/tleyden/keynuker", *accessKey.AccessKeyId)),
+		Body:  aws.String(fmt.Sprintf(
+			"Nukable 🔐💥 Key: %v.  Keynuker Project url: github.com/tleyden/keynuker",
+			*accessKey.AccessKeyId,
+		)),
 	}
-	_, _, err = githubApiClient.ApiClient.Issues.Create(ctx, *user.Login, lkvc.GithubRepoLeakTargetRepo, issueRequest)
+	_, _, err = lkvc.GithubClientWrapper.ApiClient.Issues.Create(ctx, *user.Login, lkvc.GithubRepoLeakTargetRepo, issueRequest)
 	if err != nil {
 		return err
 	}
+
+
 
 	return nil
 
 }
 
+func (lkvc LeakKeyViaNewGithubIssue) CreateOrVerifyTargetRepo(user *github.User) error {
+
+	ctx := context.Background()
+
+	repo, _, err := lkvc.GithubClientWrapper.ApiClient.Repositories.Get(ctx, *user.Login, lkvc.GithubRepoLeakTargetRepo)
+	if err == nil {
+		// the repo exists, but make sure it's private
+		if !*repo.Private {
+			return fmt.Errorf("Repository %v exists, but is not private, and it's not recommended to leak a live key on a public repo", lkvc.GithubRepoLeakTargetRepo)
+		}
+		// it exists and it's private, nothing to do
+		return nil
+	}
+
+	// If we got this far, the repo doesn't exist, so create it
+	repoToCreate := &github.Repository{
+		Name: aws.String(lkvc.GithubRepoLeakTargetRepo),
+		Private: aws.Bool(true),
+		HasIssues: aws.Bool(true),
+	}
+	_, _, createRepoErr := lkvc.GithubClientWrapper.ApiClient.Repositories.Create(ctx, "", repoToCreate)
+	return createRepoErr
+
+}
+
 func (lkvc LeakKeyViaNewGithubIssue) Cleanup() error {
+
+	// Delete all issues on the target repo that have "KeyNuker" in the title
+
 	return nil
 }
 
