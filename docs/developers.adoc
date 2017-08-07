@@ -50,7 +50,7 @@ The entire test suite is composed of:
 
 ===== WARNING: this leaks live AWS keys in a private repo
 
-Running the integration tests is potentially dangerous.  It will create, leak, and nuke live AWS keys.  It has been designed to be as safe as possible, but you are encouraged to do a thorough security review before running this, and to always make sure that everything has been properly cleaned up afterwards.
+Running the integration tests is potentially dangerous.  It will create, leak, and nuke live AWS keys (just the key, not the secret).  It has been designed to be as safe as possible, but you are encouraged to do a thorough security review before running this, and to always make sure that everything has been properly cleaned up afterwards.
 
 ===== Required Environment Variables
 
@@ -73,3 +73,10 @@ You will also need the following environment variables, some of which are descri
 ```
 $ go test -v
 ```
+
+==== Manual Cleanup
+
+Unfortunately the integration tests still leave some residue that require manual cleanup.
+
+- Document with ID of `TestDoc` in the database
+- Github issues with (hopefully nuked) AWS keys
