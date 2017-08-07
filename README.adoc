@@ -20,18 +20,27 @@ image::docs/diagrams/dataflow.png[Data Flow]
 
 KeyNuker is packaged as a series of https://github.com/apache/incubator-openwhisk[Apache OpenWhisk] actions, and can run anywhere that OpenWhisk can run.
 
-There is an included `install.py` script that automates the bulk of the installation:
+Get the code:
 
 ```
-$ git clone https://github.com/tleyden/keynuker.git
+$ go get -u -v -t github.com/tleyden/keynuker
+```
+
+Follow the steps in the link:docs/install.adoc[Installation Instructions] to setup OpenWhisk and set the required environment variables, and then run the installation script.
+
+```
+$ cd $GOPATH
 $ python install.py
+```
+
+After the installation script completes, you will have several OpenWhisk actions:
+
+```
 $ wsk action list
 /yourusername_dev/github-user-events-scanner-nuker                     private sequence
 /yourusername_dev/fetch-aws-keys-write-doc                             private sequence
 etc ...
 ```
-
-See the link:docs/install.adoc[Installation Instructions] for a step-by-step guide, including setting up dependent services and required environment variables.
 
 == ✅ Features
 
