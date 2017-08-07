@@ -67,13 +67,15 @@ func TestWriteDoc(t *testing.T) {
 		t.Fatalf("Error unmarshalling doc.  Err: %v", err)
 	}
 
+	testDocID := "TestDoc"
+
 	params := ParamsWriteDoc{
 		Host:     dbHost,
 		Username: dbUsername,
 		Password: dbPassword,
 		DbName:   dbName,
 		Doc:      doc,
-		DocId:    "TestDoc",
+		DocId:    testDocID,
 	}
 
 	docWrapper, err := WriteDocToDb(params)
@@ -87,6 +89,13 @@ func TestWriteDoc(t *testing.T) {
 	log.Printf("docWrapperBytes: %v", string(docWrapperBytes))
 
 	// TODO: cleanup by deleting doc
+
+	rev := docWrapper.(map[string]interface{})["_rev"].(string)
+	_, deleteDocErr := DeleteDoc(params, rev)
+	if deleteDocErr != nil {
+		log.Printf("Unable to delete test doc, will leave test residue in db")
+	}
+
 
 
 

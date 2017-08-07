@@ -31,7 +31,7 @@ func WriteDocToDb(params ParamsWriteDoc) (interface{}, error) {
 
 }
 
-func WriteDocToCloudant(params ParamsWriteDoc) (interface{}, error) {
+func CreateDBClient(params ParamsWriteDoc) (db *kivik.DB, err error) {
 
 	ctx := context.TODO()
 
@@ -47,7 +47,16 @@ func WriteDocToCloudant(params ParamsWriteDoc) (interface{}, error) {
 		return nil, err
 	}
 
-	db, err := client.DB(ctx, params.DbName)
+	return client.DB(ctx, params.DbName)
+
+
+}
+
+func WriteDocToCloudant(params ParamsWriteDoc) (interface{}, error) {
+
+	ctx := context.TODO()
+
+	db, err := CreateDBClient(params)
 	if err != nil {
 		return nil, err
 	}
@@ -94,6 +103,20 @@ func WriteDocToCloudant(params ParamsWriteDoc) (interface{}, error) {
 	}
 
 	return fetchedDoc, nil
+
+}
+
+
+func DeleteDoc(params ParamsWriteDoc, rev string) (newRev string, err error) {
+
+	ctx := context.TODO()
+
+	db, err := CreateDBClient(params)
+	if err != nil {
+		return "", err
+	}
+
+	return db.Delete(ctx, params.DocId, rev)
 
 }
 
