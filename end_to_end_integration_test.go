@@ -518,7 +518,19 @@ func (lkvc LeakKeyViaNewGithubIssue) Cleanup() error {
 	}
 
 	// Close the issue
-	// lkvc.GithubClientWrapper.ApiClient.Issues.Edit()
+	issueRequest := &github.IssueRequest{
+		State: aws.String("closed"),
+	}
+	_, _, closeIssueErr := lkvc.GithubClientWrapper.ApiClient.Issues.Edit(
+		ctx,
+		*lkvc.GithubUser.Login,
+		lkvc.GithubRepoLeakTargetRepo,
+		*lkvc.IssueCreatedForLeak.Number,
+		issueRequest,
+	)
+	if closeIssueErr != nil {
+		return closeIssueErr
+	}
 
 	return nil
 }
