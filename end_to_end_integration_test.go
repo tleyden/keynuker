@@ -394,6 +394,7 @@ type LeakKeyViaNewGithubIssue struct {
 	GithubRepoLeakTargetRepo string
 	GithubClientWrapper      *GithubClientWrapper
 	IssueCreatedForLeak      *github.Issue
+	IssueCommentCreatedForLeak *github.IssueComment
 	GithubUser               *github.User
 }
 
@@ -423,13 +424,13 @@ func (lkvc *LeakKeyViaNewGithubIssue) Leak(accessKey *iam.AccessKey) error {
 		return err
 	}
 
-	// Post an issue with a comment that has leaked aws key
+	// Post an issue
 	issueRequest := &github.IssueRequest{
 		Title: aws.String("KeyNuker Leaked Key 🔐 End-to-End Test"),
-		Body: aws.String(fmt.Sprintf(
-			"Nukable 🔐💥 Key: %v.  Keynuker Project url: github.com/tleyden/keynuker",
-			*accessKey.AccessKeyId,
-		)),
+		//Body: aws.String(fmt.Sprintf(
+		//	"Nukable 🔐💥 Key: %v.  Keynuker Project url: github.com/tleyden/keynuker",
+		//	*accessKey.AccessKeyId,
+		//)),
 	}
 	lkvc.IssueCreatedForLeak, _, err = lkvc.GithubClientWrapper.ApiClient.Issues.Create(
 		ctx,
@@ -440,6 +441,25 @@ func (lkvc *LeakKeyViaNewGithubIssue) Leak(accessKey *iam.AccessKey) error {
 	if err != nil {
 		return err
 	}
+
+	// Create a comment that has leaked aws key
+	issueComment := &github.IssueComment{
+		Body: aws.String(fmt.Sprintf(
+			"Nukable 🔐💥 Key: %v.  Keynuker Project url: github.com/tleyden/keynuker",
+			*accessKey.AccessKeyId,
+		)),
+	}
+	lkvc.IssueCommentCreatedForLeak, _, err = lkvc.GithubClientWrapper.ApiClient.Issues.CreateComment(
+		ctx,
+		*lkvc.GithubUser.Login,
+		lkvc.GithubRepoLeakTargetRepo,
+		*lkvc.IssueCreatedForLeak.Number,
+		issueComment,
+	)
+	if err != nil {
+		return err
+	}
+
 
 	return nil
 
@@ -474,8 +494,6 @@ func (lkvc LeakKeyViaNewGithubIssue) Cleanup() error {
 
 	ctx := context.Background()
 
-	time.Sleep(time.Second * 10) // race workaround attempt
-
 	issueComments, _, listCommentsErr := lkvc.GithubClientWrapper.ApiClient.Issues.ListComments(
 		ctx,
 		*lkvc.GithubUser.Login,
@@ -486,8 +504,6 @@ func (lkvc LeakKeyViaNewGithubIssue) Cleanup() error {
 	if listCommentsErr != nil {
 		return listCommentsErr
 	}
-
-	time.Sleep(time.Second * 10) // race workaround attempt
 
 	for _, issueComment := range issueComments {
 		_, deleteCommentErr := lkvc.GithubClientWrapper.ApiClient.Issues.DeleteComment(
@@ -500,6 +516,9 @@ func (lkvc LeakKeyViaNewGithubIssue) Cleanup() error {
 			return deleteCommentErr
 		}
 	}
+
+	// Close the issue
+	// lkvc.GithubClientWrapper.ApiClient.Issues.Edit()
 
 	return nil
 }
