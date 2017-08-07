@@ -29,7 +29,7 @@ $ go get -u -v -t github.com/tleyden/keynuker
 Follow the steps in the link:docs/install.adoc[Installation Instructions] to setup OpenWhisk and set the required environment variables, and then run the installation script.
 
 ```
-$ cd $GOPATH
+$ cd $GOPATH/src/github.com/tleyden/keynuker/
 $ python install.py
 ```
 

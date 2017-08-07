@@ -114,6 +114,12 @@ This is the full list of environment variables you should have set from the abov
 
 == Install KeyNuker to OpenWhisk
 
+=== Get the code
+
+```
+$ go get -u -v -t github.com/tleyden/keynuker
+```
+
 === Run install.py ===
 
 The `install.py` script will do the following things:
@@ -123,6 +129,7 @@ The `install.py` script will do the following things:
 . Create (or recreate) all of the OpenWhish actions, triggers, and rules
 
 ```
+$ cd $GOPATH/src/github.com/tleyden/keynuker/
 $ python install.py
 ```
 

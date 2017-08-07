@@ -18,3 +18,49 @@ The testing mocks are generated via:
 ```
 $ ./generate.sh
 ```
+
+== Testing related Environment Variables
+
+
+.Environment variables
+|===
+|Variable |Example |Description
+
+|KEYNUKER_INTEGRATION_TESTS_ENABLED
+|true
+|Controls whether integration tests are enabled.  Defaults to false.
+
+
+|KEYNUKER_GITHUB_LEAK_TARGET_REPO
+|keynuker-integration-tests
+|A private github repo that will be *created by the test itself*, where live AWS keys will be leaked.  If danger zone warnings sings are flashing, they should be.  This is potentially dangerous.
+
+|===
+
+
+== Running integration tests
+
+The entire test suite is composed of:
+
+- Tests that only run as self-contained unit tests (some with mocks)
+- Tests that only run as integration tests against live Github / AWS services
+- Tests that can run either as an integration test or a unit test against mocks
+
+WARNING: running the integration tests is potentially dangerous.  It will create, leak, and nuke live AWS keys.  It has been designed to be as safe as possible, but you are encouraged to do a thorough security review before running this, and to always make sure that everything has been properly cleaned up afterwards.
+
+=== Required Environment Variables
+
+To run integration tests, you need to set the `KEYNUKER_INTEGRATION_TESTS_ENABLED` environment variable to true.
+
+You will also need the following environment variables, some of which are described in <<Environment variables>> :
+
+- `TARGET_AWS_ACCOUNTS` (NOTE: it only uses the 1st aws account listed when running integration tests)
+- `KEYNUKER_GITHUB_LEAK_TARGET_REPO`
+- `GITHUB_ACCESS_TOKEN` (NOTE: requires more permissions than the one listed in the <<Environment variables>>, since it needs to create repos.  TODO: document the exact permissions needed)
+- `GITHUB_ORGS` (NOTE: the user that owns the `GITHUB_ACCESS_TOKEN` must be a member of one of at least one of the github orgs listed here)
+
+=== Run go test
+
+```
+$ go test -v
+```

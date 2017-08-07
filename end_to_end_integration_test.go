@@ -69,6 +69,48 @@ func NewEndToEndIntegrationTest() *EndToEndIntegrationTest {
 	return &EndToEndIntegrationTest{}
 }
 
+
+func (e EndToEndIntegrationTest) Run() error {
+
+	// Set this to true to verify that the end-to-end integration test catches a real bug
+	SetArtificialErrorInjection(false)
+
+	keyLeakScenarios := e.GetEndToEndKeyLeakScenarios()
+	for _, keyLeakScenario := range keyLeakScenarios {
+
+		awsAccessKey, err := e.CreateKeyToLeak()
+		if err != nil {
+			return err
+		}
+
+		if err := keyLeakScenario.Leak(awsAccessKey); err != nil {
+			return fmt.Errorf("Error running testScenario: %v", err)
+		}
+
+		if err := e.RunKeyNuker(awsAccessKey); err != nil {
+			return fmt.Errorf("Error running keynuker: %v", err)
+		}
+
+		nuked, err := e.VerifyKeyNuked(awsAccessKey)
+		if err != nil {
+			return fmt.Errorf("Error verifying key was nuked: %v", err)
+		}
+
+		if !nuked {
+			e.CleanupUnNuked(awsAccessKey)
+			return fmt.Errorf("Key %v should have been nuked, but it wasn't", *awsAccessKey.AccessKeyId)
+		}
+
+		if err := keyLeakScenario.Cleanup(); err != nil {
+			return fmt.Errorf("Error cleaning up keyleak scenario: %v", err)
+		}
+
+	}
+
+	return nil
+
+}
+
 func (e *EndToEndIntegrationTest) InitGithubAccess() error {
 
 	githubRepoLeakTargetRepo, ok := os.LookupEnv(keynuker_go_common.EnvVarKeyNukerTestGithubLeakTargetRepo)
@@ -179,46 +221,6 @@ func (e EndToEndIntegrationTest) DiscoverIAMUsernameForKey(AwsAccessKeyId string
 
 }
 
-func (e EndToEndIntegrationTest) Run() error {
-
-	// Set this to true to verify that the end-to-end integration test catches a real bug
-	SetArtificialErrorInjection(false)
-
-	keyLeakScenarios := e.GetEndToEndKeyLeakScenarios()
-	for _, keyLeakScenario := range keyLeakScenarios {
-
-		awsAccessKey, err := e.CreateKeyToLeak()
-		if err != nil {
-			return err
-		}
-
-		if err := keyLeakScenario.Leak(awsAccessKey); err != nil {
-			return fmt.Errorf("Error running testScenario: %v", err)
-		}
-
-		if err := e.RunKeyNuker(awsAccessKey); err != nil {
-			return fmt.Errorf("Error running keynuker: %v", err)
-		}
-
-		nuked, err := e.VerifyKeyNuked(awsAccessKey)
-		if err != nil {
-			return fmt.Errorf("Error verifying key was nuked: %v", err)
-		}
-
-		if !nuked {
-			e.CleanupUnNuked(awsAccessKey)
-			return fmt.Errorf("Key %v should have been nuked, but it wasn't", *awsAccessKey.AccessKeyId)
-		}
-
-		if err := keyLeakScenario.Cleanup(); err != nil {
-			return fmt.Errorf("Error cleaning up keyleak scenario: %v", err)
-		}
-
-	}
-
-	return nil
-
-}
 
 func (e EndToEndIntegrationTest) GetEndToEndKeyLeakScenarios() []KeyLeakScenario {
 	return []KeyLeakScenario{
@@ -464,7 +466,7 @@ func (lkvc LeakKeyViaNewGithubIssue) CreateOrVerifyTargetRepo(user *github.User)
 
 func (lkvc LeakKeyViaNewGithubIssue) Cleanup() error {
 
-	// Delete all issues on the target repo that have "KeyNuker" in the title
+	// TODO: Delete all issues on the target repo that have "KeyNuker" in the title
 
 	return nil
 }
