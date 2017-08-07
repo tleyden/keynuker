@@ -8,7 +8,6 @@ import (
 	"fmt"
 
 	"github.com/google/go-github/github"
-	"github.com/tleyden/keynuker-history/keynuker-github"
 	"github.com/tleyden/keynuker/keynuker-go-common"
 )
 
@@ -24,7 +23,7 @@ func AggregateGithubUsers(params ParamsGithubUserAggregator) (DocumentWrapperGit
 	)
 
 	// Create a github user aggregator helper
-	ghUserAggregator := keynuker_github.NewGithubUserAggregator(
+	ghUserAggregator := NewGithubUserAggregator(
 		params.GithubOrgs,
 		params.GithubAccessToken,
 	)
