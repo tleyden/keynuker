@@ -88,15 +88,11 @@ func TestWriteDoc(t *testing.T) {
 	assert.True(t, err == nil)
 	log.Printf("docWrapperBytes: %v", string(docWrapperBytes))
 
-	// TODO: cleanup by deleting doc
-
 	rev := docWrapper.(map[string]interface{})["_rev"].(string)
 	_, deleteDocErr := DeleteDoc(params, rev)
 	if deleteDocErr != nil {
 		log.Printf("Unable to delete test doc, will leave test residue in db")
 	}
-
-
 
 
 }

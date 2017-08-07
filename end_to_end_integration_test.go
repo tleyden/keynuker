@@ -71,7 +71,6 @@ func NewEndToEndIntegrationTest() *EndToEndIntegrationTest {
 	return &EndToEndIntegrationTest{}
 }
 
-
 func (e EndToEndIntegrationTest) Run() error {
 
 	// Set this to true to verify that the end-to-end integration test catches a real bug
@@ -104,7 +103,7 @@ func (e EndToEndIntegrationTest) Run() error {
 		}
 
 		if err := keyLeakScenario.Cleanup(); err != nil {
-			return fmt.Errorf("Error cleaning up keyleak scenario: %v", err)
+			log.Printf("Error cleaning up keyleak scenario: %v.  There may be test residue you should cleanup by hand", err)
 		}
 
 	}
@@ -138,7 +137,6 @@ func (e *EndToEndIntegrationTest) InitGithubAccess() error {
 }
 
 func (e *EndToEndIntegrationTest) InitAwsIamSession() error {
-
 
 	targetAwsAccounts, err := GetTargetAwsAccountsFromEnv()
 	if err != nil {
@@ -222,7 +220,6 @@ func (e EndToEndIntegrationTest) DiscoverIAMUsernameForKey(AwsAccessKeyId string
 	return "", fmt.Errorf("Unable to lookup username for key")
 
 }
-
 
 func (e EndToEndIntegrationTest) GetEndToEndKeyLeakScenarios() []KeyLeakScenario {
 	return []KeyLeakScenario{
@@ -395,7 +392,9 @@ type KeyLeakScenario interface {
 type LeakKeyViaNewGithubIssue struct {
 	GithubAccessToken        string
 	GithubRepoLeakTargetRepo string
-	GithubClientWrapper *GithubClientWrapper
+	GithubClientWrapper      *GithubClientWrapper
+	IssueCreatedForLeak      *github.Issue
+	GithubUser               *github.User
 }
 
 func NewLeakKeyViaCommit(githubAccessToken, targetGithubRepo string) *LeakKeyViaNewGithubIssue {
@@ -407,30 +406,37 @@ func NewLeakKeyViaCommit(githubAccessToken, targetGithubRepo string) *LeakKeyVia
 	return leakKeyViaNewGithubIssue
 }
 
-func (lkvc LeakKeyViaNewGithubIssue) Leak(accessKey *iam.AccessKey) error {
+func (lkvc *LeakKeyViaNewGithubIssue) Leak(accessKey *iam.AccessKey) error {
 
 	ctx := context.Background()
 
+	var err error
+
 	// Find out the github username (aka user login)
-	user, _, err := lkvc.GithubClientWrapper.ApiClient.Users.Get(ctx, "")
+	lkvc.GithubUser, _, err = lkvc.GithubClientWrapper.ApiClient.Users.Get(ctx, "")
 	if err != nil {
 		return err
 	}
 
 	// Make sure the target repo exists and is private, otherwise try to create it
-	if err := lkvc.CreateOrVerifyTargetRepo(user); err != nil {
+	if err := lkvc.CreateOrVerifyTargetRepo(lkvc.GithubUser); err != nil {
 		return err
 	}
 
 	// Post an issue with a comment that has leaked aws key
 	issueRequest := &github.IssueRequest{
 		Title: aws.String("KeyNuker Leaked Key 🔐 End-to-End Test"),
-		Body:  aws.String(fmt.Sprintf(
+		Body: aws.String(fmt.Sprintf(
 			"Nukable 🔐💥 Key: %v.  Keynuker Project url: github.com/tleyden/keynuker",
 			*accessKey.AccessKeyId,
 		)),
 	}
-	_, _, err = lkvc.GithubClientWrapper.ApiClient.Issues.Create(ctx, *user.Login, lkvc.GithubRepoLeakTargetRepo, issueRequest)
+	lkvc.IssueCreatedForLeak, _, err = lkvc.GithubClientWrapper.ApiClient.Issues.Create(
+		ctx,
+		*lkvc.GithubUser.Login,
+		lkvc.GithubRepoLeakTargetRepo,
+		issueRequest,
+	)
 	if err != nil {
 		return err
 	}
@@ -455,8 +461,8 @@ func (lkvc LeakKeyViaNewGithubIssue) CreateOrVerifyTargetRepo(user *github.User)
 
 	// If we got this far, the repo doesn't exist, so create it
 	repoToCreate := &github.Repository{
-		Name: aws.String(lkvc.GithubRepoLeakTargetRepo),
-		Private: aws.Bool(true),
+		Name:      aws.String(lkvc.GithubRepoLeakTargetRepo),
+		Private:   aws.Bool(true),
 		HasIssues: aws.Bool(true),
 	}
 	_, _, createRepoErr := lkvc.GithubClientWrapper.ApiClient.Repositories.Create(ctx, "", repoToCreate)
@@ -466,8 +472,34 @@ func (lkvc LeakKeyViaNewGithubIssue) CreateOrVerifyTargetRepo(user *github.User)
 
 func (lkvc LeakKeyViaNewGithubIssue) Cleanup() error {
 
-	// TODO: delete the target repo in order to reduce the chances that it was ever made public
+	ctx := context.Background()
+
+	time.Sleep(time.Second * 10) // race workaround attempt
+
+	issueComments, _, listCommentsErr := lkvc.GithubClientWrapper.ApiClient.Issues.ListComments(
+		ctx,
+		*lkvc.GithubUser.Login,
+		lkvc.GithubRepoLeakTargetRepo,
+		*lkvc.IssueCreatedForLeak.Number,
+		nil,
+	)
+	if listCommentsErr != nil {
+		return listCommentsErr
+	}
+
+	time.Sleep(time.Second * 10) // race workaround attempt
+
+	for _, issueComment := range issueComments {
+		_, deleteCommentErr := lkvc.GithubClientWrapper.ApiClient.Issues.DeleteComment(
+			ctx,
+			*lkvc.GithubUser.Login,
+			lkvc.GithubRepoLeakTargetRepo,
+			*issueComment.ID,
+		)
+		if deleteCommentErr != nil {
+			return deleteCommentErr
+		}
+	}
 
 	return nil
 }
-
