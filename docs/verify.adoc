@@ -56,6 +56,8 @@ Check the output, and assuming there weren't any leaked keys, you should see `"N
 
 == End-to-end system test: leak a live AWS key
 
+If you don't want to do this test by hand, you can run the integration test suite which performs (mostly) the same steps, in particular in the end-to-end-integration test.  See the link:developers.adoc[Developer Guide] for more info.
+
 === Create IAM user with zero privileges
 
 In the AWS web admin UI, create a new IAM user called `KeyLeaker` with only **Programmatic access** and don't assign the user *any* policy whatsoever -- you should see a warning **This user has no permissions**

@@ -22,6 +22,8 @@ import (
 	"github.com/tleyden/keynuker/keynuker-go-common"
 )
 
+// INSTRUCTIONS to run integration tests are in the Developer Guide (developers.adoc)
+
 // - Create a test AWS user w/ minimal permissions
 //     - Note: this was simplified and so it just re-uses the KeyNuker user and leaks a key under that account
 // - Loop over leaked key scenarios
@@ -433,8 +435,6 @@ func (lkvc LeakKeyViaNewGithubIssue) Leak(accessKey *iam.AccessKey) error {
 		return err
 	}
 
-
-
 	return nil
 
 }
@@ -466,7 +466,7 @@ func (lkvc LeakKeyViaNewGithubIssue) CreateOrVerifyTargetRepo(user *github.User)
 
 func (lkvc LeakKeyViaNewGithubIssue) Cleanup() error {
 
-	// TODO: Delete all issues on the target repo that have "KeyNuker" in the title
+	// TODO: delete the target repo in order to reduce the chances that it was ever made public
 
 	return nil
 }

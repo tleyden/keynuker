@@ -28,8 +28,6 @@ const (
 
 	EnvVarKeyNukerTestTargetAwsAccounts = "TARGET_AWS_ACCOUNTS"
 
-	EnvVarKeyNukerTestLeakedAwsAccessKeyId = "LEAKED_AWS_ACCESS_KEY_ID"
-
 	EnvVarKeyNukerTestTargetAccountAwsAccessKeyId = "TARGET_ACCOUNT_AWS_ACCESS_KEY_ID"
 
 	EnvVarKeyNukerTestIntegrationTestsEnabled = "KEYNUKER_INTEGRATION_TESTS_ENABLED"
