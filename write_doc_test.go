@@ -86,4 +86,8 @@ func TestWriteDoc(t *testing.T) {
 	assert.True(t, err == nil)
 	log.Printf("docWrapperBytes: %v", string(docWrapperBytes))
 
+	// TODO: cleanup by deleting doc
+
+
+
 }

@@ -4,20 +4,10 @@
 package keynuker
 
 import (
-	"log"
-	"os"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/assert"
-
-	"encoding/json"
-
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/google/go-github/github"
-	"github.com/tleyden/keynuker/keynuker-go-common"
 )
-
 
 func TestFindAwsAccount(t *testing.T) {
 

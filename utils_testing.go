@@ -14,7 +14,7 @@ import (
 )
 
 var (
-	ArtificialErrorInjectionEnabled = true
+	ArtificialErrorInjectionEnabled = false
 )
 
 func SkipIfIntegrationsTestsNotEnabled(t *testing.T) {
