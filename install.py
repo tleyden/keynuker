@@ -1,14 +1,6 @@
 
 """
-Build and install KeyNuker 
-
-There are two major pieces of functionality:
-
-   - Build-binaries
-        - Builds go binaries and packages into zip file
-   - Install-OpenWhisk-Actions
-        - Installs openwhisk actions via wsk utility to your configured OpenWhisk system
-
+Build and install KeyNuker to OpenWhisk
 """
 
 import subprocess
@@ -16,8 +8,10 @@ import os
 
 def main():
 
+    # Builds go binaries and packages into zip file
     build_binaries()
 
+    # Installs openwhisk actions via wsk utility to your configured OpenWhisk system
     install_openwhisk_actions() 
 
     print("Success!")
