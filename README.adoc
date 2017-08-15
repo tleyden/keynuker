@@ -1,4 +1,5 @@
-image:https://img.shields.io/badge/license-Apache%202-blue.svg[link=https://www.apache.org/licenses/LICENSE-2.0]
+image:https://img.shields.io/badge/license-Apache%202-blue.svg[link=https://www.apache.org/licenses/LICENSE-2.0] image:https://badges.gitter.im/tleyden/keynuker.svg[link="https://gitter.im/tleyden/keynuker?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge"]
+
 
 If you accidentally leak your AWS keys on GitHub, it won't be long before attackers scrape this information and https://web.archive.org/web/20160304044323/https://www.forbes.com/sites/runasandvik/2014/01/14/attackers-scrape-github-for-cloud-service-credentials-hijack-account-to-mine-virtual-currency/#41d040f67cf8:[hijack your account for nefarious purposes].  
 
