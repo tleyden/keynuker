@@ -128,5 +128,7 @@ The basic end-to-end functionality is working, except for notifications, but the
 
 Taking a security-at-depth approach, in addition to running KeyNuker you should also consider the following precautions:
 
+- Limit ec2 actions to only the regions that you use, eg (`"StringEquals": {"ec2:Region": "us-east-1"}`)
+- Limit ec2 actions to only the instance types that you use, eg (`"StringLikeIfExists": {"ec2:InstanceType": ["t1.*"]}`)
 - Use temporary AWS keys that require MFA
 - Minimize chance of AWS keys from ever leaking in the first place using tools such as https://github.com/awslabs/git-secrets[Git Secrets] which can be configured as a pre-commit hook.
