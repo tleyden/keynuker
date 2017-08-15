@@ -40,6 +40,8 @@ func (gues GithubUserEventsScanner) ScanAwsKeys(params ParamsScanGithubUserEvent
 
 	ctx := context.Background()
 
+	// TODO: this code needs review.  It works, and it's relatively efficient, but it's unnecessarily complicated
+
 	chUsersToProcess := make(chan *github.User)
 
 	chScanResults := make(chan ScanResult)
