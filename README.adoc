@@ -44,6 +44,7 @@ etc ...
 
 == ✅ Features
 
+. Never has access to AWS Secret Access Keys, only to AWS Access Key IDs.
 . Noise-free because it scans actual AWS keys rather than taking a pattern matching approach that produces false positives
 . Takes actions rather than sending alerts, since depending on people to respond to alerts might introduce a costly delay in reaction time
 . Covers all public github activity of users in your github org(s), since they might leak AWS keys on their personal repos or even 3rd party repos
