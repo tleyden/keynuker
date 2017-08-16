@@ -1,0 +1,15 @@
+Provide a REST API that will return "FAILED" if any any activations in the last 24 hours failed with:
+
+```
+"response": {
+        "status": "action developer error",
+        "statusCode": 0,
+        "success": false,
+        "result": {
+            "error": "The action did not return a dictionary."
+        }
+    },
+```
+
+This can be then monitored by UptimeRobot to send alerts.
+
