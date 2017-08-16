@@ -20,7 +20,8 @@ func OpenWhiskCallback(value json.RawMessage) (interface{}, error) {
 	activationsStatus := keynuker.OpenWhiskRecentActivationsStatus()
 
 	marshalled, _ := json.MarshalIndent(activationsStatus, "", "    ")
-	log.Printf("%v\n", marshalled)
+
+	log.Printf("activationStatus: %v\n", string(marshalled))
 
 	return activationsStatus, nil
 

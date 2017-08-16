@@ -64,6 +64,7 @@ func ScanActivationsForFailures(whiskConfig *whisk.Config) (failedActivations []
 	}
 	for _, activation := range activations {
 		if activation.Response.Success == false {
+			log.Printf("Detected failed activation: %v", activation.ActivationID)
 			failedActivations = append(failedActivations, activation)
 		}
 	}
