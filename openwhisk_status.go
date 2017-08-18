@@ -31,7 +31,7 @@ func OpenWhiskRecentActivationsStatus() (keynukerStatus map[string]interface{}) 
 
 	// whiskConfig.Debug = true
 
-	failedActivations, err := ScanActivationsForFailures(whiskConfig, 200)
+	failedActivations, err := ScanActivationsForFailures(whiskConfig, 1000)
 	log.Printf("ScanActivationsForFailures returned %d failedActivations", len(failedActivations))
 
 	if err != nil {
