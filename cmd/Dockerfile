@@ -10,6 +10,6 @@ RUN apk add --no-cache bash \
   && pip install --no-cache-dir gevent==1.1.2 flask==0.11.1 \
   && apk del .build-deps
 
-COPY action /action
+COPY exec /exec
 EXPOSE 8080
-CMD ["./action"]
+CMD ["./exec"]

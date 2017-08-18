@@ -122,6 +122,7 @@ def install_openwhisk_actions(packaging_params):
             "password": "KEYNUKER_DB_SECRET_KEY",
             "dbname": "KEYNUKER_DB_NAME",
         },
+        "monitor-activations": {},
     }
 
     actions = []
@@ -439,7 +440,11 @@ def docker_build():
     dest_dockerfile = "Dockerfile"
     shutil.copyfile(src_dockerfile, dest_dockerfile)
 
+    # Build docker image
     subprocess.check_call("docker build -t {}/{} .".format(dockerhub_user, dockerhub_repo), shell=True)
+
+    # Delete the Dockerfile copy that is no longer needed
+    os.remove(dest_dockerfile)
 
 def docker_push():
     """
