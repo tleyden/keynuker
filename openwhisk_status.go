@@ -71,7 +71,8 @@ func ScanActivationsForFailures(whiskConfig *whisk.Config) (failedActivations []
 	}
 
 	listActivationsOptions := &whisk.ActivationListOptions{
-		Docs: true, // Need to include this to get the activation doc body
+		Docs:  true, // Need to include this to get the activation doc body, which ends up using lots of memory
+		Limit: 20,   // This must limited to a small number, otherwise it will exceed memory limits and get killed abruptly
 	}
 
 	log.Printf("ScanActivationsForFailures() Activations.List()")
