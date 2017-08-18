@@ -13,20 +13,10 @@ def main():
     # Builds go binaries and packages into zip file
     build_binaries()
 
-    # Parameters to specify how the openwhisk actions are packaged
-    packaging_params = collections.namedtuple('PackagingParams', 'useDockerSkeleton', 'path')
-
-    # useDockerSkeleton: true or false.  True to use https://hub.docker.com/r/tleyden5iwx/openwhisk-dockerskeleton/
-    #                                    False to directly build an image and push to dockerhub
-    # If you set to False, you will need to have docker locally installed and a few extra environment
-    # variables set.
-    packaging_params.useDockerSkeleton = True
-
     # Installs openwhisk actions via wsk utility to your configured OpenWhisk system
-    install_openwhisk_actions(packaging_params)
+    install_openwhisk_actions(get_default_packaging_params())
 
     print("Success!")
-
 
 def build_binaries():
     """
@@ -472,6 +462,23 @@ def discover_dockerhub_repo():
     # return the basename (fetch-aws-keys) which will be used to derive the name for the
     # dockerhub repo to push to
     return os.path.basename(os.getcwd())
+
+def get_default_packaging_params():
+
+    # Parameters to specify how the openwhisk actions are packaged
+    packaging_params = collections.namedtuple('PackagingParams', 'useDockerSkeleton', 'path')
+
+    # useDockerSkeleton: true or false.  True to use https://hub.docker.com/r/tleyden5iwx/openwhisk-dockerskeleton/
+    #                                    False to directly build an image and push to dockerhub
+    # There are two reasons you might want to set this to False:
+    #   1. Want full control of all the code, as opposed to trusting the code in https://hub.docker.com/r/tleyden5iwx/openwhisk-dockerskeleton/
+    #   2. Suspect there is an issue with the actionproxy.py wrapper code in openwhisk-dockerskeleton, and want to compare behavior.
+    # If you set to False, you will need to have docker locally installed and a few extra environment
+    # variables set.  You will also need to go into the cmd entrypoints and call "ow.RegisterAction(OpenWhiskCallback)"
+    # rather than "keynuker_go_common.InvokeActionStdIo(OpenWhiskCallback)".
+    packaging_params.useDockerSkeleton = True
+
+    return packaging_params
 
 
 if __name__ == "__main__":
