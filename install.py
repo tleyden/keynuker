@@ -112,7 +112,9 @@ def install_openwhisk_actions(packaging_params):
             "password": "KEYNUKER_DB_SECRET_KEY",
             "dbname": "KEYNUKER_DB_NAME",
         },
-        "monitor-activations": {},
+        "monitor-activations": {
+            "WebAction": True,
+        },
     }
 
     actions = []
@@ -315,7 +317,7 @@ def install_openwhisk_action(packaging_params, openwhisk_action, params_to_env):
 
     if packaging_params.useDockerSkeleton == True:
         # Default the action timeout to 5 minutes, which is the max value on the hosted IBM bluemix platform
-        command = "wsk action create {} --timeout 300000 --docker tleyden5iwx/openwhisk-dockerskeleton action.zip {}".format(
+        command = "wsk action create {} --memory 512 --timeout 300000 --docker tleyden5iwx/openwhisk-dockerskeleton action.zip {}".format(
             openwhisk_action,
             expanded_params,
         )
@@ -324,7 +326,7 @@ def install_openwhisk_action(packaging_params, openwhisk_action, params_to_env):
         build_docker_in_path(packaging_params.path)
 
         # Default the action timeout to 5 minutes, which is the max value on the hosted IBM bluemix platform
-        command = "wsk action create {} --timeout 300000 --docker {}/{} {}".format(
+        command = "wsk action create {} --memory 512 --timeout 300000 --docker {}/{} {}".format(
             openwhisk_action,
             discover_dockerhub_user(),
             openwhisk_action,
@@ -362,6 +364,9 @@ def expand_params(params_to_env):
         if paramName == "TargetAwsAccounts":
             # This needs special handling since it's an array
             continue
+        if paramName == "WebAction":
+            # This needs special handling since the format is "--web true" rather than "--param name value"
+            continue
 
         envVarVal = os.environ.get(envVarName)
         if envVarVal is None:
@@ -383,6 +388,9 @@ def expand_params(params_to_env):
         envVarVal = os.environ.get(envVarName)
         result += " --param TargetAwsAccounts "
         result += "\'{}\'".format(envVarVal)
+
+    if "WebAction" in params_to_env:
+        result += " --web true"
 
     return result 
 
