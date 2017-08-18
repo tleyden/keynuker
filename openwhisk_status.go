@@ -32,6 +32,7 @@ func OpenWhiskRecentActivationsStatus() (keynukerStatus map[string]interface{}) 
 	// whiskConfig.Debug = true
 
 	failedActivations, err := ScanActivationsForFailures(whiskConfig, 200)
+	log.Printf("ScanActivationsForFailures returned %d failedActivations", len(failedActivations))
 
 	if err != nil {
 		msg := fmt.Sprintf("Error scanning activations for failures: %v", err)
@@ -45,6 +46,8 @@ func OpenWhiskRecentActivationsStatus() (keynukerStatus map[string]interface{}) 
 	if len(failedActivations) == 0 {
 		keynukerStatus["status"] = "success"
 	}
+
+	log.Printf("keynukerStatus: %+v", keynukerStatus)
 
 	return keynukerStatus
 
@@ -70,9 +73,11 @@ func ScanActivationsForFailures(whiskConfig *whisk.Config, maxActivationsToScan 
 	for {
 
 		// Check to see if we've already scanned far enough back
-		numActivationsScanned := skipOffset * pageSize
+		numActivationsScanned := skipOffset
 		if numActivationsScanned >= maxActivationsToScan {
 			// return what we have so far (should be no failures)
+			log.Printf("numActivationsScanned (%d) >= maxActivationsToScan (%d).  return failedActivations: %v", numActivationsScanned, maxActivationsToScan, failedActivations)
+
 			return failedActivations, nil
 		}
 
@@ -82,9 +87,13 @@ func ScanActivationsForFailures(whiskConfig *whisk.Config, maxActivationsToScan 
 			Skip:  skipOffset,
 		}
 
+		log.Printf("List Activations with: %+v", listActivationsOptions)
 		// Make REST call to OpenWhisk API to load list of activations
 		activations, _, err := client.Activations.List(listActivationsOptions)
+		log.Printf("List Activations returned %d activations", len(activations))
+
 		if err != nil {
+			log.Printf("List Activations returned err: %v", err)
 			return failedActivations, err
 		}
 
@@ -103,6 +112,8 @@ func ScanActivationsForFailures(whiskConfig *whisk.Config, maxActivationsToScan 
 
 		// If we found any failures, just return early
 		if len(failedActivations) > 0 {
+			log.Printf("len(failedActivations) > 0 (=%d).  Returning: %v", len(failedActivations), failedActivations)
+
 			return failedActivations, nil
 		}
 
@@ -112,6 +123,10 @@ func ScanActivationsForFailures(whiskConfig *whisk.Config, maxActivationsToScan 
 	}
 
 	// Should never get here
+	if len(failedActivations) > 0 {
+		log.Printf("len(failedActivations) > 0 (=%d).  Returning: %v", len(failedActivations), failedActivations)
+	}
+
 	return failedActivations, nil
 
 }
