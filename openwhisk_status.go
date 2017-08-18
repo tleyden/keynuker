@@ -31,7 +31,7 @@ func OpenWhiskRecentActivationsStatus() (keynukerStatus map[string]interface{}) 
 
 	// whiskConfig.Debug = true
 
-	failedActivations, err := ScanActivationsForFailures(whiskConfig)
+	failedActivations, err := ScanActivationsForFailures(whiskConfig, 200)
 
 	if err != nil {
 		msg := fmt.Sprintf("Error scanning activations for failures: %v", err)
@@ -50,35 +50,70 @@ func OpenWhiskRecentActivationsStatus() (keynukerStatus map[string]interface{}) 
 
 }
 
-// Loop over all activations and return the ones that have a whisk.Result with Success == false
-// TODO: To improve this, it should take a list of activation types to ignore (like monitor-activation where
-// TODO: it sees it's own echoes of monitoring!) and then keeps pulling activations until it sees X non-ignored
-// TODO: activations.
-func ScanActivationsForFailures(whiskConfig *whisk.Config) (failedActivations []whisk.Activation, err error) {
+// Loop over all activations and return the ones that have a whisk.Result with Success == false.
+// Stop scanning after maxActivationsToScan activations have been scanned
+func ScanActivationsForFailures(whiskConfig *whisk.Config, maxActivationsToScan int) (failedActivations []whisk.Activation, err error) {
 
 	client, err := whisk.NewClient(http.DefaultClient, whiskConfig)
 	if err != nil {
 		return failedActivations, err
 	}
 
-	listActivationsOptions := &whisk.ActivationListOptions{
-		Docs:  true, // Need to include this to get the activation doc body, which ends up using lots of memory
-		Limit: 20,   // This must limited to a small number, otherwise it will exceed memory limits and get killed abruptly
-	}
+	failedActivations = []whisk.Activation{}
 
-	activations, _, err := client.Activations.List(listActivationsOptions)
-	if err != nil {
-		return failedActivations, err
-	}
+	// This must limited to a small number, otherwise it will exceed memory limits and get killed abruptly
+	pageSize := 25
 
-	for _, activation := range activations {
-		if activation.Response.Success == false {
-			log.Printf("Detected failed activation: %v", activation.ActivationID)
-			failedActivations = append(failedActivations, activation)
+	// Keep track
+	skipOffset := 0
+
+	for {
+
+		// Check to see if we've already scanned far enough back
+		numActivationsScanned := skipOffset * pageSize
+		if numActivationsScanned >= maxActivationsToScan {
+			// return what we have so far (should be no failures)
+			return failedActivations, nil
 		}
+
+		listActivationsOptions := &whisk.ActivationListOptions{
+			Docs:  true, // Need to include this to get the activation doc body, which ends up using lots of memory
+			Limit: pageSize,
+			Skip:  skipOffset,
+		}
+
+		// Make REST call to OpenWhisk API to load list of activations
+		activations, _, err := client.Activations.List(listActivationsOptions)
+		if err != nil {
+			return failedActivations, err
+		}
+
+		if len(activations) == 0 {
+			// Looks like we hit the end of list of total avaialable activations
+			return failedActivations, nil
+		}
+
+		// Loop over activations and look for failures
+		for _, activation := range activations {
+			if activation.Response.Success == false {
+				log.Printf("Detected failed activation: %v", activation.ActivationID)
+				failedActivations = append(failedActivations, activation)
+			}
+		}
+
+		// If we found any failures, just return early
+		if len(failedActivations) > 0 {
+			return failedActivations, nil
+		}
+
+		// Go to the next page of data
+		skipOffset += pageSize
+
 	}
 
+	// Should never get here
 	return failedActivations, nil
+
 }
 
 func WhiskConfigFromEnvironment() (config *whisk.Config, err error) {
