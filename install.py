@@ -5,6 +5,8 @@ Build and install KeyNuker to OpenWhisk
 
 import subprocess
 import os
+import collections
+import shutil
 
 def main():
 
@@ -12,10 +14,9 @@ def main():
     build_binaries()
 
     # Installs openwhisk actions via wsk utility to your configured OpenWhisk system
-    install_openwhisk_actions() 
+    install_openwhisk_actions(get_default_packaging_params())
 
     print("Success!")
-
 
 def build_binaries():
     """
@@ -77,7 +78,7 @@ def dirs_with_main():
 
     return result
 
-def install_openwhisk_actions():
+def install_openwhisk_actions(packaging_params):
 
     # Each action definition needs to be declared with certain default parameters (like a config binding)
     # And those parameters are set based on the environment variables declared in docs/install.adoc.  
@@ -111,12 +112,16 @@ def install_openwhisk_actions():
             "password": "KEYNUKER_DB_SECRET_KEY",
             "dbname": "KEYNUKER_DB_NAME",
         },
+        "monitor-activations": {
+            "WebAction": True,
+        },
     }
 
     actions = []
     for path in dirs_with_main():
         print("Installing OpenWhisk action for path: {}".format(path))
-        action = install_openwhisk_action_in_path(action_params_to_env, path)
+        packaging_params.path = path
+        action = install_openwhisk_action_in_path(packaging_params, action_params_to_env, path)
         actions.append(action)
 
     sequences = install_openwhisk_action_sequences(actions)
@@ -179,7 +184,7 @@ def install_openwhisk_action_sequences(available_actions):
     return action_sequences.keys()
 
 
-def install_openwhisk_action_in_path(action_params_to_env, path):
+def install_openwhisk_action_in_path(packaging_params, action_params_to_env, path):
 
     """
     This performs the equivalent of the command line:
@@ -202,12 +207,14 @@ def install_openwhisk_action_in_path(action_params_to_env, path):
 
     if not openwhisk_action_exists(openwhisk_action):
         install_openwhisk_action(
+            packaging_params,
             openwhisk_action,
             params_to_env,
             )
     else:
         delete_openwhisk_action(openwhisk_action)
         install_openwhisk_action(
+            packaging_params,
             openwhisk_action,
             params_to_env,
             )
@@ -304,16 +311,29 @@ def delete_openwhisk_rule(openwhisk_rule):
     subprocess.check_call(command, shell=True)
 
 
-def install_openwhisk_action(openwhisk_action, params_to_env):
+def install_openwhisk_action(packaging_params, openwhisk_action, params_to_env):
 
     expanded_params = expand_params(params_to_env)
 
-    # Default the action timeout to 5 minutes, which is the max value on the hosted IBM bluemix platform
-    command = "wsk action create {} --timeout 300000 --docker tleyden5iwx/openwhisk-dockerskeleton action.zip {}".format(
-        openwhisk_action,
-        expanded_params,
-    )
-    
+    if packaging_params.useDockerSkeleton == True:
+        # Default the action timeout to 5 minutes, which is the max value on the hosted IBM bluemix platform
+        command = "wsk action create {} --memory 512 --timeout 300000 --docker tleyden5iwx/openwhisk-dockerskeleton action.zip {}".format(
+            openwhisk_action,
+            expanded_params,
+        )
+    else:
+
+        build_docker_in_path(packaging_params.path)
+
+        # Default the action timeout to 5 minutes, which is the max value on the hosted IBM bluemix platform
+        command = "wsk action create {} --memory 512 --timeout 300000 --docker {}/{} {}".format(
+            openwhisk_action,
+            discover_dockerhub_user(),
+            openwhisk_action,
+            expanded_params,
+        )
+
+    print("Installing OpenWhisk action via {}".format(command))
     subprocess.check_call(command, shell=True)
 
 def expand_params(params_to_env):
@@ -344,6 +364,9 @@ def expand_params(params_to_env):
         if paramName == "TargetAwsAccounts":
             # This needs special handling since it's an array
             continue
+        if paramName == "WebAction":
+            # This needs special handling since the format is "--web true" rather than "--param name value"
+            continue
 
         envVarVal = os.environ.get(envVarName)
         if envVarVal is None:
@@ -366,6 +389,9 @@ def expand_params(params_to_env):
         result += " --param TargetAwsAccounts "
         result += "\'{}\'".format(envVarVal)
 
+    if "WebAction" in params_to_env:
+        result += " --web true"
+
     return result 
 
 
@@ -385,6 +411,82 @@ def openwhisk_trigger_exists(openwhisk_trigger):
 def openwhisk_rule_exists(openwhisk_rule):
     # TODO: detect if it exists.  
     return True
+
+def build_docker_in_path(path):
+
+    docker_build()
+    docker_push()
+
+
+def docker_build():
+    """
+    Generate and run a command like:
+    docker build -t youruser/fetch-aws-keys .
+
+    - The dockerhub user will be discovered from an environment variable
+    - The dockerhub repo name will be disovered from the last path component of the current directory
+    """
+
+    dockerhub_user = discover_dockerhub_user()
+    dockerhub_repo = discover_dockerhub_repo()
+
+    # the Dockerfile lives in the parent directory of the current directory, so copy it into the
+    # current directory
+    cwd = os.getcwd()
+    parent = os.path.dirname(cwd)
+    src_dockerfile = os.path.join(parent, "Dockerfile")
+    dest_dockerfile = "Dockerfile"
+    shutil.copyfile(src_dockerfile, dest_dockerfile)
+
+    # Build docker image
+    subprocess.check_call("docker build -t {}/{} .".format(dockerhub_user, dockerhub_repo), shell=True)
+
+    # Delete the Dockerfile copy that is no longer needed
+    os.remove(dest_dockerfile)
+
+def docker_push():
+    """
+    Generate and run a command like:
+    docker push youruser/fetch-aws-keys
+
+    - The dockerhub user will be discovered from an environment variable
+    - The dockerhub repo name will be disovered from the last path component of the current directory
+    """
+
+    dockerhub_user = discover_dockerhub_user()
+    dockerhub_repo = discover_dockerhub_repo()
+
+    subprocess.check_call("docker push {}/{}".format(dockerhub_user, dockerhub_repo), shell=True)
+
+
+def discover_dockerhub_user():
+    dockerhub_user = os.environ.get("DOCKERHUB_USERNAME")
+    if dockerhub_user is None:
+        raise "You must set the DOCKERHUB_USERNAME environment variable"
+    return dockerhub_user
+
+def discover_dockerhub_repo():
+    # If we are in the /home/go/src/github.com/tleyden/keynuker/cmd/fetch-aws-keys directory,
+    # return the basename (fetch-aws-keys) which will be used to derive the name for the
+    # dockerhub repo to push to
+    return os.path.basename(os.getcwd())
+
+def get_default_packaging_params():
+
+    # Parameters to specify how the openwhisk actions are packaged
+    packaging_params = collections.namedtuple('PackagingParams', 'useDockerSkeleton', 'path')
+
+    # useDockerSkeleton: true or false.  True to use https://hub.docker.com/r/tleyden5iwx/openwhisk-dockerskeleton/
+    #                                    False to directly build an image and push to dockerhub
+    # There are two reasons you might want to set this to False:
+    #   1. Want full control of all the code, as opposed to trusting the code in https://hub.docker.com/r/tleyden5iwx/openwhisk-dockerskeleton/
+    #   2. Suspect there is an issue with the actionproxy.py wrapper code in openwhisk-dockerskeleton, and want to compare behavior.
+    # If you set to False, you will need to have docker locally installed and a few extra environment
+    # variables set.  You will also need to go into the cmd entrypoints and call "ow.RegisterAction(OpenWhiskCallback)"
+    # rather than "keynuker_go_common.InvokeActionStdIo(OpenWhiskCallback)".
+    packaging_params.useDockerSkeleton = True
+
+    return packaging_params
 
 
 if __name__ == "__main__":
