@@ -53,7 +53,7 @@ func OpenWhiskRecentActivationsStatus() (keynukerStatus map[string]interface{}) 
 // Loop over all activations and return the ones that have a whisk.Result with Success == false
 // TODO: To improve this, it should take a list of activation types to ignore (like monitor-activation where
 // TODO: it sees it's own echoes of monitoring!) and then keeps pulling activations until it sees X non-ignored
-// TODO: activations.  
+// TODO: activations.
 func ScanActivationsForFailures(whiskConfig *whisk.Config) (failedActivations []whisk.Activation, err error) {
 
 	client, err := whisk.NewClient(http.DefaultClient, whiskConfig)
