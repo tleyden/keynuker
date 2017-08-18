@@ -21,8 +21,6 @@ func OpenWhiskRecentActivationsStatus() (keynukerStatus map[string]interface{}) 
 	keynukerStatus = map[string]interface{}{}
 	keynukerStatus["status"] = "failure"
 
-	log.Printf("OpenWhiskRecentActivationsStatus() calling WhiskConfigFromEnvironment()")
-
 	whiskConfig, err := WhiskConfigFromEnvironment()
 	if err != nil {
 		msg := fmt.Sprintf("Error getting whisk config from environment: %v", err)
@@ -33,11 +31,7 @@ func OpenWhiskRecentActivationsStatus() (keynukerStatus map[string]interface{}) 
 
 	// whiskConfig.Debug = true
 
-	log.Printf("Invoke ScanActivationsForFailures with api url: %v", whiskConfig.BaseURL)
-
 	failedActivations, err := ScanActivationsForFailures(whiskConfig)
-
-	log.Printf("Invoked ScanActivationsForFailures.  got %v err: %v", failedActivations, err)
 
 	if err != nil {
 		msg := fmt.Sprintf("Error scanning activations for failures: %v", err)
@@ -52,21 +46,18 @@ func OpenWhiskRecentActivationsStatus() (keynukerStatus map[string]interface{}) 
 		keynukerStatus["status"] = "success"
 	}
 
-	log.Printf("OpenWhiskRecentActivationsStatus returning: %+v", keynukerStatus)
-
 	return keynukerStatus
 
 }
 
 // Loop over all activations and return the ones that have a whisk.Result with Success == false
+// TODO: To improve this, it should take a list of activation types to ignore (like monitor-activation where
+// TODO: it sees it's own echoes of monitoring!) and then keeps pulling activations until it sees X non-ignored
+// TODO: activations.  
 func ScanActivationsForFailures(whiskConfig *whisk.Config) (failedActivations []whisk.Activation, err error) {
-
-	log.Printf("ScanActivationsForFailures() creating NewClient()")
 
 	client, err := whisk.NewClient(http.DefaultClient, whiskConfig)
 	if err != nil {
-		log.Printf("ScanActivationsForFailures() NewClient() err")
-
 		return failedActivations, err
 	}
 
@@ -75,15 +66,10 @@ func ScanActivationsForFailures(whiskConfig *whisk.Config) (failedActivations []
 		Limit: 20,   // This must limited to a small number, otherwise it will exceed memory limits and get killed abruptly
 	}
 
-	log.Printf("ScanActivationsForFailures() Activations.List()")
-
-	activations, resp, err := client.Activations.List(listActivationsOptions)
+	activations, _, err := client.Activations.List(listActivationsOptions)
 	if err != nil {
-		log.Printf("Activations.List returned err: %+v", err)
 		return failedActivations, err
 	}
-	log.Printf("Activations.List returned resp status code: %v", resp.StatusCode)
-	log.Printf("Activations.List returned %d activations", len(activations))
 
 	for _, activation := range activations {
 		if activation.Response.Success == false {
@@ -91,7 +77,6 @@ func ScanActivationsForFailures(whiskConfig *whisk.Config) (failedActivations []
 			failedActivations = append(failedActivations, activation)
 		}
 	}
-	log.Printf("Found %d failed activations", len(failedActivations))
 
 	return failedActivations, nil
 }
