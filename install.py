@@ -151,6 +151,8 @@ def install_openwhisk_action_sequences(available_actions):
             "write-doc",
         ],
         "github-user-events-scanner-nuker": [
+            "fetch-aws-keys-write-doc",
+            "github-user-aggregator-write-doc",
             "lookup-github-users-aws-keys",
             "github-user-events-scanner",
             "nuke-leaked-aws-keys",
@@ -233,7 +235,6 @@ def install_openwhisk_alarm_triggers():
     $ wsk trigger create every15Minutes --feed /whisk.system/alarms/alarm -p cron '*/15 * * * *'
     """
     alarm_triggers = {
-        "every4Hours": "0 */4 * * *",
         "every15Minutes": "*/15 * * * *",
     }
     for alarm_trigger, schedule in alarm_triggers.iteritems():
@@ -257,14 +258,6 @@ def install_openwhisk_rules(available_sequences, available_actions):
     """
 
     rules = {
-        "scheduled-fetch-aws-keys-write-doc": {
-            "trigger": "every4Hours", 
-            "action": "fetch-aws-keys-write-doc",
-        },
-        "scheduled-github-user-aggregator-write-doc": {
-            "trigger": "every4Hours", 
-            "action": "github-user-aggregator-write-doc",
-        },
         "scheduled-github-user-events-scanner-nuker": {
             "trigger": "every15Minutes", 
             "action": "github-user-events-scanner-nuker",
