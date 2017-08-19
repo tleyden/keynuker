@@ -28,25 +28,8 @@ actions
 ```
 
 
-== Manually invoke the github-user-events-scanner-nuker action sequence
+== Manually invoke the KeyNuker action sequence
 
-First run the action that will fetch all AWS keys and store them in the database:
-
-```
-$ wsk action invoke fetch-aws-keys-write-doc --blocking --result
-```
-
-You should now have a doc in your database called `aws_keys_default`
-
-Then run the action that will aggregate all github users in your org and store that in the database:
-
-```
-$ wsk action invoke github-user-aggregator-write-doc --blocking --result
-```
-
-You should now have a doc in your database called `github_users_default`
-
-Invoke the action that will scan all recent events by the github users in `github_users_default` and look for leaked keys listed in `aws_keys_default`.
 
 ```
 $ wsk action invoke github-user-events-scanner-nuker --blocking --result
@@ -62,16 +45,6 @@ If you don't want to do this test by hand, you can run the integration test suit
 
 In the AWS web admin UI, create a new IAM user called `KeyLeaker` with only **Programmatic access** and don't assign the user *any* policy whatsoever -- you should see a warning **This user has no permissions**
 
-=== Re-fetch AWS keys
-
-To avoid waiting for the `fetch_aws_keys` polling loop, trigger a refresh immediately by running:
-
-```
-$ wsk action invoke fetch-aws-keys-write-doc --blocking --result
-```
-
-You should see the `KeyLeaker` user listed along with an associated `AccessKeyId`
-
 === Leak key to public or private github repo
 
 After creating the `KeyLeaker` user, it will generate an access key and secret.  Post that to either:
@@ -79,7 +52,7 @@ After creating the `KeyLeaker` user, it will generate an access key and secret. 
 * A public github repo using one of the github users in the org (presumably, your own github user account, which you are a member of the org)
 * A private github repo.  For this approach, you not only have to be in the github org, but you will also have to use a github access token with more permissions (the full **repo** permissions) and then run `wsk action update github_user_events_scanner -p GithubAccessToken "new_token"`
 
-=== Trigger Keynuker
+=== Invoke Keynuker
 
 ```
 $ wsk action invoke github-user-events-scanner-nuker --blocking --result
