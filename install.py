@@ -151,6 +151,8 @@ def install_openwhisk_action_sequences(available_actions):
             "write-doc",
         ],
         "github-user-events-scanner-nuker": [
+            "fetch-aws-keys-write-doc",
+            "github-user-aggregator-write-doc",
             "lookup-github-users-aws-keys",
             "github-user-events-scanner",
             "nuke-leaked-aws-keys",
@@ -161,8 +163,9 @@ def install_openwhisk_action_sequences(available_actions):
 
         # Make sure all the actions in this sequence are valid.  This protects
         # against bugs due to renaming actions, and forgetting to update the action_sequences dictionary
+        # Every action in an action sequence must either be present in available_actions or action_sequences
         for action in actions:
-            if action not in available_actions:
+            if action not in available_actions and action not in action_sequences:
                 raise Exception("Cannot create action sequence that contains invalid action: {}".format(action))
 
         # If the action sequence already exists, delete it
@@ -233,7 +236,6 @@ def install_openwhisk_alarm_triggers():
     $ wsk trigger create every15Minutes --feed /whisk.system/alarms/alarm -p cron '*/15 * * * *'
     """
     alarm_triggers = {
-        "every4Hours": "0 */4 * * *",
         "every15Minutes": "*/15 * * * *",
     }
     for alarm_trigger, schedule in alarm_triggers.iteritems():
@@ -257,14 +259,6 @@ def install_openwhisk_rules(available_sequences, available_actions):
     """
 
     rules = {
-        "scheduled-fetch-aws-keys-write-doc": {
-            "trigger": "every4Hours", 
-            "action": "fetch-aws-keys-write-doc",
-        },
-        "scheduled-github-user-aggregator-write-doc": {
-            "trigger": "every4Hours", 
-            "action": "github-user-aggregator-write-doc",
-        },
         "scheduled-github-user-events-scanner-nuker": {
             "trigger": "every15Minutes", 
             "action": "github-user-events-scanner-nuker",
