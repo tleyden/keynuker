@@ -104,6 +104,10 @@ func ScanActivationsForFailures(whiskConfig *whisk.Config, maxActivationsToScan 
 
 		// Loop over activations and look for failures
 		for _, activation := range activations {
+			if activation.Name == "monitor-activations" {
+				log.Printf("Ignoring monitor-activations activation: %v", activation.ActivationID)
+				continue
+			}
 			if activation.Response.Success == false {
 				log.Printf("Detected failed activation: %v", activation.ActivationID)
 				failedActivations = append(failedActivations, activation)
