@@ -163,8 +163,9 @@ def install_openwhisk_action_sequences(available_actions):
 
         # Make sure all the actions in this sequence are valid.  This protects
         # against bugs due to renaming actions, and forgetting to update the action_sequences dictionary
+        # Every action in an action sequence must either be present in available_actions or action_sequences
         for action in actions:
-            if action not in available_actions:
+            if action not in available_actions and action not in action_sequences:
                 raise Exception("Cannot create action sequence that contains invalid action: {}".format(action))
 
         # If the action sequence already exists, delete it
