@@ -44,8 +44,12 @@ const (
 const (
 
 	// Add improbable string at end to make it as unlikely as possible to collide with a real branch name
-	// KeyNukerIntegrationTestBranch = "KeyNukerIntegrationTestBranch-5a2f42dd3058f53ac9c5f22153257db7b594c663"
+	KeyNukerIntegrationTestBranch = "KeyNukerIntegrationTestBranch-5a2f42dd3058f53ac9c5f22153257db7b594c663"
 
-	KeyNukerIntegrationTestBranch = "foo6"
+	// KeyNukerIntegrationTestBranch = "foo6"
+
+	GithubRefsHeadsPrefix = "refs/heads"
+
+	GithubMasterBranch = "master"
 
 )

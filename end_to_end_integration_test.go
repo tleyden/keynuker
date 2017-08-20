@@ -406,7 +406,7 @@ func NewLeakKeyViaOlderCommit(githubAccessToken, targetGithubRepo string) *LeakK
 	leakKeyViaOlderCommit := &LeakKeyViaOlderCommit{
 		GithubAccessToken:        githubAccessToken,
 		GithubRepoLeakTargetRepo: targetGithubRepo,
-		GitBranch:                fmt.Sprintf("refs/heads/%s", keynuker_go_common.KeyNukerIntegrationTestBranch),
+		GitBranch:  fmt.Sprintf("%v/%v", keynuker_go_common.GithubRefsHeadsPrefix, keynuker_go_common.KeyNukerIntegrationTestBranch),
 	}
 	leakKeyViaOlderCommit.GithubClientWrapper = NewGithubClientWrapper(githubAccessToken)
 	return leakKeyViaOlderCommit
@@ -423,6 +423,8 @@ func (lkvoc *LeakKeyViaOlderCommit) Leak(accessKey *iam.AccessKey) error {
 	if err != nil {
 		return err
 	}
+
+	lkvoc.CreateBranchIfNotExist(lkvoc.GitBranch)
 
 	// Push harmless commits - needs to be greater than 20 to detect issue https://github.com/tleyden/keynuker/issues/6
 	for i := 0; i < 21; i++ {
@@ -481,6 +483,55 @@ func (lkvoc *LeakKeyViaOlderCommit) Leak(accessKey *iam.AccessKey) error {
 
 }
 
+func (lkvoc LeakKeyViaOlderCommit) CreateBranchIfNotExist(branch string) error {
+
+	ctx := context.Background()
+
+	_, err := lkvoc.GetLatestCommitSha(lkvoc.GitBranch)
+	if err == nil {
+		// Looks like the branch already exists, nothing to do
+		return nil
+	}
+
+	// There was an error getting latest commit sha, assume it's because the branch doesn't exist
+
+	log.Printf("Branch %v does not exist.  Creating.", lkvoc.GitBranch)
+
+
+	// Get latest commit on master
+	masterBranchName := fmt.Sprintf("%v/%v", keynuker_go_common.GithubRefsHeadsPrefix, keynuker_go_common.GithubMasterBranch)
+	latestMasterCommitSha, err := lkvoc.GetLatestCommitSha(masterBranchName)
+	if err != nil {
+		return err
+	}
+
+	log.Printf("Creating branch %v from master commit: %v", lkvoc.GitBranch, latestMasterCommitSha)
+
+	// Update a reference
+	// https://developer.github.com/v3/git/refs/#update-a-reference
+	refResult, _, err := lkvoc.GithubClientWrapper.ApiClient.Git.CreateRef(
+		ctx,
+		*lkvoc.GithubUser.Login,
+		lkvoc.GithubRepoLeakTargetRepo,
+		&github.Reference{
+			Ref: aws.String(lkvoc.GitBranch),
+			Object: &github.GitObject{
+				SHA: &latestMasterCommitSha,
+			},
+		},
+	)
+	if err != nil {
+		return err
+	}
+
+	log.Printf("Created branch %v, result.SHA: %v", lkvoc.GitBranch, *refResult.Object.SHA)
+
+	return nil
+
+
+}
+
+
 // Push a commit
 // Based on:
 //   https://gist.github.com/harlantwood/2935203
@@ -489,7 +540,7 @@ func (lkvoc LeakKeyViaOlderCommit) PushCommit(path, body string) (commit *github
 
 	ctx := context.Background()
 
-	latestCommitSha, err := lkvoc.GetLatestCommitSha()
+	latestCommitSha, err := lkvoc.GetLatestCommitSha(lkvoc.GitBranch)
 	if err != nil {
 		return nil, err
 	}
@@ -559,7 +610,7 @@ func (lkvoc LeakKeyViaOlderCommit) PushCommit(path, body string) (commit *github
 
 }
 
-func (lkvoc LeakKeyViaOlderCommit) GetLatestCommitSha() (commitSha string, err error) {
+func (lkvoc LeakKeyViaOlderCommit) GetLatestCommitSha(branch string) (commitSha string, err error) {
 
 	ctx := context.Background()
 
@@ -567,7 +618,7 @@ func (lkvoc LeakKeyViaOlderCommit) GetLatestCommitSha() (commitSha string, err e
 		ctx,
 		*lkvoc.GithubUser.Login,
 		lkvoc.GithubRepoLeakTargetRepo,
-		lkvoc.GitBranch,
+		branch,
 	)
 	if err != nil {
 		return "", err
