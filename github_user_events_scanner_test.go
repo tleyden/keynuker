@@ -19,6 +19,7 @@ import (
 	"github.com/tleyden/keynuker/keynuker-go-common"
 	"gopkg.in/h2non/gock.v1"
 	"io/ioutil"
+	"net/url"
 )
 
 func TestScanGithubUserEventsForAwsKeys(t *testing.T) {
@@ -199,8 +200,10 @@ func TestScanGithubLargePushEvents(t *testing.T) {
 		JSON(events)
 
 	for i, commit := range pushEvent.Commits {
-		gock.New("https://api.github.com").
-			Get(fmt.Sprintf("/repos/tleyden/keynuker-playground/commits/%s", *commit.SHA)).
+		commitUrl, _ := url.Parse(commit.GetURL())
+		schemeAndHost := fmt.Sprintf("%s://%s", commitUrl.Scheme, commitUrl.Host)
+		gock.New(schemeAndHost).
+			Get(commitUrl.Path).
 			Reply(200).
 			JSON(map[string]string{
 				"content": fmt.Sprintf("commit %d", i),
