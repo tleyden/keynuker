@@ -208,7 +208,7 @@ func TestScanGithubLargePushEvents(t *testing.T) {
 		)
 	}
 
-	
+
 	// ------------------------------------ Create Event Fetcher -------------------------------------------------------
 
 	var ok bool
