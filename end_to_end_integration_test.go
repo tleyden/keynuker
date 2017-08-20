@@ -14,6 +14,8 @@ import (
 
 	"context"
 
+	"strings"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
@@ -477,6 +479,54 @@ func (lkvoc *LeakKeyViaOlderCommit) Leak(accessKey *iam.AccessKey) error {
 		return err
 	}
 	log.Printf("Update branch to have merge commit: %v", *refResult.Object.SHA)
+
+	lkvoc.WaitForPushEvent(ctx, "master", *mergeCommit.SHA)
+
+	return nil
+
+}
+
+func (lkvoc LeakKeyViaOlderCommit) WaitForPushEvent(ctx context.Context, branch, headSHA string) error {
+
+	// Wait until we see a PushEvent on events feed that is on the master branch and has a head commit
+	// of mergeCommit.SHA
+	for {
+
+		listOptions := &github.ListOptions{
+			PerPage: MaxPerPage,
+			Page:    0,
+		}
+
+		events, _, err := lkvoc.GithubClientWrapper.ApiClient.Activity.ListEventsPerformedByUser(
+			ctx,
+			*lkvoc.GithubUser.Login,
+			false,
+			listOptions,
+		)
+		if err != nil {
+			return err
+		}
+
+		for _, event := range events {
+
+			eventPayload, err := event.ParsePayload()
+			if err != nil {
+				return err
+			}
+
+			pushEvent, ok := eventPayload.(*github.PushEvent)
+			if !ok {
+				continue
+			}
+
+			if strings.Contains(*pushEvent.Ref, branch) && *pushEvent.Head == headSHA {
+				return nil
+			}
+
+		}
+
+		time.Sleep(time.Second * 5)
+	}
 
 	return nil
 
