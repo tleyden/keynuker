@@ -425,9 +425,10 @@ func (lkvoc *LeakKeyViaOlderCommit) Leak(accessKey *iam.AccessKey) error {
 	}
 
 	// Push harmless commits
-	for i := 0; i < 2; i++ { // TODO: bump to 50
+	for i := 0; i < 25; i++ { // TODO: bump to 50
 		body := fmt.Sprintf("LeakKeyViaOlderCommit commit %d", i)
-		if _, err := lkvoc.PushCommit("KeyNukerEndToEndIntegrationTest harmless commit", body); err != nil {
+		path := fmt.Sprintf("KeyNukerEndToEndIntegrationTest harmless commit %d", i)
+		if _, err := lkvoc.PushCommit(path, body); err != nil {
 			return err
 		}
 	}
@@ -454,7 +455,6 @@ func (lkvoc LeakKeyViaOlderCommit) PushCommit(path, body string) (ref *github.Re
 	if err != nil {
 		return nil, err
 	}
-	log.Printf("latestCommitSha: %v", latestCommitSha)
 
 	// Create a tree
 	// https://developer.github.com/v3/git/trees/#create-a-tree
@@ -494,6 +494,9 @@ func (lkvoc LeakKeyViaOlderCommit) PushCommit(path, body string) (ref *github.Re
 		return nil, err
 	}
 
+	log.Printf("Created commit: %v", *commitResult.SHA)
+
+
 	// Update a reference
 	// https://developer.github.com/v3/git/refs/#update-a-reference
 	refResult, _, err := lkvoc.GithubClientWrapper.ApiClient.Git.UpdateRef(
@@ -512,65 +515,11 @@ func (lkvoc LeakKeyViaOlderCommit) PushCommit(path, body string) (ref *github.Re
 		return nil, err
 	}
 
+	log.Printf("Pushed commit: %v", *commitResult.SHA)
+
 	return refResult, nil
 
 }
-
-//func (lkvoc LeakKeyViaOlderCommit) PushInitialCommit() error {
-//
-//	ctx := context.Background()
-//
-//	latestCommitSha, err := lkvoc.GetLatestCommitSha()
-//	if err == nil {
-//		// No error getting latest commit sha, so no reason to try to push an initial commit
-//		return nil
-//	}
-//
-//	// Type assert to *github.ErrorResponse
-//	githubErrResponse, ok := err.(*github.ErrorResponse)
-//	if !ok {
-//		// Unrecognized err, return as-is
-//		return err
-//	}
-//
-//	// If the repo is empty, expect a "409 Git Repository is empty"
-//	if githubErrResponse.Response.StatusCode != 409 {
-//		// Unexpected err, return as-is
-//		return err
-//	}
-//
-//	/*
-//
-//			new_content_tree = github :post, repo, :trees,
-//		                            :base_tree => last_tree_sha,
-//		                            :tree => [{:path => params[:path], :content => params[:content], :mode => '100644'}]
-//		  new_content_tree_sha = new_content_tree['sha']
-//	*/
-//
-//	// https://developer.github.com/v3/git/trees/#create-a-tree
-//	baseTree := "" // empty on purpose
-//	treeEntries := []github.TreeEntry{
-//		{
-//			Path:    aws.String("KeyNukerEndToEndIntegrationTest"),
-//			Content: aws.String("Initial Commit"),
-//			Mode:    aws.String("100644"),
-//		},
-//	}
-//	tree, resp, err := lkvoc.GithubClientWrapper.ApiClient.Git.CreateTree(
-//		ctx,
-//		*lkvoc.GithubUser.Login,
-//		lkvoc.GithubRepoLeakTargetRepo,
-//		baseTree,
-//		treeEntries,
-//	)
-//
-//	log.Printf("CreateTree result.  tree: %+v, resp: %+v, err: %v", *tree, *resp, err)
-//
-//	log.Printf("latestCommitSha: %v", latestCommitSha)
-//
-//	return nil
-//
-//}
 
 func (lkvoc LeakKeyViaOlderCommit) GetLatestCommitSha() (commitSha string, err error) {
 
@@ -583,7 +532,6 @@ func (lkvoc LeakKeyViaOlderCommit) GetLatestCommitSha() (commitSha string, err e
 		lkvoc.GitBranch,
 	)
 	if err != nil {
-		log.Printf("err: %+v type: %T", err, err)
 		return "", err
 	}
 
