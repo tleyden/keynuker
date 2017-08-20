@@ -406,7 +406,7 @@ func NewLeakKeyViaOlderCommit(githubAccessToken, targetGithubRepo string) *LeakK
 	leakKeyViaOlderCommit := &LeakKeyViaOlderCommit{
 		GithubAccessToken:        githubAccessToken,
 		GithubRepoLeakTargetRepo: targetGithubRepo,
-		GitBranch:                "refs/heads/foo5",
+		GitBranch:                "refs/heads/foo6",
 	}
 	leakKeyViaOlderCommit.GithubClientWrapper = NewGithubClientWrapper(githubAccessToken)
 	return leakKeyViaOlderCommit
@@ -425,13 +425,13 @@ func (lkvoc *LeakKeyViaOlderCommit) Leak(accessKey *iam.AccessKey) error {
 	}
 
 	// Push harmless commits
-	for i := 0; i < 3; i++ { // TODO: bump to 50
+	for i := 0; i < 3; i++ { // TODO: bump to 25 (needs to be greater than 20 to detect issue https://github.com/tleyden/keynuker/issues/6)
 		body := fmt.Sprintf("LeakKeyViaOlderCommit commit %d", i)
 		path := fmt.Sprintf("KeyNukerEndToEndIntegrationTest harmless commit %d", i)
 		if _, err := lkvoc.PushCommit(path, body); err != nil {
 			return err
 		}
-		time.Sleep(time.Second * 30)
+		time.Sleep(time.Second * 10)
 	}
 
 	// Push a single commit with a leaked key
@@ -440,7 +440,7 @@ func (lkvoc *LeakKeyViaOlderCommit) Leak(accessKey *iam.AccessKey) error {
 	if errPushCommit != nil {
 		return errPushCommit
 	}
-	time.Sleep(time.Second * 30)
+	time.Sleep(time.Second * 10)
 
 	// Github API: https://developer.github.com/v3/repos/merging/
 	mergeCommit, _, err := lkvoc.GithubClientWrapper.ApiClient.Repositories.Merge(
@@ -449,15 +449,34 @@ func (lkvoc *LeakKeyViaOlderCommit) Leak(accessKey *iam.AccessKey) error {
 		lkvoc.GithubRepoLeakTargetRepo,
 		&github.RepositoryMergeRequest{
 			Base: aws.String("master"),
-			Head: aws.String("foo5"),
+			Head: aws.String("foo6"),
 			CommitMessage: aws.String("Merge foo -> master"),
 		},
 	)
-	log.Printf("Merged foo branch into master: %v", *mergeCommit.SHA)
-
 	if err != nil {
 		return err
 	}
+	log.Printf("Merged foo branch into master: %v", *mergeCommit.SHA)
+
+	// Update the commit on the branch to have the merge commit
+	// So that future tests based on this branch will succeed
+	refResult, _, err := lkvoc.GithubClientWrapper.ApiClient.Git.UpdateRef(
+		ctx,
+		*lkvoc.GithubUser.Login,
+		lkvoc.GithubRepoLeakTargetRepo,
+		&github.Reference{
+			Ref: aws.String(lkvoc.GitBranch),
+			Object: &github.GitObject{
+				SHA: mergeCommit.SHA,
+			},
+		},
+		true,
+	)
+	if err != nil {
+		return err
+	}
+	log.Printf("Update branch to have merge commit: %v", *refResult.Object.SHA)
+
 
 
 	return nil
