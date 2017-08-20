@@ -265,7 +265,7 @@ func (p ParamsScanGithubUserEventsForAwsKeys) WithDefaultCheckpoints(recentTimeW
 		_, ok := returnParams.GithubEventCheckpoints.CheckpointForUser(githubUser)
 		if !ok {
 			githubCheckpointEvent := &github.Event{
-				CreatedAt: aws.Time(time.Now().Add(recentTimeWindow)),  // eg, time.Hour * -12
+				CreatedAt: aws.Time(time.Now().Add(recentTimeWindow)), // eg, time.Hour * -12
 			}
 			returnParams.GithubEventCheckpoints[*githubUser.Login] = githubCheckpointEvent
 		}

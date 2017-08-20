@@ -406,7 +406,7 @@ func NewLeakKeyViaOlderCommit(githubAccessToken, targetGithubRepo string) *LeakK
 	leakKeyViaOlderCommit := &LeakKeyViaOlderCommit{
 		GithubAccessToken:        githubAccessToken,
 		GithubRepoLeakTargetRepo: targetGithubRepo,
-		GitBranch:  fmt.Sprintf("%v/%v", keynuker_go_common.GithubRefsHeadsPrefix, keynuker_go_common.KeyNukerIntegrationTestBranch),
+		GitBranch:                fmt.Sprintf("%v/%v", keynuker_go_common.GithubRefsHeadsPrefix, keynuker_go_common.KeyNukerIntegrationTestBranch),
 	}
 	leakKeyViaOlderCommit.GithubClientWrapper = NewGithubClientWrapper(githubAccessToken)
 	return leakKeyViaOlderCommit
@@ -449,8 +449,8 @@ func (lkvoc *LeakKeyViaOlderCommit) Leak(accessKey *iam.AccessKey) error {
 		*lkvoc.GithubUser.Login,
 		lkvoc.GithubRepoLeakTargetRepo,
 		&github.RepositoryMergeRequest{
-			Base: aws.String("master"),
-			Head: aws.String(keynuker_go_common.KeyNukerIntegrationTestBranch),
+			Base:          aws.String("master"),
+			Head:          aws.String(keynuker_go_common.KeyNukerIntegrationTestBranch),
 			CommitMessage: aws.String("Merge foo -> master"),
 		},
 	)
@@ -478,8 +478,6 @@ func (lkvoc *LeakKeyViaOlderCommit) Leak(accessKey *iam.AccessKey) error {
 	}
 	log.Printf("Update branch to have merge commit: %v", *refResult.Object.SHA)
 
-
-
 	return nil
 
 }
@@ -497,7 +495,6 @@ func (lkvoc LeakKeyViaOlderCommit) CreateBranchIfNotExist(branch string) error {
 	// There was an error getting latest commit sha, assume it's because the branch doesn't exist
 
 	log.Printf("Branch %v does not exist.  Creating.", lkvoc.GitBranch)
-
 
 	// Get latest commit on master
 	masterBranchName := fmt.Sprintf("%v/%v", keynuker_go_common.GithubRefsHeadsPrefix, keynuker_go_common.GithubMasterBranch)
@@ -529,9 +526,7 @@ func (lkvoc LeakKeyViaOlderCommit) CreateBranchIfNotExist(branch string) error {
 
 	return nil
 
-
 }
-
 
 // Push a commit
 // Based on:

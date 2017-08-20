@@ -16,7 +16,6 @@ const (
 
 // Environment Variable Names
 const (
-
 	EnvVarKeyNukerTestGithubAccessToken = "GITHUB_ACCESS_TOKEN"
 
 	EnvVarKeyNukerTestDbHost = "KEYNUKER_DB_HOST"
@@ -36,8 +35,6 @@ const (
 	EnvVarKeyNukerTestGithubOrgs = "GITHUB_ORGS"
 
 	EnvVarKeyNukerTestGithubLeakTargetRepo = "KEYNUKER_GITHUB_LEAK_TARGET_REPO"
-
-
 )
 
 // Misc
@@ -49,5 +46,4 @@ const (
 	GithubRefsHeadsPrefix = "refs/heads"
 
 	GithubMasterBranch = "master"
-
 )

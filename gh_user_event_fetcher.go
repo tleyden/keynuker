@@ -14,8 +14,8 @@ import (
 	"log"
 
 	"github.com/google/go-github/github"
-	"strings"
 	"github.com/tleyden/keynuker/keynuker-go-common"
+	"strings"
 )
 
 //go:generate goautomock -template=testify -o "github_user_event_fetcher_mock.go" GithubUserEventFetcher

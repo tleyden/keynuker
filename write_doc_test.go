@@ -94,5 +94,4 @@ func TestWriteDoc(t *testing.T) {
 		log.Printf("Unable to delete test doc, will leave test residue in db")
 	}
 
-
 }

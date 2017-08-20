@@ -1,9 +1,9 @@
 package keynuker
 
 import (
-	"testing"
 	"github.com/stretchr/testify/assert"
 	"strings"
+	"testing"
 )
 
 func TestCreateApiHostBaseUrl(t *testing.T) {
@@ -23,6 +23,5 @@ func TestCreateApiHostBaseUrl(t *testing.T) {
 	assert.True(t, baseUrl.Scheme == "https")
 	assert.True(t, baseUrl.Port() == "443")
 	assert.True(t, strings.Contains(baseUrl.Path, "api"))
-
 
 }
