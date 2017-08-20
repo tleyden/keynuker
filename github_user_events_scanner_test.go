@@ -18,6 +18,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/tleyden/keynuker/keynuker-go-common"
 	"gopkg.in/h2non/gock.v1"
+	"io/ioutil"
 )
 
 func TestScanGithubUserEventsForAwsKeys(t *testing.T) {
@@ -166,37 +167,20 @@ func TestScanGithubLargePushEvents(t *testing.T) {
 
 	defer gock.Off() // Flush pending mocks after test execution
 
-	payloadStr := `
-	{
-      "push_id": 1932650429,
-      "size": 1,
-      "distinct_size": 1,
-      "ref": "refs/heads/KeyNukerIntegrationTestBranch-5a2f42dd3058f53ac9c5f22153257db7b594c663",
-      "head": "5ce788260531d0830c67eaa9dbad0279d85373ed",
-      "before": "21f1643d6b32cf984eea4118943146a349ffa0bd",
-      "commits": [
-        {
-          "sha": "5ce788260531d0830c67eaa9dbad0279d85373ed",
-          "author": {
-            "email": "traun.leyden@gmail.com",
-            "name": "Traun Leyden"
-          },
-          "message": "KeyNukerEndToEndIntegrationTest harmless commit 19",
-          "distinct": true,
-          "url": "https://api.github.com/repos/tleyden/keynuker-playground/commits/5ce788260531d0830c67eaa9dbad0279d85373ed"
-        }
-      ]
+	filename := "testdata/large_push_event.json"
+	largePushEventData, err := ioutil.ReadFile(filename)
+	if err != nil {
+		t.Fatalf("Unable to read file: %v.  Err: %v", filename, err)
 	}
-	`
-	jsonRaw := json.RawMessage(payloadStr)
+
+	largePushEvent := &github.Event{}
+	errUnmarshal := json.Unmarshal(largePushEventData, largePushEvent)
+	if errUnmarshal != nil {
+		t.Fatalf("Unable to unmarshal data: %v", errUnmarshal)
+	}
 
 	events := []*github.Event{
-		{
-			ID: aws.String("FakeEvent1"),
-			CreatedAt: aws.Time(time.Now()),
-			Type: aws.String("PushEvent"),
-			RawPayload: &jsonRaw,
-		},
+		largePushEvent,
 	}
 
 	gock.New("https://api.github.com").
@@ -204,10 +188,7 @@ func TestScanGithubLargePushEvents(t *testing.T) {
 		MatchParam("per_page", "100").
 		Reply(200).
 		JSON(events)
-
-	// res, err := http.Get("https://api.github.com/bar")
-
-	// log.Printf("res: %v, err: %v", res, err)
+	
 
 	var ok bool
 	accessToken, ok := os.LookupEnv(keynuker_go_common.EnvVarKeyNukerTestGithubAccessToken)
