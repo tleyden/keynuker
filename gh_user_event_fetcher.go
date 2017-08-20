@@ -125,7 +125,11 @@ func (guef GoGithubUserEventFetcher) FetchDownstreamContent(ctx context.Context,
 
 		buffer := bytes.Buffer{}
 
-		if *v.Size > 20 {
+		// maxCommitsPerPushEvent := 20
+		maxCommitsPerPushEvent := 5
+
+
+		if *v.Size > maxCommitsPerPushEvent {
 			log.Printf("WARNING: PushEvent %v has > 20 commits, but only 20 commtis will be scanned.", *v.PushID)
 		}
 
@@ -138,7 +142,7 @@ func (guef GoGithubUserEventFetcher) FetchDownstreamContent(ctx context.Context,
 		// TODO: If there are 20 commits in this push, there is a good chance there are more commits that didn't
 		// TODO: make it in due to limitations mentioned in https://developer.github.com/v3/activity/events/types/#pushevent
 		// TODO: and so there needs to be an enhancement to fetch and scan these commits
-		// TODO: example PushEvent w/ more than 20 commtis: https://gist.github.com/tleyden/68d972b02b2b9306fa6e2eb26310b751
+		// TODO: example PushEvent w/ more than 20 commits: https://gist.github.com/tleyden/68d972b02b2b9306fa6e2eb26310b751
 		commits := v.Commits
 		for _, commit := range commits {
 			log.Printf("Getting content for commit: %+v url: %v", commit, commit.GetURL())
@@ -147,6 +151,55 @@ func (guef GoGithubUserEventFetcher) FetchDownstreamContent(ctx context.Context,
 				return nil, err
 			}
 			buffer.Write(content)
+		}
+
+		if *v.Size > maxCommitsPerPushEvent {
+			// https://developer.github.com/v3/repos/commits/
+
+			// TODO: What we want to do here is to keep listing commits on that branch until
+			// TODO: we go back enough that is > v.Size.
+
+			// TODO: For the CommitsListOptions.SHA field, if a long time has passed between the time of
+			// TODO: the pushevent and the scanning, then this won't work very well.  It might need to get
+			// TODO: updated to use the latest commit hash in the pushevent rather than the tip of the branch
+
+			commitListOptions := &github.CommitsListOptions{
+				// SHA: *v.Ref, // Use the branch this PushEvent was on.  Not ideal, see comments above
+				SHA: *v.Head,  // not working, getting a 404 not found
+				ListOptions: github.ListOptions{
+					PerPage: MaxPerPage,
+					Page:    0,
+				},
+			}
+			log.Printf("Listing additional commits: %+v", commitListOptions)
+
+			// "tleyden/keynuker" -> ["tleyden", "keynuker"] -> "keynuker"
+			repoNameAndUsername := *userEvent.Repo.Name
+			repoNameAndUsernameComponents := strings.Split(repoNameAndUsername, "/")
+			repoName := repoNameAndUsernameComponents[1]
+
+			additionalCommits, resp, err := guef.ApiClient.Repositories.ListCommits(
+				ctx,
+				*userEvent.Actor.Login,
+				repoName,
+				commitListOptions,
+			)
+			if err != nil {
+				return nil, err
+			}
+
+			for _, additionalCommit := range additionalCommits {
+				log.Printf("Getting content for additional commit: %+v url: %v", additionalCommit, additionalCommit.GetURL())
+				content, err := guef.FetchUrlContent(ctx, additionalCommit.GetURL())
+				if err != nil {
+					return nil, err
+				}
+				buffer.Write(content)
+			}
+
+			// TODO: deal with pagination here
+			log.Printf("resp %+v.  NextPage: %v", resp, resp.NextPage)
+
 		}
 
 		return buffer.Bytes(), nil
