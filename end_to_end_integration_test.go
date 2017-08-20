@@ -431,7 +431,7 @@ func (lkvoc *LeakKeyViaOlderCommit) Leak(accessKey *iam.AccessKey) error {
 		if _, err := lkvoc.PushCommit(path, body); err != nil {
 			return err
 		}
-		time.Sleep(time.Second * 1)
+		time.Sleep(time.Millisecond * 100)
 	}
 
 	// Push a single commit with a leaked key
@@ -440,6 +440,8 @@ func (lkvoc *LeakKeyViaOlderCommit) Leak(accessKey *iam.AccessKey) error {
 	if errPushCommit != nil {
 		return errPushCommit
 	}
+
+
 	time.Sleep(time.Second * 30)
 
 	// Github API: https://developer.github.com/v3/repos/merging/
