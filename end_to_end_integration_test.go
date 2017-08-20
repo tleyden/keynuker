@@ -225,7 +225,7 @@ func (e EndToEndIntegrationTest) DiscoverIAMUsernameForKey(AwsAccessKeyId string
 
 func (e EndToEndIntegrationTest) GetEndToEndKeyLeakScenarios() []KeyLeakScenario {
 	return []KeyLeakScenario{
-		// TEMP COMMENT NewLeakKeyViaNewGithubIssue(e.GithubAccessToken, e.GithubRepoLeakTargetRepo),
+		NewLeakKeyViaNewGithubIssue(e.GithubAccessToken, e.GithubRepoLeakTargetRepo),
 		NewLeakKeyViaOlderCommit(e.GithubAccessToken, e.GithubRepoLeakTargetRepo),
 	}
 }
