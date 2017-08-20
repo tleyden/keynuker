@@ -424,6 +424,7 @@ func (lkvoc *LeakKeyViaOlderCommit) Leak(accessKey *iam.AccessKey) error {
 		return err
 	}
 
+	// Create the integration test branch if it doesn't already exist
 	lkvoc.CreateBranchIfNotExist(lkvoc.GitBranch)
 
 	// Push harmless commits - needs to be greater than 20 to detect issue https://github.com/tleyden/keynuker/issues/6
