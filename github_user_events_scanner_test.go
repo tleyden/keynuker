@@ -17,6 +17,7 @@ import (
 	"github.com/google/go-github/github"
 	"github.com/stretchr/testify/assert"
 	"github.com/tleyden/keynuker/keynuker-go-common"
+	"gopkg.in/h2non/gock.v1"
 )
 
 func TestScanGithubUserEventsForAwsKeys(t *testing.T) {
@@ -157,5 +158,100 @@ func TestScanGithubUserEventsForAwsKeys(t *testing.T) {
 	docWrapperBytes, err := json.MarshalIndent(docWrapper, "", "    ")
 	assert.True(t, err == nil)
 	log.Printf("docWrapperBytes: %v", string(docWrapperBytes))
+
+}
+
+// Regression test against mock for reprducing https://github.com/tleyden/keynuker/issues/6
+func TestScanGithubLargePushEvents(t *testing.T) {
+
+	defer gock.Off() // Flush pending mocks after test execution
+
+	payloadStr := `
+	{
+      "push_id": 1932650429,
+      "size": 1,
+      "distinct_size": 1,
+      "ref": "refs/heads/KeyNukerIntegrationTestBranch-5a2f42dd3058f53ac9c5f22153257db7b594c663",
+      "head": "5ce788260531d0830c67eaa9dbad0279d85373ed",
+      "before": "21f1643d6b32cf984eea4118943146a349ffa0bd",
+      "commits": [
+        {
+          "sha": "5ce788260531d0830c67eaa9dbad0279d85373ed",
+          "author": {
+            "email": "traun.leyden@gmail.com",
+            "name": "Traun Leyden"
+          },
+          "message": "KeyNukerEndToEndIntegrationTest harmless commit 19",
+          "distinct": true,
+          "url": "https://api.github.com/repos/tleyden/keynuker-playground/commits/5ce788260531d0830c67eaa9dbad0279d85373ed"
+        }
+      ]
+	}
+	`
+	jsonRaw := json.RawMessage(payloadStr)
+
+	events := []*github.Event{
+		{
+			ID: aws.String("FakeEvent1"),
+			CreatedAt: aws.Time(time.Now()),
+			Type: aws.String("PushEvent"),
+			RawPayload: &jsonRaw,
+		},
+	}
+
+	gock.New("https://api.github.com").
+		Get("/users/tleyden/events").
+		MatchParam("per_page", "100").
+		Reply(200).
+		JSON(events)
+
+	// res, err := http.Get("https://api.github.com/bar")
+
+	// log.Printf("res: %v, err: %v", res, err)
+
+	var ok bool
+	accessToken, ok := os.LookupEnv(keynuker_go_common.EnvVarKeyNukerTestGithubAccessToken)
+	if !ok {
+		t.Skip("You must define environment variable keynuker_test_gh_access_token to run this test")
+	}
+
+	// Create mock user event fetcher
+	fetcher := NewGoGithubUserEventFetcher(accessToken)
+
+	githubUser := &github.User{
+		Login: aws.String("tleyden"),
+	}
+
+	// Make a fake checkpoint event that has the current timestamp
+	githubCheckpointEvent := &github.Event{
+		CreatedAt: aws.Time(time.Now().Add(time.Hour * -24)),
+	}
+	githubEventCheckpoints := GithubEventCheckpoints{}
+	githubEventCheckpoints[*githubUser.Login] = githubCheckpointEvent
+
+	leakedKey := "FakeAccessKey"
+
+	// ------------------------------------ Invoke Scanner -------------------------------------------------------------
+
+	params := ParamsScanGithubUserEventsForAwsKeys{
+		AccessKeyMetadata: []FetchedAwsAccessKey{
+			{
+				AccessKeyId: aws.String(leakedKey),
+				UserName:    aws.String("fakeuser@test.com"),
+			},
+		},
+		GithubUsers: []*github.User{
+			githubUser,
+		},
+		GithubAccessToken:      "github_access_token",
+		KeyNukerOrg:            "test",
+		GithubEventCheckpoints: githubEventCheckpoints,
+	}
+
+	// Create events scanner and run
+	scanner := NewGithubUserEventsScanner(fetcher)
+	docWrapper, err := scanner.ScanAwsKeys(params)
+
+	log.Printf("doc result: %v err: %v", docWrapper, err)
 
 }
