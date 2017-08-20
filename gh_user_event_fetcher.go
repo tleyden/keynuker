@@ -128,7 +128,6 @@ func (guef GoGithubUserEventFetcher) FetchDownstreamContent(ctx context.Context,
 		buffer := bytes.Buffer{}
 
 		maxCommitsPerPushEvent := 20
-		// maxCommitsPerPushEvent := 5
 
 		if *v.Size > maxCommitsPerPushEvent {
 			log.Printf("WARNING: PushEvent %v has > 20 commits, but only 20 commtis will be scanned.", *v.PushID)
