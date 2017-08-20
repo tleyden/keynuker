@@ -35,6 +35,15 @@ const (
 	EnvVarKeyNukerTestGithubOrgs = "GITHUB_ORGS"
 
 	EnvVarKeyNukerTestGithubLeakTargetRepo = "KEYNUKER_GITHUB_LEAK_TARGET_REPO"
+)
 
+// Misc
+const (
 
+	// Add improbable string at end to make it as unlikely as possible to collide with a real branch name
+	KeyNukerIntegrationTestBranch = "KeyNukerIntegrationTestBranch-5a2f42dd3058f53ac9c5f22153257db7b594c663"
+
+	GithubRefsHeadsPrefix = "refs/heads"
+
+	GithubMasterBranch = "master"
 )

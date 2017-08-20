@@ -17,6 +17,9 @@ import (
 	"github.com/google/go-github/github"
 	"github.com/stretchr/testify/assert"
 	"github.com/tleyden/keynuker/keynuker-go-common"
+	"gopkg.in/h2non/gock.v1"
+	"io/ioutil"
+	"net/url"
 )
 
 func TestScanGithubUserEventsForAwsKeys(t *testing.T) {
@@ -157,5 +160,111 @@ func TestScanGithubUserEventsForAwsKeys(t *testing.T) {
 	docWrapperBytes, err := json.MarshalIndent(docWrapper, "", "    ")
 	assert.True(t, err == nil)
 	log.Printf("docWrapperBytes: %v", string(docWrapperBytes))
+
+}
+
+// Regression test against mock for reprducing https://github.com/tleyden/keynuker/issues/6
+// TODO: This test isn't finished.  The mock needs to be extended to handle the scanning of additional commits
+// TODO: See the end-to-end-integration test for examples.
+func TestScanGithubLargePushEvents(t *testing.T) {
+
+
+	// ------------------------------------ Create Event Fetcher -------------------------------------------------------
+
+	var ok bool
+	accessToken, ok := os.LookupEnv(keynuker_go_common.EnvVarKeyNukerTestGithubAccessToken)
+	if !ok {
+		t.Skip("You must define environment variable keynuker_test_gh_access_token to run this test")
+	}
+
+	// Create user event fetcher
+	fetcher := NewGoGithubUserEventFetcher(accessToken)
+
+	githubUser := &github.User{
+		Login: aws.String("tleyden"),
+	}
+
+	// Make a fake checkpoint event that has the current timestamp
+	githubCheckpointEvent := &github.Event{
+		CreatedAt: aws.Time(time.Now().Add(time.Hour * -24)),
+	}
+	githubEventCheckpoints := GithubEventCheckpoints{}
+	githubEventCheckpoints[*githubUser.Login] = githubCheckpointEvent
+
+	leakedKey := "FakeAccessKey"
+
+
+	// ------------------------------------ Setup Gock HTTP mock -------------------------------------------------------
+
+
+	defer gock.Off() // Flush pending mocks after test execution
+
+	filename := "testdata/large_push_event.json"
+	largePushEventData, err := ioutil.ReadFile(filename)
+	if err != nil {
+		t.Fatalf("Unable to read file: %v.  Err: %v", filename, err)
+	}
+
+	largePushEvent := &github.Event{}
+	errUnmarshal := json.Unmarshal(largePushEventData, largePushEvent)
+	if errUnmarshal != nil {
+		t.Fatalf("Unable to unmarshal data: %v", errUnmarshal)
+	}
+
+	payload, err := largePushEvent.ParsePayload()
+	if err != nil {
+		t.Fatalf("Unable to parse payload.  Err: %v", err)
+	}
+	pushEvent := payload.(*github.PushEvent)
+
+	events := []*github.Event{
+		largePushEvent,
+	}
+
+	gock.New("https://api.github.com").
+		Get(fmt.Sprintf("/users/%s/events", *githubUser.Login)).
+		MatchParam("per_page", "100").
+		Reply(200).
+		JSON(events)
+
+	for i, commit := range pushEvent.Commits {
+		commitUrl, _ := url.Parse(commit.GetURL())
+		schemeAndHost := fmt.Sprintf("%s://%s", commitUrl.Scheme, commitUrl.Host)
+		gock.New(schemeAndHost).
+			Get(commitUrl.Path).
+			Reply(200).
+			JSON(map[string]string{
+				"content": fmt.Sprintf("commit %d", i),
+			},
+		)
+	}
+
+
+	// ------------------------------------ Invoke Scanner -------------------------------------------------------------
+
+	params := ParamsScanGithubUserEventsForAwsKeys{
+		AccessKeyMetadata: []FetchedAwsAccessKey{
+			{
+				AccessKeyId: aws.String(leakedKey),
+				UserName:    aws.String("fakeuser@test.com"),
+			},
+		},
+		GithubUsers: []*github.User{
+			githubUser,
+		},
+		GithubAccessToken:      "github_access_token",
+		KeyNukerOrg:            "test",
+		GithubEventCheckpoints: githubEventCheckpoints,
+	}
+
+	// Create events scanner and run
+	scanner := NewGithubUserEventsScanner(fetcher)
+	docWrapper, err := scanner.ScanAwsKeys(params)
+
+	if err != nil {
+		t.Fatalf("Error calling ScanAwsKeys(): %v", err)
+	}
+
+	log.Printf("doc result: %v err: %v", docWrapper, err)
 
 }

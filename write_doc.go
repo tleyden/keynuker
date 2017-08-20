@@ -49,7 +49,6 @@ func CreateDBClient(params ParamsWriteDoc) (db *kivik.DB, err error) {
 
 	return client.DB(ctx, params.DbName)
 
-
 }
 
 func WriteDocToCloudant(params ParamsWriteDoc) (interface{}, error) {
@@ -105,7 +104,6 @@ func WriteDocToCloudant(params ParamsWriteDoc) (interface{}, error) {
 	return fetchedDoc, nil
 
 }
-
 
 func DeleteDoc(params ParamsWriteDoc, rev string) (newRev string, err error) {
 

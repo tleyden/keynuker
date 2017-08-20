@@ -17,6 +17,8 @@ import (
 )
 
 type GithubUserEventsScanner struct {
+
+	// The github user events scanner uses an underlying fetcher, which can be easily mocked out for testing
 	fetcher GithubUserEventFetcher
 }
 
@@ -91,6 +93,7 @@ func (gues GithubUserEventsScanner) ScanAwsKeys(params ParamsScanGithubUserEvent
 		defer collectedResultsWaitGroup.Done()
 		for scanResult := range chScanResults {
 
+			// TODO: partial errors are being absorbed/ignored here.  They should somehow be propagated back to the caller
 			if scanResult.Error != nil {
 				log.Printf("Warning: Got error trying to scan github user events: %+v", scanResult)
 				continue
@@ -265,7 +268,7 @@ func (p ParamsScanGithubUserEventsForAwsKeys) WithDefaultCheckpoints(recentTimeW
 		_, ok := returnParams.GithubEventCheckpoints.CheckpointForUser(githubUser)
 		if !ok {
 			githubCheckpointEvent := &github.Event{
-				CreatedAt: aws.Time(time.Now().Add(recentTimeWindow)),  // eg, time.Hour * -12
+				CreatedAt: aws.Time(time.Now().Add(recentTimeWindow)), // eg, time.Hour * -12
 			}
 			returnParams.GithubEventCheckpoints[*githubUser.Login] = githubCheckpointEvent
 		}

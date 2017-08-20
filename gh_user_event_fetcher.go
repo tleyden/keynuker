@@ -13,7 +13,11 @@ import (
 
 	"log"
 
+	"io"
+	"strings"
+
 	"github.com/google/go-github/github"
+	"github.com/tleyden/keynuker/keynuker-go-common"
 )
 
 //go:generate goautomock -template=testify -o "github_user_event_fetcher_mock.go" GithubUserEventFetcher
@@ -123,9 +127,19 @@ func (guef GoGithubUserEventFetcher) FetchDownstreamContent(ctx context.Context,
 
 		buffer := bytes.Buffer{}
 
-		// TODO: If there are 20 commits in this push, there is a good chance there are more commits that didn't
-		// TODO: make it in due to limitations mentioned in https://developer.github.com/v3/activity/events/types/#pushevent
-		// TODO: and so there needs to be an enhancement to fetch and scan these commits
+		maxCommitsPerPushEvent := 20
+		// maxCommitsPerPushEvent := 5
+
+		if *v.Size > maxCommitsPerPushEvent {
+			log.Printf("WARNING: PushEvent %v has > 20 commits, but only 20 commtis will be scanned.", *v.PushID)
+		}
+
+		if strings.Contains(*v.Ref, keynuker_go_common.KeyNukerIntegrationTestBranch) {
+			// skip this since as an experiment
+			log.Printf("Skipping push event %v on %v branch", *v.PushID, keynuker_go_common.KeyNukerIntegrationTestBranch)
+			return []byte(""), nil
+		}
+
 		commits := v.Commits
 		for _, commit := range commits {
 			log.Printf("Getting content for commit: %+v url: %v", commit, commit.GetURL())
@@ -134,6 +148,18 @@ func (guef GoGithubUserEventFetcher) FetchDownstreamContent(ctx context.Context,
 				return nil, err
 			}
 			buffer.Write(content)
+		}
+
+		// If more than 20 commits for this PushEvent, fetch content for the remaining commits.
+		// Example PushEvent w/ more than 20 commits: https://gist.github.com/tleyden/68d972b02b2b9306fa6e2eb26310b751
+		if *v.Size > maxCommitsPerPushEvent {
+
+			// Fetch the rest of the commits for this push event and append downstream content to buffer
+			err := guef.FetchCommitsForPushEvent(ctx, userEvent, v, &buffer)
+			if err != nil {
+				return nil, err
+			}
+
 		}
 
 		return buffer.Bytes(), nil
@@ -145,6 +171,89 @@ func (guef GoGithubUserEventFetcher) FetchDownstreamContent(ctx context.Context,
 	}
 
 	return nil, nil
+}
+
+// Since PushEvents only contain 20 commits max, this fetches the remaining commits and writes the content to the
+// writer passed in.  For example, pushEvent.Size might indicate that there were 100 commits in the push events,
+// and so the remaining 80 commits will need to be scanned.
+//
+// Github API: https://developer.github.com/v3/repos/commits/
+func (guef GoGithubUserEventFetcher) FetchCommitsForPushEvent(ctx context.Context, userEvent *github.Event, pushEvent *github.PushEvent, w io.Writer) error {
+
+	numCommitsToScan := *pushEvent.Size
+	numCommitsScanned := 0
+	resultPage := 0
+
+	// The inline commits in the push event don't need to be re-scanned, so build a map of their sha's
+	inlineCommits := map[string]struct{}{}
+	for _, commit := range pushEvent.Commits {
+		inlineCommits[*commit.SHA] = struct{}{}
+	}
+
+	// Keep listing commits on that branch until we go back far enough to reach the last commit in pushEvent.size
+
+	for {
+
+		if numCommitsScanned >= numCommitsToScan {
+			// done
+			return nil
+		}
+
+		commitListOptions := &github.CommitsListOptions{
+			SHA: *pushEvent.Head,
+			ListOptions: github.ListOptions{
+				PerPage: MaxPerPage,
+				Page:    resultPage,
+			},
+		}
+		log.Printf("Listing additional commits: %+v", commitListOptions)
+
+		// "tleyden/keynuker" -> ["tleyden", "keynuker"] -> "keynuker"
+		repoNameAndUsername := *userEvent.Repo.Name
+		repoNameAndUsernameComponents := strings.Split(repoNameAndUsername, "/")
+		repoName := repoNameAndUsernameComponents[1]
+
+		additionalCommits, resp, err := guef.ApiClient.Repositories.ListCommits(
+			ctx,
+			*userEvent.Actor.Login,
+			repoName,
+			commitListOptions,
+		)
+		if err != nil {
+			return err
+		}
+
+		for _, additionalCommit := range additionalCommits {
+
+			_, foundInlineCommit := inlineCommits[*additionalCommit.SHA]
+			if foundInlineCommit {
+				numCommitsScanned += 1
+				continue
+			}
+
+			log.Printf("Getting content for additional commit: %+v url: %v", additionalCommit, additionalCommit.GetURL())
+			content, err := guef.FetchUrlContent(ctx, additionalCommit.GetURL())
+			if err != nil {
+				return err
+			}
+			w.Write(content)
+
+			numCommitsScanned += 1
+
+			if numCommitsScanned >= numCommitsToScan {
+				// done
+				return nil
+			}
+
+		}
+
+		log.Printf("resp %+v.  NextPage: %v.  LastPage: %v", resp, resp.NextPage, resp.LastPage)
+
+		resultPage = resp.NextPage
+
+	}
+
+	return nil
 }
 
 func (guef GoGithubUserEventFetcher) FetchUrlContent(ctx context.Context, url string) (content []byte, err error) {
