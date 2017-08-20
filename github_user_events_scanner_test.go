@@ -166,6 +166,32 @@ func TestScanGithubUserEventsForAwsKeys(t *testing.T) {
 // Regression test against mock for reprducing https://github.com/tleyden/keynuker/issues/6
 func TestScanGithubLargePushEvents(t *testing.T) {
 
+
+	// ------------------------------------ Create Event Fetcher -------------------------------------------------------
+
+	var ok bool
+	accessToken, ok := os.LookupEnv(keynuker_go_common.EnvVarKeyNukerTestGithubAccessToken)
+	if !ok {
+		t.Skip("You must define environment variable keynuker_test_gh_access_token to run this test")
+	}
+
+	// Create user event fetcher
+	fetcher := NewGoGithubUserEventFetcher(accessToken)
+
+	githubUser := &github.User{
+		Login: aws.String("tleyden"),
+	}
+
+	// Make a fake checkpoint event that has the current timestamp
+	githubCheckpointEvent := &github.Event{
+		CreatedAt: aws.Time(time.Now().Add(time.Hour * -24)),
+	}
+	githubEventCheckpoints := GithubEventCheckpoints{}
+	githubEventCheckpoints[*githubUser.Login] = githubCheckpointEvent
+
+	leakedKey := "FakeAccessKey"
+
+
 	// ------------------------------------ Setup Gock HTTP mock -------------------------------------------------------
 
 
@@ -194,7 +220,7 @@ func TestScanGithubLargePushEvents(t *testing.T) {
 	}
 
 	gock.New("https://api.github.com").
-		Get("/users/tleyden/events").
+		Get(fmt.Sprintf("/users/%s/events", *githubUser.Login)).
 		MatchParam("per_page", "100").
 		Reply(200).
 		JSON(events)
@@ -211,30 +237,6 @@ func TestScanGithubLargePushEvents(t *testing.T) {
 		)
 	}
 
-
-	// ------------------------------------ Create Event Fetcher -------------------------------------------------------
-
-	var ok bool
-	accessToken, ok := os.LookupEnv(keynuker_go_common.EnvVarKeyNukerTestGithubAccessToken)
-	if !ok {
-		t.Skip("You must define environment variable keynuker_test_gh_access_token to run this test")
-	}
-
-	// Create user event fetcher
-	fetcher := NewGoGithubUserEventFetcher(accessToken)
-
-	githubUser := &github.User{
-		Login: aws.String("tleyden"),
-	}
-
-	// Make a fake checkpoint event that has the current timestamp
-	githubCheckpointEvent := &github.Event{
-		CreatedAt: aws.Time(time.Now().Add(time.Hour * -24)),
-	}
-	githubEventCheckpoints := GithubEventCheckpoints{}
-	githubEventCheckpoints[*githubUser.Login] = githubCheckpointEvent
-
-	leakedKey := "FakeAccessKey"
 
 	// ------------------------------------ Invoke Scanner -------------------------------------------------------------
 
