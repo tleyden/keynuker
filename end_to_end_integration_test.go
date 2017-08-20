@@ -406,7 +406,7 @@ func NewLeakKeyViaOlderCommit(githubAccessToken, targetGithubRepo string) *LeakK
 	leakKeyViaOlderCommit := &LeakKeyViaOlderCommit{
 		GithubAccessToken:        githubAccessToken,
 		GithubRepoLeakTargetRepo: targetGithubRepo,
-		GitBranch:                "refs/heads/foo",
+		GitBranch:                "refs/heads/foo5",
 	}
 	leakKeyViaOlderCommit.GithubClientWrapper = NewGithubClientWrapper(githubAccessToken)
 	return leakKeyViaOlderCommit
@@ -425,12 +425,13 @@ func (lkvoc *LeakKeyViaOlderCommit) Leak(accessKey *iam.AccessKey) error {
 	}
 
 	// Push harmless commits
-	for i := 0; i < 5; i++ { // TODO: bump to 50
+	for i := 0; i < 3; i++ { // TODO: bump to 50
 		body := fmt.Sprintf("LeakKeyViaOlderCommit commit %d", i)
 		path := fmt.Sprintf("KeyNukerEndToEndIntegrationTest harmless commit %d", i)
 		if _, err := lkvoc.PushCommit(path, body); err != nil {
 			return err
 		}
+		time.Sleep(time.Second * 30)
 	}
 
 	// Push a single commit with a leaked key
@@ -439,7 +440,7 @@ func (lkvoc *LeakKeyViaOlderCommit) Leak(accessKey *iam.AccessKey) error {
 	if errPushCommit != nil {
 		return errPushCommit
 	}
-
+	time.Sleep(time.Second * 30)
 
 	// Github API: https://developer.github.com/v3/repos/merging/
 	mergeCommit, _, err := lkvoc.GithubClientWrapper.ApiClient.Repositories.Merge(
@@ -448,15 +449,16 @@ func (lkvoc *LeakKeyViaOlderCommit) Leak(accessKey *iam.AccessKey) error {
 		lkvoc.GithubRepoLeakTargetRepo,
 		&github.RepositoryMergeRequest{
 			Base: aws.String("master"),
-			Head: aws.String("foo"),
+			Head: aws.String("foo5"),
 			CommitMessage: aws.String("Merge foo -> master"),
 		},
 	)
-	log.Printf("Merged foo branch into master: %v", mergeCommit.SHA)
+	log.Printf("Merged foo branch into master: %v", *mergeCommit.SHA)
 
 	if err != nil {
 		return err
 	}
+
 
 	return nil
 
