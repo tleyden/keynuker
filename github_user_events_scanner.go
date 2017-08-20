@@ -17,6 +17,8 @@ import (
 )
 
 type GithubUserEventsScanner struct {
+
+	// The github user events scanner uses an underlying fetcher, which can be easily mocked out for testing
 	fetcher GithubUserEventFetcher
 }
 
