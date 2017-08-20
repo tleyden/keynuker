@@ -427,14 +427,14 @@ func (lkvoc *LeakKeyViaOlderCommit) Leak(accessKey *iam.AccessKey) error {
 	// Push harmless commits
 	for i := 0; i < 2; i++ { // TODO: bump to 50
 		body := fmt.Sprintf("LeakKeyViaOlderCommit commit %d", i)
-		if err := lkvoc.PushCommit(body); err != nil {
+		if _, err := lkvoc.PushCommit("KeyNukerEndToEndIntegrationTest harmless commit", body); err != nil {
 			return err
 		}
 	}
 
 	// Push a single commit with a leaked key
-	body := fmt.Sprintf("LeakKeyViaOlderCommit access key id: %v", accessKey.AccessKeyId)
-	if err := lkvoc.PushCommit(body); err != nil {
+	body := fmt.Sprintf("LeakKeyViaOlderCommit access key id: %v", *accessKey.AccessKeyId)
+	if _, err := lkvoc.PushCommit("KeyNukerEndToEndIntegrationTest leaked key commit", body); err != nil {
 		return err
 	}
 
@@ -446,75 +446,73 @@ func (lkvoc *LeakKeyViaOlderCommit) Leak(accessKey *iam.AccessKey) error {
 // Based on:
 //   https://gist.github.com/harlantwood/2935203
 //   http://www.levibotelho.com/development/commit-a-file-with-the-github-api/
-func (lkvoc LeakKeyViaOlderCommit) PushCommit(body string) error {
+func (lkvoc LeakKeyViaOlderCommit) PushCommit(path, body string) (ref *github.Reference, err error) {
 
 	ctx := context.Background()
 
 	latestCommitSha, err := lkvoc.GetLatestCommitSha()
 	if err != nil {
-		return err
+		return nil, err
 	}
 	log.Printf("latestCommitSha: %v", latestCommitSha)
 
+	// Create a tree
 	// https://developer.github.com/v3/git/trees/#create-a-tree
-	treeEntries := []github.TreeEntry{
-		{
-			Path:    aws.String("KeyNukerEndToEndIntegrationTest"),
-			Content: aws.String(body),
-			Mode:    aws.String("100644"),
-		},
-	}
-
 	tree, _, err := lkvoc.GithubClientWrapper.ApiClient.Git.CreateTree(
 		ctx,
 		*lkvoc.GithubUser.Login,
 		lkvoc.GithubRepoLeakTargetRepo,
 		latestCommitSha,
-		treeEntries,
+		[]github.TreeEntry{
+			{
+				Path:    aws.String(path),
+				Content: aws.String(body),
+				Mode:    aws.String("100644"),
+			},
+		},
 	)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	parent := github.Commit{
-		SHA: aws.String(latestCommitSha),
-	}
-	commit := github.Commit{
-		Tree:    tree,
-		Message: aws.String("KeyNukerEndToEndIntegrationTest"),
-		Parents: []github.Commit{parent},
-	}
+	// Create a commit
 	commitResult, _, err := lkvoc.GithubClientWrapper.ApiClient.Git.CreateCommit(
 		ctx,
 		*lkvoc.GithubUser.Login,
 		lkvoc.GithubRepoLeakTargetRepo,
-		&commit,
+		&github.Commit{
+			Tree:    tree,
+			Message: aws.String(path),
+			Parents: []github.Commit{
+				{
+					SHA: aws.String(latestCommitSha),
+				},
+			},
+		},
 	)
-	log.Printf("CreateCommit result: %v.  Err: %v", commitResult, err)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	ref := github.Reference{
-		Ref: aws.String(lkvoc.GitBranch),
-		Object: &github.GitObject{
-			SHA: commitResult.SHA,
-		},
-	}
+	// Update a reference
+	// https://developer.github.com/v3/git/refs/#update-a-reference
 	refResult, _, err := lkvoc.GithubClientWrapper.ApiClient.Git.UpdateRef(
 		ctx,
 		*lkvoc.GithubUser.Login,
 		lkvoc.GithubRepoLeakTargetRepo,
-		&ref,
+		&github.Reference{
+			Ref: aws.String(lkvoc.GitBranch),
+			Object: &github.GitObject{
+				SHA: commitResult.SHA,
+			},
+		},
 		true,
 	)
-	log.Printf("UpdateRef result: %v.  Err: %v", refResult, err)
-
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	return nil
+	return refResult, nil
 
 }
 
