@@ -406,7 +406,7 @@ func NewLeakKeyViaOlderCommit(githubAccessToken, targetGithubRepo string) *LeakK
 	leakKeyViaOlderCommit := &LeakKeyViaOlderCommit{
 		GithubAccessToken:        githubAccessToken,
 		GithubRepoLeakTargetRepo: targetGithubRepo,
-		GitBranch:                "refs/heads/foo6",
+		GitBranch:                fmt.Sprintf("refs/heads/%s", keynuker_go_common.KeyNukerIntegrationTestBranch),
 	}
 	leakKeyViaOlderCommit.GithubClientWrapper = NewGithubClientWrapper(githubAccessToken)
 	return leakKeyViaOlderCommit
@@ -424,8 +424,8 @@ func (lkvoc *LeakKeyViaOlderCommit) Leak(accessKey *iam.AccessKey) error {
 		return err
 	}
 
-	// Push harmless commits
-	for i := 0; i < 21; i++ { // TODO: bump to 25 (needs to be greater than 20 to detect issue https://github.com/tleyden/keynuker/issues/6)
+	// Push harmless commits - needs to be greater than 20 to detect issue https://github.com/tleyden/keynuker/issues/6
+	for i := 0; i < 21; i++ {
 		body := fmt.Sprintf("LeakKeyViaOlderCommit commit %d", i)
 		path := fmt.Sprintf("KeyNukerEndToEndIntegrationTest harmless commit %d", i)
 		if _, err := lkvoc.PushCommit(path, body); err != nil {
@@ -447,7 +447,7 @@ func (lkvoc *LeakKeyViaOlderCommit) Leak(accessKey *iam.AccessKey) error {
 		lkvoc.GithubRepoLeakTargetRepo,
 		&github.RepositoryMergeRequest{
 			Base: aws.String("master"),
-			Head: aws.String("foo6"),
+			Head: aws.String(keynuker_go_common.KeyNukerIntegrationTestBranch),
 			CommitMessage: aws.String("Merge foo -> master"),
 		},
 	)

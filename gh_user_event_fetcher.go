@@ -15,6 +15,7 @@ import (
 
 	"github.com/google/go-github/github"
 	"strings"
+	"github.com/tleyden/keynuker/keynuker-go-common"
 )
 
 //go:generate goautomock -template=testify -o "github_user_event_fetcher_mock.go" GithubUserEventFetcher
@@ -128,9 +129,9 @@ func (guef GoGithubUserEventFetcher) FetchDownstreamContent(ctx context.Context,
 			log.Printf("WARNING: PushEvent %v has > 20 commits, but only 20 commtis will be scanned.", *v.PushID)
 		}
 
-		if strings.Contains(*v.Ref, "foo6") {
+		if strings.Contains(*v.Ref, keynuker_go_common.KeyNukerIntegrationTestBranch) {
 			// skip this since as an experiment
-			log.Printf("Skipping push event on foo6 branch. %v", *v.PushID)
+			log.Printf("Skipping push event %v on %v branch", *v.PushID, keynuker_go_common.KeyNukerIntegrationTestBranch)
 			return []byte(""), nil
 		}
 
