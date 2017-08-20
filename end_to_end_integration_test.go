@@ -406,7 +406,7 @@ func NewLeakKeyViaOlderCommit(githubAccessToken, targetGithubRepo string) *LeakK
 	leakKeyViaOlderCommit := &LeakKeyViaOlderCommit{
 		GithubAccessToken:        githubAccessToken,
 		GithubRepoLeakTargetRepo: targetGithubRepo,
-		GitBranch:                "refs/heads/master",
+		GitBranch:                "refs/heads/foo",
 	}
 	leakKeyViaOlderCommit.GithubClientWrapper = NewGithubClientWrapper(githubAccessToken)
 	return leakKeyViaOlderCommit
@@ -425,7 +425,7 @@ func (lkvoc *LeakKeyViaOlderCommit) Leak(accessKey *iam.AccessKey) error {
 	}
 
 	// Push harmless commits
-	for i := 0; i < 25; i++ { // TODO: bump to 50
+	for i := 0; i < 5; i++ { // TODO: bump to 50
 		body := fmt.Sprintf("LeakKeyViaOlderCommit commit %d", i)
 		path := fmt.Sprintf("KeyNukerEndToEndIntegrationTest harmless commit %d", i)
 		if _, err := lkvoc.PushCommit(path, body); err != nil {
@@ -435,30 +435,28 @@ func (lkvoc *LeakKeyViaOlderCommit) Leak(accessKey *iam.AccessKey) error {
 
 	// Push a single commit with a leaked key
 	body := fmt.Sprintf("LeakKeyViaOlderCommit access key id: %v", *accessKey.AccessKeyId)
-	commit, err := lkvoc.PushCommit("KeyNukerEndToEndIntegrationTest leaked key commit", body)
-	if err != nil {
-		return err
+	_, errPushCommit := lkvoc.PushCommit("KeyNukerEndToEndIntegrationTest leaked key commit", body)
+	if errPushCommit != nil {
+		return errPushCommit
 	}
 
-	// Update a reference
-	// https://developer.github.com/v3/git/refs/#update-a-reference
-	refResult, _, err := lkvoc.GithubClientWrapper.ApiClient.Git.UpdateRef(
+
+	// Github API: https://developer.github.com/v3/repos/merging/
+	mergeCommit, _, err := lkvoc.GithubClientWrapper.ApiClient.Repositories.Merge(
 		ctx,
 		*lkvoc.GithubUser.Login,
 		lkvoc.GithubRepoLeakTargetRepo,
-		&github.Reference{
-			Ref: aws.String(lkvoc.GitBranch),
-			Object: &github.GitObject{
-				SHA: commit.SHA,
-			},
+		&github.RepositoryMergeRequest{
+			Base: aws.String("master"),
+			Head: aws.String("foo"),
+			CommitMessage: aws.String("Merge foo -> master"),
 		},
-		true,
 	)
+	log.Printf("Merged foo branch into master: %v", mergeCommit.SHA)
+
 	if err != nil {
 		return err
 	}
-
-	log.Printf("Updated branch to point to commit: %v", refResult.Object.SHA)
 
 	return nil
 
@@ -517,6 +515,26 @@ func (lkvoc LeakKeyViaOlderCommit) PushCommit(path, body string) (commit *github
 	}
 
 	log.Printf("Created commit: %v", *commitResult.SHA)
+
+	// Update a reference
+	// https://developer.github.com/v3/git/refs/#update-a-reference
+	refResult, _, err := lkvoc.GithubClientWrapper.ApiClient.Git.UpdateRef(
+		ctx,
+		*lkvoc.GithubUser.Login,
+		lkvoc.GithubRepoLeakTargetRepo,
+		&github.Reference{
+			Ref: aws.String(lkvoc.GitBranch),
+			Object: &github.GitObject{
+				SHA: commitResult.SHA,
+			},
+		},
+		true,
+	)
+	if err != nil {
+		return commitResult, err
+	}
+
+	log.Printf("Updated branch to point to commit: %v", *refResult.Object.SHA)
 
 	return commitResult, nil
 
