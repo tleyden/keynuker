@@ -165,6 +165,9 @@ func TestScanGithubUserEventsForAwsKeys(t *testing.T) {
 // Regression test against mock for reprducing https://github.com/tleyden/keynuker/issues/6
 func TestScanGithubLargePushEvents(t *testing.T) {
 
+	// ------------------------------------ Setup Gock HTTP mock -------------------------------------------------------
+
+
 	defer gock.Off() // Flush pending mocks after test execution
 
 	filename := "testdata/large_push_event.json"
@@ -179,6 +182,12 @@ func TestScanGithubLargePushEvents(t *testing.T) {
 		t.Fatalf("Unable to unmarshal data: %v", errUnmarshal)
 	}
 
+	payload, err := largePushEvent.ParsePayload()
+	if err != nil {
+		t.Fatalf("Unable to parse payload.  Err: %v", err)
+	}
+	pushEvent := payload.(*github.PushEvent)
+
 	events := []*github.Event{
 		largePushEvent,
 	}
@@ -188,7 +197,19 @@ func TestScanGithubLargePushEvents(t *testing.T) {
 		MatchParam("per_page", "100").
 		Reply(200).
 		JSON(events)
+
+	for i, commit := range pushEvent.Commits {
+		gock.New("https://api.github.com").
+			Get(fmt.Sprintf("/repos/tleyden/keynuker-playground/commits/%s", *commit.SHA)).
+			Reply(200).
+			JSON(map[string]string{
+				"content": fmt.Sprintf("commit %d", i),
+			},
+		)
+	}
+
 	
+	// ------------------------------------ Create Event Fetcher -------------------------------------------------------
 
 	var ok bool
 	accessToken, ok := os.LookupEnv(keynuker_go_common.EnvVarKeyNukerTestGithubAccessToken)
@@ -196,7 +217,7 @@ func TestScanGithubLargePushEvents(t *testing.T) {
 		t.Skip("You must define environment variable keynuker_test_gh_access_token to run this test")
 	}
 
-	// Create mock user event fetcher
+	// Create user event fetcher
 	fetcher := NewGoGithubUserEventFetcher(accessToken)
 
 	githubUser := &github.User{
