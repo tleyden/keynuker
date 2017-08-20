@@ -164,6 +164,8 @@ func TestScanGithubUserEventsForAwsKeys(t *testing.T) {
 }
 
 // Regression test against mock for reprducing https://github.com/tleyden/keynuker/issues/6
+// TODO: This test isn't finished.  The mock needs to be extended to handle the scanning of additional commits
+// TODO: See the end-to-end-integration test for examples.
 func TestScanGithubLargePushEvents(t *testing.T) {
 
 
@@ -258,6 +260,10 @@ func TestScanGithubLargePushEvents(t *testing.T) {
 	// Create events scanner and run
 	scanner := NewGithubUserEventsScanner(fetcher)
 	docWrapper, err := scanner.ScanAwsKeys(params)
+
+	if err != nil {
+		t.Fatalf("Error calling ScanAwsKeys(): %v", err)
+	}
 
 	log.Printf("doc result: %v err: %v", docWrapper, err)
 
