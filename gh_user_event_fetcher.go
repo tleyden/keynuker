@@ -141,7 +141,7 @@ func (guef GoGithubUserEventFetcher) FetchDownstreamContent(ctx context.Context,
 
 		commits := v.Commits
 		for _, commit := range commits {
-			log.Printf("Getting content for commit: %+v url: %v", commit, commit.GetURL())
+			log.Printf("Getting content for commit: %v url: %v", *commit.SHA, commit.GetURL())
 			content, err := guef.FetchUrlContent(ctx, commit.GetURL())
 			if err != nil {
 				return nil, err
@@ -230,7 +230,7 @@ func (guef GoGithubUserEventFetcher) FetchCommitsForPushEvent(ctx context.Contex
 				continue
 			}
 
-			log.Printf("Getting content for additional commit: %+v url: %v", additionalCommit, additionalCommit.GetURL())
+			log.Printf("Getting content for additional commit: %v url: %v", *additionalCommit.SHA, additionalCommit.GetURL())
 			content, err := guef.FetchUrlContent(ctx, additionalCommit.GetURL())
 			if err != nil {
 				return err
