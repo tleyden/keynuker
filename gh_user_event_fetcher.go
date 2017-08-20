@@ -123,9 +123,14 @@ func (guef GoGithubUserEventFetcher) FetchDownstreamContent(ctx context.Context,
 
 		buffer := bytes.Buffer{}
 
+		if *v.Size > 20 {
+			log.Printf("WARNING: PushEvent %v has > 20 commits, but only 20 commtis will be scanned.", *v.PushID)
+		}
+
 		// TODO: If there are 20 commits in this push, there is a good chance there are more commits that didn't
 		// TODO: make it in due to limitations mentioned in https://developer.github.com/v3/activity/events/types/#pushevent
 		// TODO: and so there needs to be an enhancement to fetch and scan these commits
+		// TODO: example PushEvent w/ more than 20 commtis: https://gist.github.com/tleyden/68d972b02b2b9306fa6e2eb26310b751
 		commits := v.Commits
 		for _, commit := range commits {
 			log.Printf("Getting content for commit: %+v url: %v", commit, commit.GetURL())
