@@ -431,7 +431,7 @@ func (lkvoc *LeakKeyViaOlderCommit) Leak(accessKey *iam.AccessKey) error {
 		if _, err := lkvoc.PushCommit(path, body); err != nil {
 			return err
 		}
-		time.Sleep(time.Second * 10)
+		time.Sleep(time.Second * 1)
 	}
 
 	// Push a single commit with a leaked key
