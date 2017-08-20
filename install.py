@@ -230,13 +230,12 @@ def install_openwhisk_action_in_path(packaging_params, action_params_to_env, pat
 
 def install_openwhisk_alarm_triggers():
     """
-    This installs the following triggers:
+    This installs a trigger such as the following:
 
-    $ wsk trigger create every4Hours --feed /whisk.system/alarms/alarm -p cron '0 */4 * * *'
-    $ wsk trigger create every15Minutes --feed /whisk.system/alarms/alarm -p cron '*/15 * * * *'
+    $ wsk trigger create keynukerAlarmTrigger --feed /whisk.system/alarms/alarm -p cron '*/30 * * * *'
     """
     alarm_triggers = {
-        "every15Minutes": "*/15 * * * *",
+        "keynukerAlarmTrigger": "*/30 * * * *",
     }
     for alarm_trigger, schedule in alarm_triggers.iteritems():
 
@@ -260,7 +259,7 @@ def install_openwhisk_rules(available_sequences, available_actions):
 
     rules = {
         "scheduled-github-user-events-scanner-nuker": {
-            "trigger": "every15Minutes", 
+            "trigger": "keynukerAlarmTrigger",
             "action": "github-user-events-scanner-nuker",
         },
     }
