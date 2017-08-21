@@ -258,9 +258,11 @@ func (guef GoGithubUserEventFetcher) FetchUrlContent(ctx context.Context, url st
 		return nil, err
 	}
 
-	q := req.URL.Query()
-	q.Add("access_token", guef.AccessToken)
-	req.URL.RawQuery = q.Encode()
+	if guef.AccessToken != "" {
+		q := req.URL.Query()
+		q.Add("access_token", guef.AccessToken)
+		req.URL.RawQuery = q.Encode()
+	}
 
 	client := &http.Client{}
 	resp, err := client.Do(req)
