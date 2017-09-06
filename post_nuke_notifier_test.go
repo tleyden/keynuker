@@ -10,12 +10,18 @@ import (
 	"github.com/stretchr/testify/assert"
 	"fmt"
 	"github.com/aws/aws-sdk-go/service/iam"
+	"gopkg.in/mailgun/mailgun-go.v1"
 )
+
 
 func TestSendPostNukeNotifications(t *testing.T) {
 
 	fakeUserEmail := "fakeUser@fake.co"
 	fakeAdminEmail := "fakeAdmin@fake.co"
+
+	// Mailgun instance -- either live or mock depending on whether integration tests enabled
+	var mg mailgun.Mailgun
+	var err error
 
 	// Create fake inputs that include nuked key events
 	params := ParamsPostNukeNotifier{
@@ -27,31 +33,59 @@ func TestSendPostNukeNotifications(t *testing.T) {
 						Email: aws.String(fakeUserEmail),
 					},
 					GithubEvent: &github.Event{},
+					AccessKeyMetadata: FetchedAwsAccessKey{
+						AccessKeyId: aws.String("fake-aws-access-key"),
+					},
 				},
 				DeleteAccessKeyOutput: &iam.DeleteAccessKeyOutput {},
 			},
 		},
 		KeynukerAdminEmailCCAddress: fakeAdminEmail,
+		EmailFromAddress: fakeAdminEmail,
 	}
 
-	// Create mock mailgun and configure it to use that
-	mockMailgun := NewMockMailGun()
+	// Unless integration tests are enabled, use mock
+	mockTest := !IntegrationTestsEnabled()
+
+	if mockTest {
+		// Create mock mailgun and configure it to use that
+		mg = NewMockMailGun()
+	} else {
+
+		// Integration test instructions -- set env variables MAILERDOMAIN, MAILERAPIKEY, and MAILERPUBLICAPIKEY
+
+		mg, err = NewMailgunFromEnvironmentVariables()
+		assert.NoError(t, err, fmt.Sprintf("Unexpected error"))
+
+		fakeUserEmail = "youremail@your.org"  // Replace these to receive emails
+		fakeAdminEmail = "fakeAdmin@your.org"
+
+	}
+
 
 	// Call post nuke notifier
-	result, err := SendPostNukeMockNotifications(mockMailgun, params)
+	result, err := SendPostNukeMockNotifications(mg, params)
 	assert.NoError(t, err, fmt.Sprintf("Unexpected error"))
 
-	// Wait until mock mailgun is invoked
-	msg, err := mockMailgun.WaitForNextMessage(time.Second)
-	assert.NoError(t, err, fmt.Sprintf("Unexpected error"))
-	log.Printf("Mailgun message: %v", msg)
+	if mockTest {
 
-	// Verify that the correct outputs are returned (should propagate checkpoints)
-	log.Printf("result: %v", result)
-	assert.EqualValues(t, len(result.NukedKeyEvents), len(params.NukedKeyEvents))
-	assert.EqualValues(t, result.NukedKeyEvents, params.NukedKeyEvents)
+		mockMailgun := mg.(*MockMailGun)
 
-	// Should have at least one delivery id
-	assert.True(t, len(result.DeliveryIds) >= 1)
+		// Wait until mock mailgun is invoked
+		msg, err := mockMailgun.WaitForNextMessage(time.Second)
+		assert.NoError(t, err, fmt.Sprintf("Unexpected error"))
+		log.Printf("Mailgun message: %v", msg)
+
+		// Verify that the correct outputs are returned (should propagate checkpoints)
+		log.Printf("result: %v", result)
+		assert.EqualValues(t, len(result.NukedKeyEvents), len(params.NukedKeyEvents))
+		assert.EqualValues(t, result.NukedKeyEvents, params.NukedKeyEvents)
+
+		// Should have at least one delivery id
+		assert.True(t, len(result.DeliveryIds) >= 1)
+
+	}
+
+
 
 }

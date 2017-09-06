@@ -5,8 +5,10 @@ package keynuker
 
 import (
 	"fmt"
-	"gopkg.in/mailgun/mailgun-go.v1"
 	"log"
+	"os"
+
+	"gopkg.in/mailgun/mailgun-go.v1"
 )
 
 type ParamsPostNukeNotifier struct {
@@ -21,18 +23,15 @@ type ParamsPostNukeNotifier struct {
 
 	// Optionally specify the Keynuker admin email to be CC'd about any leaked/nuked keys
 	KeynukerAdminEmailCCAddress string
-
 }
 
 type ResultPostNukeNotifier struct {
-
 	Id                     string `json:"_id"`
 	NukedKeyEvents         []NukedKeyEvent
 	GithubEventCheckpoints GithubEventCheckpoints
 
 	// Mailgun delivery id's for messages
 	DeliveryIds []string
-
 }
 
 // Entry point with dependency injection that takes a mailer object, might be live mailgun endpoint or mock
@@ -47,8 +46,10 @@ func SendPostNukeNotifications(mailer mailgun.Mailgun, params ParamsPostNukeNoti
 
 		if nukedKeyEvent.LeakedKeyEvent.GithubUser == nil ||
 			nukedKeyEvent.LeakedKeyEvent.GithubEvent == nil ||
-			nukedKeyEvent.DeleteAccessKeyOutput == nil {
-			return result, fmt.Errorf("Invalid params")
+			nukedKeyEvent.DeleteAccessKeyOutput == nil ||
+			nukedKeyEvent.LeakedKeyEvent.AccessKeyMetadata.AccessKeyId == nil {
+			log.Printf("Warning: invalid nil params.  Skipping notification for nukedKeyEvent: %+v", nukedKeyEvent)
+			continue
 		}
 
 		recipient := *nukedKeyEvent.LeakedKeyEvent.GithubUser.Email
@@ -58,7 +59,7 @@ func SendPostNukeNotifications(mailer mailgun.Mailgun, params ParamsPostNukeNoti
 				"The AWS key was attempted to be deleted on AWS, with AWS returning: %+v.",
 			recipient,
 			nukedKeyEvent.NukedOn,
-			nukedKeyEvent.LeakedKeyEvent.AccessKeyMetadata,
+			*nukedKeyEvent.LeakedKeyEvent.AccessKeyMetadata.AccessKeyId,
 			*nukedKeyEvent.LeakedKeyEvent.GithubEvent,
 			*nukedKeyEvent.DeleteAccessKeyOutput,
 		)
@@ -67,7 +68,7 @@ func SendPostNukeNotifications(mailer mailgun.Mailgun, params ParamsPostNukeNoti
 
 		message := mailgun.NewMessage(
 			params.EmailFromAddress,
-			"WARNING: An AWS key was leaked from your Github account.  Detected and nuked 🔐💥!",
+			"WARNING: An AWS key was leaked from your Github account.  Detected and nuked! 🔐💥",
 			messageBody,
 			recipient,
 		)
@@ -76,9 +77,9 @@ func SendPostNukeNotifications(mailer mailgun.Mailgun, params ParamsPostNukeNoti
 			message.AddCC(params.KeynukerAdminEmailCCAddress)
 		}
 
-		_, id, err := mailer.Send(message)
+		mes, id, err := mailer.Send(message)
 		if err != nil {
-			return result, err
+			return result, fmt.Errorf("Error sending message: %v.  Mes: %v", err, mes)
 		}
 
 		result.DeliveryIds = append(result.DeliveryIds, id)
@@ -103,5 +104,28 @@ func SendPostNukeMailgunNotifications(params ParamsPostNukeNotifier) (result Res
 func SendPostNukeMockNotifications(mockMailgun mailgun.Mailgun, params ParamsPostNukeNotifier) (result ResultPostNukeNotifier, err error) {
 
 	return SendPostNukeNotifications(mockMailgun, params)
+
+}
+
+func NewMailgunFromEnvironmentVariables() (mg mailgun.Mailgun, err error) {
+
+	mailerDomain := os.Getenv("MAILERDOMAIN")
+	if mailerDomain == "" {
+		return nil, fmt.Errorf("You must set MAILERDOMAIN env variable")
+	}
+	mailerAPIKey := os.Getenv("MAILERAPIKEY")
+	if mailerAPIKey == "" {
+		return nil, fmt.Errorf("You must set MAILERAPIKEY env variable")
+	}
+	mailerPublicAPIKey := os.Getenv("MAILERPUBLICAPIKEY")
+	if mailerPublicAPIKey == "" {
+		return nil, fmt.Errorf("You must set MAILERPUBLICAPIKEY env variable")
+	}
+
+	return mailgun.NewMailgun(
+		mailerDomain,
+		mailerAPIKey,
+		mailerPublicAPIKey,
+	), nil
 
 }
