@@ -1,0 +1,137 @@
+{
+  "sha": "189ffd891b05713064a9b1b40132212b6f0601a8",
+  "commit": {
+    "author": {
+      "name": "Ubuntu",
+      "email": "ubuntu@ip-10-0-0-103.eu-west-1.compute.internal",
+      "date": "2015-04-24T20:51:04Z"
+    },
+    "committer": {
+      "name": "Ubuntu",
+      "email": "ubuntu@ip-10-0-0-103.eu-west-1.compute.internal",
+      "date": "2015-04-24T20:51:04Z"
+    },
+    "message": "Initial version of scripts",
+    "tree": {
+      "sha": "df4f3a5d89251358dd106592d5ccbea6c201f41c",
+      "url": "https://api.github.com/repos/couchbaselabs/AWSScripts/git/trees/df4f3a5d89251358dd106592d5ccbea6c201f41c"
+    },
+    "url": "https://api.github.com/repos/couchbaselabs/AWSScripts/git/commits/189ffd891b05713064a9b1b40132212b6f0601a8",
+    "comment_count": 0
+  },
+  "url": "https://api.github.com/repos/couchbaselabs/AWSScripts/commits/189ffd891b05713064a9b1b40132212b6f0601a8",
+  "html_url": "https://github.com/couchbaselabs/AWSScripts/commit/189ffd891b05713064a9b1b40132212b6f0601a8",
+  "comments_url": "https://api.github.com/repos/couchbaselabs/AWSScripts/commits/189ffd891b05713064a9b1b40132212b6f0601a8/comments",
+  "author": null,
+  "committer": null,
+  "parents": [
+    {
+      "sha": "0498572a2e1517f2020044d76d7d84a99a9e1649",
+      "url": "https://api.github.com/repos/couchbaselabs/AWSScripts/commits/0498572a2e1517f2020044d76d7d84a99a9e1649",
+      "html_url": "https://github.com/couchbaselabs/AWSScripts/commit/0498572a2e1517f2020044d76d7d84a99a9e1649"
+    }
+  ],
+  "stats": {
+    "total": 334,
+    "additions": 334,
+    "deletions": 0
+  },
+  "files": [
+    {
+      "sha": "088c7b5b514fea0f779cd9dea46f35e2bc973479",
+      "filename": "client_config.yml",
+      "status": "added",
+      "additions": 18,
+      "deletions": 0,
+      "changes": 18,
+      "blob_url": "https://github.com/couchbaselabs/AWSScripts/blob/189ffd891b05713064a9b1b40132212b6f0601a8/client_config.yml",
+      "raw_url": "https://github.com/couchbaselabs/AWSScripts/raw/189ffd891b05713064a9b1b40132212b6f0601a8/client_config.yml",
+      "contents_url": "https://api.github.com/repos/couchbaselabs/AWSScripts/contents/client_config.yml?ref=189ffd891b05713064a9b1b40132212b6f0601a8",
+      "patch": "@@ -0,0 +1,18 @@\n+---\n+# File: clients_init.yml\n+\n+#- hosts: clients\n+#  sudo: True\n+#  tasks:\n+#  - name: Create cluster grouping\n+#    group_by: key={{ node_role }}\n+\n+- hosts: clients\n+  sudo: True\n+  roles:\n+  tasks:\n+  - name: mkdir /mnt/cbdata\n+    command: /usr/local/bin/cbc-pillowfight -U couchbase://52.17.222.121/default --vbucket-start 0 --vbucket-stop 1023 -r 100  -m 256 -M 256 -B 1000 -t 2 -I 100000000\n+    async: 100000000000\n+    poll: 0 \n+"
+    },
+    {
+      "sha": "43d68c8045b4402a349943a99531d8471d5f025e",
+      "filename": "clients.yml",
+      "status": "added",
+      "additions": 25,
+      "deletions": 0,
+      "changes": 25,
+      "blob_url": "https://github.com/couchbaselabs/AWSScripts/blob/189ffd891b05713064a9b1b40132212b6f0601a8/clients.yml",
+      "raw_url": "https://github.com/couchbaselabs/AWSScripts/raw/189ffd891b05713064a9b1b40132212b6f0601a8/clients.yml",
+      "contents_url": "https://api.github.com/repos/couchbaselabs/AWSScripts/contents/clients.yml?ref=189ffd891b05713064a9b1b40132212b6f0601a8",
+      "patch": "@@ -0,0 +1,25 @@\n+# demo_setup.yml\n+\n+- hosts: localhost\n+  connection: local\n+  gather_facts: False\n+\n+  tasks:\n+\n+    - name: Provision a set of instances\n+      ec2:\n+         aws_access_key: AKIAIC733HFOQAYEJJ4Q\n+         aws_secret_key: ******************************\n+         group: owend2\n+         instance_type: c3.xlarge\n+         vpc_subnet_id: subnet-5c41ff2b\n+         image: ami-d3d5b7a4 #ami-69d04c1e \n+         wait: true\n+         region: eu-west-1\n+         exact_count: 14\n+         count_tag:\n+            Name: owend-clients\n+         instance_tags:\n+            Name: owend-clients\n+      register: ec2\n+"
+    },
+    {
+      "sha": "63289419258bf9b524f39fb7cc9446b138146d96",
+      "filename": "cluster_config.yml",
+      "status": "added",
+      "additions": 47,
+      "deletions": 0,
+      "changes": 47,
+      "blob_url": "https://github.com/couchbaselabs/AWSScripts/blob/189ffd891b05713064a9b1b40132212b6f0601a8/cluster_config.yml",
+      "raw_url": "https://github.com/couchbaselabs/AWSScripts/raw/189ffd891b05713064a9b1b40132212b6f0601a8/cluster_config.yml",
+      "contents_url": "https://api.github.com/repos/couchbaselabs/AWSScripts/contents/cluster_config.yml?ref=189ffd891b05713064a9b1b40132212b6f0601a8",
+      "patch": "@@ -0,0 +1,47 @@\n+---\n+# File: cluster_init.yml\n+# Example Ansible playbook to initialize a new Couchbase Server cluster\n+\n+- hosts: cluster_nodes\n+  sudo: True\n+  tasks:\n+  - name: Create cluster grouping\n+    group_by: key={{ node_role }}\n+\n+- hosts: cluster_nodes\n+  sudo: True\n+  roles:\n+  tasks:\n+  - name: mkdir /mnt/cbdata\n+    shell: mkdir -p /mnt/cbdata\n+  - name: chown couchbase:couchbase\n+    shell: chown couchbase:couchbase /mnt/cbdata\n+\n+- hosts: primary\n+  sudo: True\n+  vars_files:\n+    - ../defaults/main.yml\n+  vars:\n+    couchbase_server_primary_node: \"{{hostvars[groups['primary'][0]]['inventory_hostname']}}\"\n+  tasks:\n+\n+  - name: Wait for nodes\n+    wait_for: port=8091 delay=7\n+\n+  - name: Node-init primary node\n+    shell: \"/home/ubuntu/3.0.3/install/bin/couchbase-cli node-init -c {{ couchbase_server_primary_node }}:{{ couchbase_server_admin_port }} --user={{ couchbase_server_admin }} --password={{ couchbase_server_password }}  --node-init-data-path=/mnt/cbdata --node-init-index-path=/mnt/cbdata\"\n+\n+  - name: Node-init additional cluster nodes\n+    shell: \"/home/ubuntu/3.0.3/install/bin/couchbase-cli node-init -c {{hostvars[[item][0]]['inventory_hostname']}}:{{ couchbase_server_admin_port }} --user={{ couchbase_server_admin }} --password={{ couchbase_server_password }}  --node-init-data-path=/mnt/cbdata --node-init-index-path=/mnt/cbdata\"\n+    with_items: groups['additional']\n+\n+  - name: Initialize primary node\n+    shell: \"/home/ubuntu/3.0.3/install/bin/couchbase-cli cluster-init -c {{ couchbase_server_primary_node }}:{{ couchbase_server_admin_port }} --user={{ couchbase_server_admin }} --password={{ couchbase_server_password }} --cluster-init-username={{ couchbase_server_admin }} --cluster-init-password={{ couchbase_server_password }} --cluster-init-port={{couchbase_server_admin_port}} --cluster-init-ramsize={{ couchbase_server_ram }}\"\n+\n+  - name: Join additional cluster nodes\n+    shell: \"/home/ubuntu/3.0.3/install/bin/couchbase-cli server-add -c {{ couchbase_server_primary_node }}:{{ couchbase_server_admin_port }} --user={{ couchbase_server_admin }} --password={{ couchbase_server_password }} --server-add={{hostvars[[item][0]]['inventory_hostname']}}:{{ couchbase_server_admin_port }} --server-add-username={{ couchbase_server_admin }} --server-add-password={{ couchbase_server_password }}\"\n+    with_items: groups['additional']\n+\n+  - name: Rebalance cluster\n+    shell: \"/home/ubuntu/3.0.3/install/bin/couchbase-cli rebalance -c {{ couchbase_server_primary_node }}:{{ couchbase_server_admin_port }} --user={{ couchbase_server_admin }} --password={{ couchbase_server_password }}\"\n+"
+    },
+    {
+      "sha": "840f91fe2e6674f3351930797e89897cab47aa96",
+      "filename": "createclients.py",
+      "status": "added",
+      "additions": 17,
+      "deletions": 0,
+      "changes": 17,
+      "blob_url": "https://github.com/couchbaselabs/AWSScripts/blob/189ffd891b05713064a9b1b40132212b6f0601a8/createclients.py",
+      "raw_url": "https://github.com/couchbaselabs/AWSScripts/raw/189ffd891b05713064a9b1b40132212b6f0601a8/createclients.py",
+      "contents_url": "https://api.github.com/repos/couchbaselabs/AWSScripts/contents/createclients.py?ref=189ffd891b05713064a9b1b40132212b6f0601a8",
+      "patch": "@@ -0,0 +1,17 @@\n+import json\n+import subprocess\n+from subprocess import call\n+\n+\n+print \"[clients]\"\n+\n+buffer = \"ansible -i ../../ansible/plugins/inventory/ec2.py --list-hosts tag_Name_owend-clients\"\n+out= subprocess.Popen(buffer, shell=True, stdout=subprocess.PIPE).stdout.read()\n+lines = out.splitlines(True)\n+#lines = [line.strip() for line in open('additional_hosts')]\n+for s in lines:\n+  buf = \"../../ansible/plugins/inventory/ec2.py --host %s\" % (s)\n+  output= subprocess.Popen(buf, shell=True, stdout=subprocess.PIPE).stdout.read()\n+  j= json.loads(output)\n+  print j['ec2_public_dns_name']\n+"
+    },
+    {
+      "sha": "0ba0accf517808cb590e0446fabb31ade908eb16",
+      "filename": "createservers.py",
+      "status": "added",
+      "additions": 38,
+      "deletions": 0,
+      "changes": 38,
+      "blob_url": "https://github.com/couchbaselabs/AWSScripts/blob/189ffd891b05713064a9b1b40132212b6f0601a8/createservers.py",
+      "raw_url": "https://github.com/couchbaselabs/AWSScripts/raw/189ffd891b05713064a9b1b40132212b6f0601a8/createservers.py",
+      "contents_url": "https://api.github.com/repos/couchbaselabs/AWSScripts/contents/createservers.py?ref=189ffd891b05713064a9b1b40132212b6f0601a8",
+      "patch": "@@ -0,0 +1,38 @@\n+import json\n+import subprocess\n+from subprocess import call\n+\n+\n+print \"[cluster_nodes]\"\n+\n+buffer = \"ansible -i ../../ansible/plugins/inventory/ec2.py --list-hosts tag_Name_owend-primary\"\n+out= subprocess.Popen(buffer, shell=True, stdout=subprocess.PIPE).stdout.read()\n+lines = out.splitlines(True)\n+#lines = [line.strip() for line in open('additional_hosts')]\n+for s in lines:\n+  buf = \"../../ansible/plugins/inventory/ec2.py --host %s\" % (s)\n+  output= subprocess.Popen(buf, shell=True, stdout=subprocess.PIPE).stdout.read()\n+  j= json.loads(output)\n+  print j['ec2_public_dns_name'] + \" node_role=primary\"\n+\n+\n+\n+#print \"[cluster_nodes]\"\n+#lines2 = [line.strip() for line in open('primary_hosts')]\n+#for s in lines2:\n+#  buf = \"ansible/plugins/inventory/ec2.py --host %s\" % (s) \n+#  output= subprocess.Popen(buf, shell=True, stdout=subprocess.PIPE).stdout.read()\n+#  j= json.loads(output)\n+#  print j['ec2_public_dns_name'] + \" node_role=primary\" \n+\n+\n+buffer = \"ansible -i ../../ansible/plugins/inventory/ec2.py --list-hosts tag_Name_owend-additional\"\n+out= subprocess.Popen(buffer, shell=True, stdout=subprocess.PIPE).stdout.read()\n+lines = out.splitlines(True)\n+#lines = [line.strip() for line in open('additional_hosts')]\n+for s in lines:\n+  buf = \"../../ansible/plugins/inventory/ec2.py --host %s\" % (s) \n+  output= subprocess.Popen(buf, shell=True, stdout=subprocess.PIPE).stdout.read()\n+  j= json.loads(output)\n+  print j['ec2_public_dns_name'] + \" node_role=additional\"\n+"
+    },
+    {
+      "sha": "6f30b57d22b39cb20a8fb0bb5d026defffa8be4b",
+      "filename": "owend-clients",
+      "status": "added",
+      "additions": 15,
+      "deletions": 0,
+      "changes": 15,
+      "blob_url": "https://github.com/couchbaselabs/AWSScripts/blob/189ffd891b05713064a9b1b40132212b6f0601a8/owend-clients",
+      "raw_url": "https://github.com/couchbaselabs/AWSScripts/raw/189ffd891b05713064a9b1b40132212b6f0601a8/owend-clients",
+      "contents_url": "https://api.github.com/repos/couchbaselabs/AWSScripts/contents/owend-clients?ref=189ffd891b05713064a9b1b40132212b6f0601a8",
+      "patch": "@@ -0,0 +1,15 @@\n+[clients]\n+ec2-52-17-236-157.eu-west-1.compute.amazonaws.com\n+ec2-52-17-236-210.eu-west-1.compute.amazonaws.com\n+ec2-52-17-236-244.eu-west-1.compute.amazonaws.com\n+ec2-52-17-237-32.eu-west-1.compute.amazonaws.com\n+ec2-52-17-236-214.eu-west-1.compute.amazonaws.com\n+ec2-52-17-237-61.eu-west-1.compute.amazonaws.com\n+ec2-52-17-237-21.eu-west-1.compute.amazonaws.com\n+ec2-52-17-237-35.eu-west-1.compute.amazonaws.com\n+ec2-52-17-237-1.eu-west-1.compute.amazonaws.com\n+ec2-52-17-237-49.eu-west-1.compute.amazonaws.com\n+ec2-52-17-236-207.eu-west-1.compute.amazonaws.com\n+ec2-52-17-237-16.eu-west-1.compute.amazonaws.com\n+ec2-52-17-237-64.eu-west-1.compute.amazonaws.com\n+ec2-52-17-237-68.eu-west-1.compute.amazonaws.com"
+    },
+    {
+      "sha": "79fb2358a5013273132eb5a2fc63ac469f636df2",
+      "filename": "owend-hosts",
+      "status": "added",
+      "additions": 131,
+      "deletions": 0,
+      "changes": 131,
+      "blob_url": "https://github.com/couchbaselabs/AWSScripts/blob/189ffd891b05713064a9b1b40132212b6f0601a8/owend-hosts",
+      "raw_url": "https://github.com/couchbaselabs/AWSScripts/raw/189ffd891b05713064a9b1b40132212b6f0601a8/owend-hosts",
+      "contents_url": "https://api.github.com/repos/couchbaselabs/AWSScripts/contents/owend-hosts?ref=189ffd891b05713064a9b1b40132212b6f0601a8",
+      "patch": "@@ -0,0 +1,131 @@\n+[cluster_nodes]\n+ec2-52-17-222-121.eu-west-1.compute.amazonaws.com node_role=primary\n+ec2-52-17-211-24.eu-west-1.compute.amazonaws.com node_role=additional\n+ec2-52-17-238-211.eu-west-1.compute.amazonaws.com node_role=additional\n+ec2-52-17-238-237.eu-west-1.compute.amazonaws.com node_role=additional\n+ec2-52-17-238-229.eu-west-1.compute.amazonaws.com node_role=additional\n+ec2-52-17-238-122.eu-west-1.compute.amazonaws.com node_role=additional\n+ec2-52-17-238-254.eu-west-1.compute.amazonaws.com node_role=additional\n+ec2-52-17-238-139.eu-west-1.compute.amazonaws.com node_role=additional\n+ec2-52-17-109-2.eu-west-1.compute.amazonaws.com node_role=additional\n+ec2-52-17-237-164.eu-west-1.compute.amazonaws.com node_role=additional\n+ec2-52-17-238-227.eu-west-1.compute.amazonaws.com node_role=additional\n+ec2-52-17-239-10.eu-west-1.compute.amazonaws.com node_role=additional\n+ec2-52-17-239-16.eu-west-1.compute.amazonaws.com node_role=additional\n+ec2-52-17-238-207.eu-west-1.compute.amazonaws.com node_role=additional\n+ec2-52-17-238-174.eu-west-1.compute.amazonaws.com node_role=additional\n+ec2-52-17-238-83.eu-west-1.compute.amazonaws.com node_role=additional\n+ec2-52-17-238-199.eu-west-1.compute.amazonaws.com node_role=additional\n+ec2-52-17-238-184.eu-west-1.compute.amazonaws.com node_role=additional\n+ec2-52-17-237-181.eu-west-1.compute.amazonaws.com node_role=additional\n+ec2-52-17-238-130.eu-west-1.compute.amazonaws.com node_role=additional\n+ec2-52-17-239-18.eu-west-1.compute.amazonaws.com node_role=additional\n+ec2-52-17-239-7.eu-west-1.compute.amazonaws.com node_role=additional\n+ec2-52-17-238-173.eu-west-1.compute.amazonaws.com node_role=additional\n+ec2-52-17-238-228.eu-west-1.compute.amazonaws.com node_role=additional\n+ec2-52-17-238-128.eu-west-1.compute.amazonaws.com node_role=additional\n+ec2-52-17-237-228.eu-west-1.compute.amazonaws.com node_role=additional\n+ec2-52-17-239-14.eu-west-1.compute.amazonaws.com node_role=additional\n+ec2-52-17-238-188.eu-west-1.compute.amazonaws.com node_role=additional\n+ec2-52-17-238-10.eu-west-1.compute.amazonaws.com node_role=additional\n+ec2-52-16-227-80.eu-west-1.compute.amazonaws.com node_role=additional\n+ec2-52-17-238-236.eu-west-1.compute.amazonaws.com node_role=additional\n+ec2-52-17-234-154.eu-west-1.compute.amazonaws.com node_role=additional\n+ec2-52-17-238-209.eu-west-1.compute.amazonaws.com node_role=additional\n+ec2-52-17-238-230.eu-west-1.compute.amazonaws.com node_role=additional\n+ec2-52-17-238-11.eu-west-1.compute.amazonaws.com node_role=additional\n+ec2-52-17-231-191.eu-west-1.compute.amazonaws.com node_role=additional\n+ec2-52-17-239-3.eu-west-1.compute.amazonaws.com node_role=additional\n+ec2-52-17-238-144.eu-west-1.compute.amazonaws.com node_role=additional\n+ec2-52-17-238-57.eu-west-1.compute.amazonaws.com node_role=additional\n+ec2-52-17-239-8.eu-west-1.compute.amazonaws.com node_role=additional\n+ec2-52-17-238-127.eu-west-1.compute.amazonaws.com node_role=additional\n+ec2-52-17-238-250.eu-west-1.compute.amazonaws.com node_role=additional\n+ec2-52-17-238-226.eu-west-1.compute.amazonaws.com node_role=additional\n+ec2-52-17-238-135.eu-west-1.compute.amazonaws.com node_role=additional\n+ec2-52-17-239-24.eu-west-1.compute.amazonaws.com node_role=additional\n+ec2-52-17-239-23.eu-west-1.compute.amazonaws.com node_role=additional\n+ec2-52-17-238-136.eu-west-1.compute.amazonaws.com node_role=additional\n+ec2-52-17-238-119.eu-west-1.compute.amazonaws.com node_role=additional\n+ec2-52-16-216-65.eu-west-1.compute.amazonaws.com node_role=additional\n+ec2-52-17-238-4.eu-west-1.compute.amazonaws.com node_role=additional\n+ec2-52-17-238-162.eu-west-1.compute.amazonaws.com node_role=additional\n+ec2-52-17-238-247.eu-west-1.compute.amazonaws.com node_role=additional\n+ec2-52-17-238-249.eu-west-1.compute.amazonaws.com node_role=additional\n+ec2-52-17-238-137.eu-west-1.compute.amazonaws.com node_role=additional\n+ec2-52-17-238-206.eu-west-1.compute.amazonaws.com node_role=additional\n+ec2-52-17-238-197.eu-west-1.compute.amazonaws.com node_role=additional\n+ec2-52-17-238-189.eu-west-1.compute.amazonaws.com node_role=additional\n+ec2-52-17-238-154.eu-west-1.compute.amazonaws.com node_role=additional\n+ec2-52-17-238-195.eu-west-1.compute.amazonaws.com node_role=additional\n+ec2-52-17-238-143.eu-west-1.compute.amazonaws.com node_role=additional\n+ec2-52-17-238-156.eu-west-1.compute.amazonaws.com node_role=additional\n+ec2-52-17-238-232.eu-west-1.compute.amazonaws.com node_role=additional\n+ec2-52-17-238-163.eu-west-1.compute.amazonaws.com node_role=additional\n+ec2-52-17-236-74.eu-west-1.compute.amazonaws.com node_role=additional\n+ec2-52-17-238-248.eu-west-1.compute.amazonaws.com node_role=additional\n+ec2-52-17-238-131.eu-west-1.compute.amazonaws.com node_role=additional\n+ec2-52-17-238-134.eu-west-1.compute.amazonaws.com node_role=additional\n+ec2-52-17-238-208.eu-west-1.compute.amazonaws.com node_role=additional\n+ec2-52-17-238-192.eu-west-1.compute.amazonaws.com node_role=additional\n+ec2-52-17-239-27.eu-west-1.compute.amazonaws.com node_role=additional\n+ec2-52-17-238-239.eu-west-1.compute.amazonaws.com node_role=additional\n+ec2-52-17-239-19.eu-west-1.compute.amazonaws.com node_role=additional\n+ec2-52-17-239-22.eu-west-1.compute.amazonaws.com node_role=additional\n+ec2-52-17-238-168.eu-west-1.compute.amazonaws.com node_role=additional\n+ec2-52-17-231-58.eu-west-1.compute.amazonaws.com node_role=additional\n+ec2-52-17-238-129.eu-west-1.compute.amazonaws.com node_role=additional\n+ec2-52-17-239-21.eu-west-1.compute.amazonaws.com node_role=additional\n+ec2-52-17-238-142.eu-west-1.compute.amazonaws.com node_role=additional\n+ec2-52-17-238-160.eu-west-1.compute.amazonaws.com node_role=additional\n+ec2-52-17-238-219.eu-west-1.compute.amazonaws.com node_role=additional\n+ec2-52-17-238-186.eu-west-1.compute.amazonaws.com node_role=additional\n+ec2-52-17-238-194.eu-west-1.compute.amazonaws.com node_role=additional\n+ec2-52-17-238-6.eu-west-1.compute.amazonaws.com node_role=additional\n+ec2-52-17-238-233.eu-west-1.compute.amazonaws.com node_role=additional\n+ec2-52-17-238-187.eu-west-1.compute.amazonaws.com node_role=additional\n+ec2-52-17-236-22.eu-west-1.compute.amazonaws.com node_role=additional\n+ec2-52-17-239-20.eu-west-1.compute.amazonaws.com node_role=additional\n+ec2-52-17-238-246.eu-west-1.compute.amazonaws.com node_role=additional\n+ec2-52-17-238-124.eu-west-1.compute.amazonaws.com node_role=additional\n+ec2-52-17-238-245.eu-west-1.compute.amazonaws.com node_role=additional\n+ec2-52-16-148-72.eu-west-1.compute.amazonaws.com node_role=additional\n+ec2-52-17-238-151.eu-west-1.compute.amazonaws.com node_role=additional\n+ec2-52-17-238-214.eu-west-1.compute.amazonaws.com node_role=additional\n+ec2-52-17-239-13.eu-west-1.compute.amazonaws.com node_role=additional\n+ec2-52-17-238-123.eu-west-1.compute.amazonaws.com node_role=additional\n+ec2-52-17-238-191.eu-west-1.compute.amazonaws.com node_role=additional\n+ec2-52-17-234-182.eu-west-1.compute.amazonaws.com node_role=additional\n+ec2-52-17-238-193.eu-west-1.compute.amazonaws.com node_role=additional\n+ec2-52-17-238-120.eu-west-1.compute.amazonaws.com node_role=additional\n+ec2-52-17-238-167.eu-west-1.compute.amazonaws.com node_role=additional\n+ec2-52-17-238-213.eu-west-1.compute.amazonaws.com node_role=additional\n+ec2-52-17-238-121.eu-west-1.compute.amazonaws.com node_role=additional\n+ec2-52-16-110-90.eu-west-1.compute.amazonaws.com node_role=additional\n+ec2-52-17-238-152.eu-west-1.compute.amazonaws.com node_role=additional\n+ec2-52-17-238-190.eu-west-1.compute.amazonaws.com node_role=additional\n+ec2-52-17-239-17.eu-west-1.compute.amazonaws.com node_role=additional\n+ec2-52-17-239-2.eu-west-1.compute.amazonaws.com node_role=additional\n+ec2-52-17-239-1.eu-west-1.compute.amazonaws.com node_role=additional\n+ec2-52-17-238-221.eu-west-1.compute.amazonaws.com node_role=additional\n+ec2-52-17-238-149.eu-west-1.compute.amazonaws.com node_role=additional\n+ec2-52-17-238-140.eu-west-1.compute.amazonaws.com node_role=additional\n+ec2-52-17-238-125.eu-west-1.compute.amazonaws.com node_role=additional\n+ec2-52-17-238-210.eu-west-1.compute.amazonaws.com node_role=additional\n+ec2-52-17-238-115.eu-west-1.compute.amazonaws.com node_role=additional\n+ec2-52-17-238-240.eu-west-1.compute.amazonaws.com node_role=additional\n+ec2-52-17-238-118.eu-west-1.compute.amazonaws.com node_role=additional\n+ec2-52-17-36-23.eu-west-1.compute.amazonaws.com node_role=additional\n+ec2-52-17-223-58.eu-west-1.compute.amazonaws.com node_role=additional\n+ec2-52-17-235-17.eu-west-1.compute.amazonaws.com node_role=additional\n+ec2-52-17-239-15.eu-west-1.compute.amazonaws.com node_role=additional\n+ec2-52-17-238-217.eu-west-1.compute.amazonaws.com node_role=additional\n+ec2-52-17-238-216.eu-west-1.compute.amazonaws.com node_role=additional\n+ec2-52-17-238-253.eu-west-1.compute.amazonaws.com node_role=additional\n+ec2-52-17-238-138.eu-west-1.compute.amazonaws.com node_role=additional\n+ec2-52-17-238-157.eu-west-1.compute.amazonaws.com node_role=additional\n+ec2-52-17-238-155.eu-west-1.compute.amazonaws.com node_role=additional\n+ec2-52-17-238-224.eu-west-1.compute.amazonaws.com node_role=additional\n+ec2-52-17-238-150.eu-west-1.compute.amazonaws.com node_role=additional\n+ec2-52-17-231-246.eu-west-1.compute.amazonaws.com node_role=additional\n+ec2-52-17-238-148.eu-west-1.compute.amazonaws.com node_role=additional"
+    },
+    {
+      "sha": "fec396eb5bd99ae599be209cea8f37c9583a639a",
+      "filename": "site3.0.3.yml",
+      "status": "added",
+      "additions": 43,
+      "deletions": 0,
+      "changes": 43,
+      "blob_url": "https://github.com/couchbaselabs/AWSScripts/blob/189ffd891b05713064a9b1b40132212b6f0601a8/site3.0.3.yml",
+      "raw_url": "https://github.com/couchbaselabs/AWSScripts/raw/189ffd891b05713064a9b1b40132212b6f0601a8/site3.0.3.yml",
+      "contents_url": "https://api.github.com/repos/couchbaselabs/AWSScripts/contents/site3.0.3.yml?ref=189ffd891b05713064a9b1b40132212b6f0601a8",
+      "patch": "@@ -0,0 +1,43 @@\n+# demo_setup.yml\n+\n+- hosts: localhost\n+  connection: local\n+  gather_facts: False\n+\n+  tasks:\n+\n+    - name: Provision a set of instances\n+      ec2:\n+         aws_access_key: YOUR AWS ACCESS KEY\n+         aws_secret_key: YOUR AWS SECRET KEY\n+         group: owend2\n+         instance_type: c3.xlarge\n+         vpc_subnet_id: subnet-5c41ff2b\n+         image: ami-23b4d554\n+         wait: true\n+         region: eu-west-1\n+         exact_count: 1\n+         count_tag:\n+            Name: owend-primary\n+         instance_tags:\n+            Name: owend-primary\n+      register: ec2\n+\n+\n+    - name: Provision a set of instances\n+      ec2:\n+         aws_access_key: YOUR AWS ACCESS KEY\n+         aws_secret_key: YOUR AWS SECRET KEY\n+         group: owend2\n+         instance_type: c3.xlarge\n+         vpc_subnet_id: subnet-5c41ff2b\n+         image: ami-23b4d554\n+         wait: true\n+         region: eu-west-1\n+         exact_count: 129\n+         count_tag:\n+            Name: owend-additional\n+         instance_tags:\n+            Name: owend-additional\n+      register: ec2\n+"
+    }
+  ]
+}

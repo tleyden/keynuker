@@ -168,7 +168,6 @@ func TestScanGithubUserEventsForAwsKeys(t *testing.T) {
 // TODO: See the end-to-end-integration test for examples.
 func TestScanGithubLargePushEvents(t *testing.T) {
 
-
 	// ------------------------------------ Create Event Fetcher -------------------------------------------------------
 
 	var ok bool
@@ -193,9 +192,7 @@ func TestScanGithubLargePushEvents(t *testing.T) {
 
 	leakedKey := "FakeAccessKey"
 
-
 	// ------------------------------------ Setup Gock HTTP mock -------------------------------------------------------
-
 
 	defer gock.Off() // Flush pending mocks after test execution
 
@@ -236,9 +233,8 @@ func TestScanGithubLargePushEvents(t *testing.T) {
 			JSON(map[string]string{
 				"content": fmt.Sprintf("commit %d", i),
 			},
-		)
+			)
 	}
-
 
 	// ------------------------------------ Invoke Scanner -------------------------------------------------------------
 
@@ -266,5 +262,104 @@ func TestScanGithubLargePushEvents(t *testing.T) {
 	}
 
 	log.Printf("doc result: %v err: %v", docWrapper, err)
+
+}
+
+// Test scanner on real world content for prior leaks
+func TestActualLeakedKeyRealWorld(t *testing.T) {
+
+	realWorldLeaks := []struct {
+		LeakedAccessKeyId string
+		LeakUrl           string
+	}{
+		{
+			LeakedAccessKeyId: "AKIAJUDQ2BJVGVXZWJHA",
+			LeakUrl:           "https://api.github.com/repos/couchbaselabs/couchbase-ami/commits/6ddacc4ff6134573b2a461146e42f17eb2e4085e",
+		},
+		{
+			LeakedAccessKeyId: "AKIAIM32BEWJ4F2K2VGQ",
+			LeakUrl:           "https://api.github.com/repos/couchbaselabs/cloudhosting/commits/1d4e4af3c963b65525e7521f88bf9091d73bf44b",
+		},
+		{
+			LeakedAccessKeyId: "AKIAIBH2CGL2LZ4I3EVA",
+			LeakUrl:           "https://api.github.com/repos/couchbaselabs/gideon/commits/372ec296c3b4cf61171330d84f8d4500ab25e53e",
+		},
+		{
+			LeakedAccessKeyId: "AKIAIC733HFOQAYEJJ4Q", 
+			LeakUrl:           "https://api.github.com/repos/couchbaselabs/AWSScripts/commits/189ffd891b05713064a9b1b40132212b6f0601a8",
+		},
+	}
+
+
+	// ------------------------------------ Setup Gock HTTP mock -------------------------------------------------------
+
+	defer gock.Off() // Flush pending mocks after test execution
+
+	fileReader, err := os.Open("testdata/realWorldLeak6ddacc.json")
+	if err != nil {
+		t.Fatalf("Unable to read file w/ test data")
+	}
+	gock.New("https://api.github.com").
+		Get(fmt.Sprintf("/repos/couchbaselabs/couchbase-ami/commits/6ddacc4ff6134573b2a461146e42f17eb2e4085e")).
+		Reply(200).
+		Body(fileReader)
+
+
+	fileReader, err = os.Open("testdata/realWorldLeak1d4e4af3.json")
+	if err != nil {
+		t.Fatalf("Unable to read file w/ test data")
+	}
+	gock.New("https://api.github.com").
+		Get(fmt.Sprintf("/repos/couchbaselabs/cloudhosting/commits/1d4e4af3c963b65525e7521f88bf9091d73bf44b")).
+		Reply(200).
+		Body(fileReader)
+
+
+	fileReader, err = os.Open("testdata/realWorldLeak372ec296c.json")
+	if err != nil {
+		t.Fatalf("Unable to read file w/ test data")
+	}
+	gock.New("https://api.github.com").
+		Get(fmt.Sprintf("/repos/couchbaselabs/gideon/commits/372ec296c3b4cf61171330d84f8d4500ab25e53e")).
+		Reply(200).
+		Body(fileReader)
+
+	fileReader, err = os.Open("testdata/realWorldLeak189ffd89.json")
+	if err != nil {
+		t.Fatalf("Unable to read file w/ test data")
+	}
+	gock.New("https://api.github.com").
+		Get(fmt.Sprintf("/repos/couchbaselabs/AWSScripts/commits/189ffd891b05713064a9b1b40132212b6f0601a8")).
+		Reply(200).
+		Body(fileReader)
+
+
+
+	// ------------------------------------ Scan For Leaks -------------------------------------------------------
+
+
+	for _, realWorldLeak := range realWorldLeaks {
+
+		leaks := []FetchedAwsAccessKey{
+			{
+				AccessKeyId: aws.String(realWorldLeak.LeakedAccessKeyId),
+			},
+		}
+
+		guef := NewGoGithubUserEventFetcher("")
+		downstreamEventContent, err := guef.FetchUrlContent(context.Background(), realWorldLeak.LeakUrl)
+		if err != nil {
+			t.Fatalf("Error fetching url content: %v", err)
+		}
+
+		keyScanner := NewAwsKeyScanner()
+		leakedAccessKeyIds, _, err := keyScanner.Scan(leaks, downstreamEventContent)
+		if err != nil {
+			t.Fatalf("Error scanning content: %v", err)
+		}
+		assert.True(t, len(leakedAccessKeyIds) == 1)
+		assert.True(t, *leakedAccessKeyIds[0].AccessKeyId == realWorldLeak.LeakedAccessKeyId)
+
+	}
 
 }
