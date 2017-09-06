@@ -10,17 +10,29 @@ import (
 )
 
 type ParamsPostNukeNotifier struct {
+
+	// These fields are inputs from the upstream nuke-leaked-aws-keys action
 	Id                     string `json:"_id"`
 	NukedKeyEvents         []NukedKeyEvent
 	GithubEventCheckpoints GithubEventCheckpoints
 
+	// The FROM address that will be used for any notifications
 	EmailFromAddress string
+
+	// Optionally specify the Keynuker admin email to be CC'd about any leaked/nuked keys
+	KeynukerAdminEmailCCAddress string
+
 }
 
 type ResultPostNukeNotifier struct {
+
 	Id                     string `json:"_id"`
 	NukedKeyEvents         []NukedKeyEvent
 	GithubEventCheckpoints GithubEventCheckpoints
+
+	// Mailgun delivery id's for messages
+	DeliveryIds []string
+
 }
 
 // Entry point with dependency injection that takes a mailer object, might be live mailgun endpoint or mock
@@ -60,10 +72,16 @@ func SendPostNukeNotifications(mailer mailgun.Mailgun, params ParamsPostNukeNoti
 			recipient,
 		)
 
+		if params.KeynukerAdminEmailCCAddress != "" {
+			message.AddCC(params.KeynukerAdminEmailCCAddress)
+		}
+
 		_, id, err := mailer.Send(message)
 		if err != nil {
 			return result, err
 		}
+
+		result.DeliveryIds = append(result.DeliveryIds, id)
 
 		log.Printf("Delivery id: %v for outgoing email message: %+v", id, message)
 

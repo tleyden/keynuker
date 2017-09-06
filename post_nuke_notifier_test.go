@@ -14,7 +14,8 @@ import (
 
 func TestSendPostNukeNotifications(t *testing.T) {
 
-	fakeUserEmail := "fakeser@fake.co"
+	fakeUserEmail := "fakeUser@fake.co"
+	fakeAdminEmail := "fakeAdmin@fake.co"
 
 	// Create fake inputs that include nuked key events
 	params := ParamsPostNukeNotifier{
@@ -30,6 +31,7 @@ func TestSendPostNukeNotifications(t *testing.T) {
 				DeleteAccessKeyOutput: &iam.DeleteAccessKeyOutput {},
 			},
 		},
+		KeynukerAdminEmailCCAddress: fakeAdminEmail,
 	}
 
 	// Create mock mailgun and configure it to use that
@@ -49,5 +51,7 @@ func TestSendPostNukeNotifications(t *testing.T) {
 	assert.EqualValues(t, len(result.NukedKeyEvents), len(params.NukedKeyEvents))
 	assert.EqualValues(t, result.NukedKeyEvents, params.NukedKeyEvents)
 
+	// Should have at least one delivery id
+	assert.True(t, len(result.DeliveryIds) >= 1)
 
 }
