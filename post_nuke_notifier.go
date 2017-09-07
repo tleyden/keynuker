@@ -70,11 +70,11 @@ func SendPostNukeNotifications(mailer mailgun.Mailgun, params ParamsPostNukeNoti
 		recipient := params.KeynukerAdminEmailCCAddress
 
 		// Use github user email if present
-		if nukedKeyEvent.LeakedKeyEvent.GithubUser.Email != nil {
-			recipient = *nukedKeyEvent.LeakedKeyEvent.GithubUser.Email
+		if nukedKeyEvent.LeakedKeyEvent.LeakerEmail != "" {
+			recipient = nukedKeyEvent.LeakedKeyEvent.LeakerEmail
 		} else {
 			log.Printf(
-				"GithubUser.Email is nil for github user: %+v.  Falling back to: %v.  LeakedKeyEvent: %+v",
+				"Could not discover email for github user: %+v.  Falling back to: %v.  LeakedKeyEvent: %+v",
 				nukedKeyEvent.LeakedKeyEvent.GithubUser,
 				recipient,
 				nukedKeyEvent.LeakedKeyEvent,

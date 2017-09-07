@@ -11,6 +11,8 @@ import (
 	"log"
 	"sync"
 
+	"strings"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/google/go-github/github"
 	"github.com/tleyden/keynuker/keynuker-go-common"
@@ -174,8 +176,14 @@ func (gues GithubUserEventsScanner) scanAwsKeysForUser(ctx context.Context, user
 			scanResult.Error = fmt.Errorf("Failed to scan event content.  Event: %+v Error: %v", userEvent, err)
 			return scanResult, scanResult.Error
 		}
+
+		leakerEmail := ""
 		if len(leakedKeys) > 0 {
 			log.Printf("Found %d leaked keys in event: %v", len(leakedKeys), *userEvent.ID)
+			leakerEmail, err = gues.discoverLeakerEmail(userEvent)
+			if err != nil {
+				log.Printf("Warning: error discovering leaker email: %v", err)
+			}
 		}
 
 		// Create LeakedKeyEvents from leaked keys, append to result
@@ -185,6 +193,7 @@ func (gues GithubUserEventsScanner) scanAwsKeysForUser(ctx context.Context, user
 				GithubUser:        user,
 				GithubEvent:       userEvent,
 				NearbyContent:     nearbyContent,
+				LeakerEmail:       leakerEmail,
 			}
 
 			scanResult.LeakedKeyEvents = append(scanResult.LeakedKeyEvents, leakedKeyEvent)
@@ -204,6 +213,38 @@ func (gues GithubUserEventsScanner) scanAwsKeysForUser(ctx context.Context, user
 	}
 
 	return scanResult, nil
+
+}
+
+func (gues GithubUserEventsScanner) discoverLeakerEmail(userEvent *github.Event) (email string, err error) {
+
+	payload, err := userEvent.ParsePayload()
+	if err != nil {
+		return "", err
+	}
+
+	switch v := payload.(type) {
+	case *github.PushEvent:
+
+		if strings.Contains(*v.Ref, keynuker_go_common.KeyNukerIntegrationTestBranch) {
+			// skip this since as an experiment
+			log.Printf("Skipping push event %v on %v branch", *v.PushID, keynuker_go_common.KeyNukerIntegrationTestBranch)
+			return "", nil
+		}
+
+		commits := v.Commits
+		for _, commit := range commits {
+			if commit.Author != nil && commit.Author.Email != nil && *commit.Author.Email != "" {
+				return *commit.Author.Email, nil
+			}
+		}
+
+		return "", nil
+
+	default:
+		return "", nil
+
+	}
 
 }
 
