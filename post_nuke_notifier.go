@@ -23,6 +23,17 @@ type ParamsPostNukeNotifier struct {
 
 	// Optionally specify the Keynuker admin email to be CC'd about any leaked/nuked keys
 	KeynukerAdminEmailCCAddress string
+
+}
+
+func (p ParamsPostNukeNotifier) Validate() error {
+	if p.EmailFromAddress == "" {
+		return fmt.Errorf("You must specify an EmailFromAddress")
+	}
+	if p.KeynukerAdminEmailCCAddress == "" {
+		return fmt.Errorf("You must specify a KeynukerAdminEmailCCAddress")
+	}
+	return nil
 }
 
 type ResultPostNukeNotifier struct {
@@ -37,6 +48,10 @@ type ResultPostNukeNotifier struct {
 // Entry point with dependency injection that takes a mailer object, might be live mailgun endpoint or mock
 func SendPostNukeNotifications(mailer mailgun.Mailgun, params ParamsPostNukeNotifier) (result ResultPostNukeNotifier, err error) {
 
+	if err := params.Validate(); err != nil {
+		return result, err
+	}
+
 	// Propagate params -> result
 	result.NukedKeyEvents = params.NukedKeyEvents
 	result.GithubEventCheckpoints = params.GithubEventCheckpoints
@@ -44,15 +59,27 @@ func SendPostNukeNotifications(mailer mailgun.Mailgun, params ParamsPostNukeNoti
 
 	for _, nukedKeyEvent := range params.NukedKeyEvents {
 
-		if nukedKeyEvent.LeakedKeyEvent.GithubUser == nil ||
-			nukedKeyEvent.LeakedKeyEvent.GithubEvent == nil ||
+		if nukedKeyEvent.LeakedKeyEvent.GithubEvent == nil ||
 			nukedKeyEvent.DeleteAccessKeyOutput == nil ||
 			nukedKeyEvent.LeakedKeyEvent.AccessKeyMetadata.AccessKeyId == nil {
 			log.Printf("Warning: invalid nil params.  Skipping notification for nukedKeyEvent: %+v", nukedKeyEvent)
 			continue
 		}
 
-		recipient := *nukedKeyEvent.LeakedKeyEvent.GithubUser.Email
+		// If the GithubUser.Email field is not available, fallback to admin user
+		recipient := params.KeynukerAdminEmailCCAddress
+
+		// Use github user email if present
+		if nukedKeyEvent.LeakedKeyEvent.GithubUser.Email != nil {
+			recipient = *nukedKeyEvent.LeakedKeyEvent.GithubUser.Email
+		} else {
+			log.Printf(
+				"GithubUser.Email is nil for github user: %+v.  Falling back to: %v.  LeakedKeyEvent: %+v",
+				nukedKeyEvent.LeakedKeyEvent.GithubUser,
+				recipient,
+				nukedKeyEvent.LeakedKeyEvent,
+			)
+		}
 
 		messageBody := fmt.Sprintf(
 			"Dear %v, looks like on %v you leaked an AWS key: %+v via github event: %+v. "+
@@ -64,7 +91,7 @@ func SendPostNukeNotifications(mailer mailgun.Mailgun, params ParamsPostNukeNoti
 			*nukedKeyEvent.DeleteAccessKeyOutput,
 		)
 
-		log.Printf("Message body: %v.  Recipient: %v", messageBody, recipient)
+		log.Printf("Message body: %v.  Recipient: %v.  From: %v", messageBody, recipient, params.EmailFromAddress)
 
 		message := mailgun.NewMessage(
 			params.EmailFromAddress,
@@ -73,7 +100,7 @@ func SendPostNukeNotifications(mailer mailgun.Mailgun, params ParamsPostNukeNoti
 			recipient,
 		)
 
-		if params.KeynukerAdminEmailCCAddress != "" {
+		if recipient != params.KeynukerAdminEmailCCAddress && params.KeynukerAdminEmailCCAddress != "" {
 			message.AddCC(params.KeynukerAdminEmailCCAddress)
 		}
 
@@ -102,6 +129,7 @@ func SendPostNukeMailgunNotifications(params ParamsPostNukeNotifier) (result Res
 
 // Entry point when using test.  Uses mock mailgun endpoint.
 func SendPostNukeMockNotifications(mockMailgun mailgun.Mailgun, params ParamsPostNukeNotifier) (result ResultPostNukeNotifier, err error) {
+
 
 	return SendPostNukeNotifications(mockMailgun, params)
 
