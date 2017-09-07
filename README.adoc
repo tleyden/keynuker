@@ -66,8 +66,6 @@ etc ...
 The basic end-to-end functionality is working, except for notifications, but there are still a lot of places where AWS keys can leak to Github and go undetected:
 
  * Github Gists
- * Issue comments
- * Any push request with more than 20 commits will only result in the first 20 commits will be scanned, and the rest will be ignored.
  * Other Github API surface area that isn't covered yet
 
 
