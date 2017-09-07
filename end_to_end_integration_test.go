@@ -383,6 +383,26 @@ func (e EndToEndIntegrationTest) RunKeyNuker(accessKeyToNuke *iam.AccessKey) (er
 		}
 	}
 
+	// ------------------------ Send Post-Nuke Notification -------------------------
+
+	paramsPostNukeNotifier := ParamsPostNukeNotifier{
+		NukedKeyEvents:              resultNukeLeakedAwsKeys.NukedKeyEvents,
+		KeynukerAdminEmailCCAddress: "you@your.org", // TODO: use an env variable for this
+		EmailFromAddress:            "you@your.org", // TODO: use an env variable for this
+	}
+
+	mockMailgun, err := NewMailgunFromEnvironmentVariables()
+	if err != nil {
+		return fmt.Errorf("Error creating mailgun: %v", err)
+	}
+
+	// Call post nuke notifier
+	resultPostNukeNotifier, err := SendPostNukeMockNotifications(mockMailgun, paramsPostNukeNotifier)
+	if err != nil {
+		return fmt.Errorf("Error sending post-nuke notifications: %v", err)
+	}
+	log.Printf("resultPostNukeNotifier: %+v", resultPostNukeNotifier)
+
 	return nil
 
 }
