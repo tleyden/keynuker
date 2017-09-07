@@ -9,6 +9,7 @@ import (
 	"os"
 
 	"gopkg.in/mailgun/mailgun-go.v1"
+	"encoding/json"
 )
 
 type ParamsPostNukeNotifier struct {
@@ -81,14 +82,17 @@ func SendPostNukeNotifications(mailer mailgun.Mailgun, params ParamsPostNukeNoti
 			)
 		}
 
+		githubEventJson, _ := json.MarshalIndent(nukedKeyEvent.LeakedKeyEvent.GithubEvent, "", "    ")
+		deleteAccessKeyJson, _ := json.MarshalIndent(nukedKeyEvent.DeleteAccessKeyOutput, "", "    ")
+
 		messageBody := fmt.Sprintf(
-			"Dear %v, looks like on %v you leaked an AWS key: %+v via github event: %+v. "+
-				"The AWS key was attempted to be deleted on AWS, with AWS returning: %+v.",
+			"Dear %v, looks like you leaked an AWS key: %+v via github event: %+v. "+
+				"The AWS key was attempted to be deleted on AWS, with AWS result: %+v.  Timestamp: %v",
 			recipient,
-			nukedKeyEvent.NukedOn,
 			*nukedKeyEvent.LeakedKeyEvent.AccessKeyMetadata.AccessKeyId,
-			*nukedKeyEvent.LeakedKeyEvent.GithubEvent,
-			*nukedKeyEvent.DeleteAccessKeyOutput,
+			string(githubEventJson),
+			string(deleteAccessKeyJson),
+			nukedKeyEvent.NukedOn,
 		)
 
 		log.Printf("Message body: %v.  Recipient: %v.  From: %v", messageBody, recipient, params.EmailFromAddress)
