@@ -11,12 +11,10 @@ import (
 
 type LeakedKeyEvent struct {
 	AccessKeyMetadata FetchedAwsAccessKey
-
-	GithubUser *github.User
-
-	GithubEvent *github.Event
-
-	NearbyContent []byte
+	GithubUser        *github.User
+	GithubEvent       *github.Event
+	NearbyContent     []byte
+	LeakerEmail       string
 }
 
 // Is the key that was leaked the same (limited permission) key that keynuker is using to monitor aws?

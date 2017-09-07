@@ -142,14 +142,20 @@ def install_openwhisk_action_sequences(available_actions):
     # Key: name of action sequence
     # Value: ordered list of actions that comprise the sequence
     action_sequences = {
+
+        # Nested sequence for aggregating active AWS keys and writing to DB
         "fetch-aws-keys-write-doc": [
             "fetch-aws-keys",
             "write-doc",
         ],
+
+        # Nested sequence for aggregating github org users and writing to DB
         "github-user-aggregator-write-doc": [
             "github-user-aggregator",
             "write-doc",
         ],
+
+        # Main sequence
         "github-user-events-scanner-nuker": [
             "fetch-aws-keys-write-doc",
             "github-user-aggregator-write-doc",
@@ -157,6 +163,7 @@ def install_openwhisk_action_sequences(available_actions):
             "github-user-events-scanner",
             "nuke-leaked-aws-keys",
         ]
+
     }
 
     for action_sequence, actions in action_sequences.iteritems():
