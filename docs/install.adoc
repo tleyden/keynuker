@@ -109,17 +109,25 @@ This is the full list of environment variables you should have set from the abov
 |'["acme", "acme-labs"]'
 |The list of github orgs you would like to monitor.  The quoting is important: outer quotes as single quotes, inner quotes as double quotes
 
-|MAILERAPIKEY
+|KEYNUKER_MAILER_API_KEY
 |key-82ea6cfe7dc69f6c
 |The Mailgun API key for notifications.  At the moment, mailgun is the only option for outgoing mail.  Please open an issue if you need a different option.  You can find the mailer (Mailgun) API keys in the link:https://mailgun.com/app/account/security[Maigun Web Admin]  For `MAILERAPIKEY` use the value in `Active API Key` and for `MAILERPUBLICAPIKEY` use `Email Validation Key`
 
-|MAILERPUBLICAPIKEY
+|KEYNUKER_MAILER_PUBLIC_API_KEY
 |pubkey-e9ceff19d2749
 |The Mailgun public api key.
 
-|MAILERDOMAIN
+|KEYNUKER_MAILER_DOMAIN
 |sandboxc66.mailgun.org
 |The Mailgun domain.
+
+|KEYNUKER_EMAIL_FROM_ADDRESS
+|you@your.org
+|The FROM address for email notifications about nuked keys
+
+|KEYNUKER_ADMIN_EMAIL_CC_ADDRESS
+|admin@your.org
+|The email address of the Sys. Admin to CC on all email notifications about nuked keys.  If the "leaker" cannot be idenitifed via the github commit, this will be the only recipient of notifications.
 
 |===
 
