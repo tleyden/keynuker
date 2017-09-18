@@ -11,10 +11,13 @@ import (
 	"fmt"
 	"github.com/aws/aws-sdk-go/service/iam"
 	"gopkg.in/mailgun/mailgun-go.v1"
+	"encoding/json"
 )
 
 
 func TestSendPostNukeNotifications(t *testing.T) {
+
+
 
 	fakeUserEmail := "fakeUser@fake.co"
 	fakeAdminEmail := "fakeAdmin@fake.co"
@@ -42,6 +45,7 @@ func TestSendPostNukeNotifications(t *testing.T) {
 		},
 		KeynukerAdminEmailCCAddress: fakeAdminEmail,
 		EmailFromAddress: fakeAdminEmail,
+		MailerParams: MailerParams{},
 	}
 
 	// Unless integration tests are enabled, use mock

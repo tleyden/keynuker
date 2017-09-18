@@ -41,13 +41,12 @@ const (
 	EnvVarKeyNukerTestAdminEmailCCAddress = "KEYNUKER_TEST_ADMIN_EMAIL_CC_ADDRESS"
 
 
-
-
 )
 
 // Misc
 const (
 
+	// The integration test creates branches on the github repo.
 	// Add improbable string at end to make it as unlikely as possible to collide with a real branch name
 	KeyNukerIntegrationTestBranch = "KeyNukerIntegrationTestBranch-5a2f42dd3058f53ac9c5f22153257db7b594c663"
 

@@ -8,11 +8,27 @@ import (
 	"log"
 	"os"
 
-	"gopkg.in/mailgun/mailgun-go.v1"
 	"encoding/json"
+	"gopkg.in/mailgun/mailgun-go.v1"
 )
 
+// Mailer (Mailgun) Params
+type MailerParams struct {
+
+	// The Mailgun API key for notifications
+	ApiKey string `json:"mailer_api_key"`
+
+	// The Mailgun public api key.
+	PublicApiKey string `json:"mailer_public_api_key"`
+
+	// The mailgun domain
+	Domain string `json:"mailer_domain"`
+}
+
 type ParamsPostNukeNotifier struct {
+
+	// MailerParams
+	MailerParams
 
 	// These fields are inputs from the upstream nuke-leaked-aws-keys action
 	Id                     string `json:"_id"`
@@ -24,7 +40,6 @@ type ParamsPostNukeNotifier struct {
 
 	// Optionally specify the Keynuker admin email to be CC'd about any leaked/nuked keys
 	KeynukerAdminEmailCCAddress string
-
 }
 
 func (p ParamsPostNukeNotifier) Validate() error {
@@ -126,14 +141,17 @@ func SendPostNukeNotifications(mailer mailgun.Mailgun, params ParamsPostNukeNoti
 // Entry point when using actual OpenWhisk action.  Uses live mailgun endpoint.
 func SendPostNukeMailgunNotifications(params ParamsPostNukeNotifier) (result ResultPostNukeNotifier, err error) {
 
-	// TODO: create mailgun endpoint using credentials found in parameters
+	mailer := mailgun.NewMailgun(
+		params.MailerParams.Domain,
+		params.MailerParams.ApiKey,
+		params.MailerParams.PublicApiKey,
+	)
 
-	return SendPostNukeNotifications(nil, params)
+	return SendPostNukeNotifications(mailer, params)
 }
 
 // Entry point when using test.  Uses mock mailgun endpoint.
 func SendPostNukeMockNotifications(mockMailgun mailgun.Mailgun, params ParamsPostNukeNotifier) (result ResultPostNukeNotifier, err error) {
-
 
 	return SendPostNukeNotifications(mockMailgun, params)
 

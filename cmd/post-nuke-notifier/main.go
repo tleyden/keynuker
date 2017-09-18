@@ -24,7 +24,7 @@ func OpenWhiskCallback(value json.RawMessage) (interface{}, error) {
 		return nil, err
 	}
 
-	resultDoc, err := keynuker.SendPostNukeNotifications(params)
+	resultDoc, err := keynuker.SendPostNukeMailgunNotifications(params)
 	if err != nil {
 		return nil, err
 	}
