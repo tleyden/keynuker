@@ -17,8 +17,6 @@ import (
 
 func TestSendPostNukeNotifications(t *testing.T) {
 
-
-
 	fakeUserEmail := "fakeUser@fake.co"
 	fakeAdminEmail := "fakeAdmin@fake.co"
 

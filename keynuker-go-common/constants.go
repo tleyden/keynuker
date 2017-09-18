@@ -34,11 +34,20 @@ const (
 
 	EnvVarKeyNukerTestGithubOrgs = "GITHUB_ORGS"
 
+
+
 	EnvVarKeyNukerTestGithubLeakTargetRepo = "KEYNUKER_GITHUB_LEAK_TARGET_REPO"
 
-	EnvVarKeyNukerTestEmailFromAddress = "KEYNUKER_TEST_EMAIL_FROM_ADDRESS"
+	EnvVarKeyNukerEmailFromAddress = "KEYNUKER_EMAIL_FROM_ADDRESS"
 
-	EnvVarKeyNukerTestAdminEmailCCAddress = "KEYNUKER_TEST_ADMIN_EMAIL_CC_ADDRESS"
+	EnvVarKeyNukerAdminEmailCCAddress = "KEYNUKER_ADMIN_EMAIL_CC_ADDRESS"
+
+	EnvVarKeyNukerMailerDomain = "KEYNUKER_MAILER_DOMAIN"
+
+	EnvVarKeyNukerMailerApiKey = "KEYNUKER_MAILER_API_KEY"
+
+	EnvVarKeyNukerMailerPublicApiKey = "KEYNUKER_MAILER_PUBLIC_API_KEY"
+
 
 
 )

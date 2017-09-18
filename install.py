@@ -106,6 +106,13 @@ def install_openwhisk_actions(packaging_params):
         "nuke-leaked-aws-keys": {
             "TargetAwsAccounts": "TARGET_AWS_ACCOUNTS",
         },
+        "post-nuke-notifier": {
+            "email_from_address": "KEYNUKER_EMAIL_FROM_ADDRESS",
+            "admin_email_cc_address": "KEYNUKER_ADMIN_EMAIL_CC_ADDRESS",
+            "mailer_api_key": "KEYNUKER_MAILER_API_KEY",
+            "mailer_public_api_key": "KEYNUKER_MAILER_PUBLIC_API_KEY",
+            "mailer_domain": "KEYNUKER_MAILER_DOMAIN",
+        },
         "write-doc": {
             "username": "KEYNUKER_DB_KEY",
             "host": "KEYNUKER_DB_HOST",
@@ -162,6 +169,7 @@ def install_openwhisk_action_sequences(available_actions):
             "lookup-github-users-aws-keys",
             "github-user-events-scanner",
             "nuke-leaked-aws-keys",
+            "post-nuke-notifier",
         ]
 
     }

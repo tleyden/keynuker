@@ -10,6 +10,7 @@ import (
 
 	"encoding/json"
 	"gopkg.in/mailgun/mailgun-go.v1"
+	"github.com/tleyden/keynuker/keynuker-go-common"
 )
 
 // Mailer (Mailgun) Params
@@ -36,10 +37,11 @@ type ParamsPostNukeNotifier struct {
 	GithubEventCheckpoints GithubEventCheckpoints
 
 	// The FROM address that will be used for any notifications
-	EmailFromAddress string
+	EmailFromAddress string `json:"email_from_address"`
 
 	// Optionally specify the Keynuker admin email to be CC'd about any leaked/nuked keys
-	KeynukerAdminEmailCCAddress string
+	KeynukerAdminEmailCCAddress string `json:"admin_email_cc_address"`
+
 }
 
 func (p ParamsPostNukeNotifier) Validate() error {
@@ -159,17 +161,17 @@ func SendPostNukeMockNotifications(mockMailgun mailgun.Mailgun, params ParamsPos
 
 func NewMailgunFromEnvironmentVariables() (mg mailgun.Mailgun, err error) {
 
-	mailerDomain := os.Getenv("MAILERDOMAIN")
+	mailerDomain := os.Getenv(keynuker_go_common.EnvVarKeyNukerMailerDomain)
 	if mailerDomain == "" {
-		return nil, fmt.Errorf("You must set MAILERDOMAIN env variable")
+		return nil, fmt.Errorf("You must set %v env variable", keynuker_go_common.EnvVarKeyNukerMailerDomain)
 	}
-	mailerAPIKey := os.Getenv("MAILERAPIKEY")
+	mailerAPIKey := os.Getenv(keynuker_go_common.EnvVarKeyNukerMailerApiKey)
 	if mailerAPIKey == "" {
-		return nil, fmt.Errorf("You must set MAILERAPIKEY env variable")
+		return nil, fmt.Errorf("You must set %v env variable", keynuker_go_common.EnvVarKeyNukerMailerApiKey)
 	}
-	mailerPublicAPIKey := os.Getenv("MAILERPUBLICAPIKEY")
+	mailerPublicAPIKey := os.Getenv(keynuker_go_common.EnvVarKeyNukerMailerPublicApiKey)
 	if mailerPublicAPIKey == "" {
-		return nil, fmt.Errorf("You must set MAILERPUBLICAPIKEY env variable")
+		return nil, fmt.Errorf("You must set %v env variable", keynuker_go_common.EnvVarKeyNukerMailerPublicApiKey)
 	}
 
 	return mailgun.NewMailgun(
