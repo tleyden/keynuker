@@ -387,8 +387,8 @@ func (e EndToEndIntegrationTest) RunKeyNuker(accessKeyToNuke *iam.AccessKey) (er
 
 	paramsPostNukeNotifier := ParamsPostNukeNotifier{
 		NukedKeyEvents:              resultNukeLeakedAwsKeys.NukedKeyEvents,
-		KeynukerAdminEmailCCAddress: "you@your.org", // TODO: use an env variable for this
-		EmailFromAddress:            "you@your.org", // TODO: use an env variable for this
+		KeynukerAdminEmailCCAddress: os.Getenv(keynuker_go_common.EnvVarKeyNukerTestAdminEmailCCAddress),
+		EmailFromAddress:            os.Getenv(keynuker_go_common.EnvVarKeyNukerTestEmailFromAddress),
 	}
 
 	mockMailgun, err := NewMailgunFromEnvironmentVariables()

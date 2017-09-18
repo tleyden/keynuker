@@ -35,6 +35,14 @@ const (
 	EnvVarKeyNukerTestGithubOrgs = "GITHUB_ORGS"
 
 	EnvVarKeyNukerTestGithubLeakTargetRepo = "KEYNUKER_GITHUB_LEAK_TARGET_REPO"
+
+	EnvVarKeyNukerTestEmailFromAddress = "KEYNUKER_TEST_EMAIL_FROM_ADDRESS"
+
+	EnvVarKeyNukerTestAdminEmailCCAddress = "KEYNUKER_TEST_ADMIN_EMAIL_CC_ADDRESS"
+
+
+
+
 )
 
 // Misc
