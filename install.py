@@ -10,6 +10,9 @@ import shutil
 
 def main():
 
+    # Make sure all of the openwhisk actions we are about to install have the proper env variables set that they require
+    verify_openwhisk_actions_env_variables(get_default_packaging_params())
+
     # Builds go binaries and packages into zip file
     build_binaries()
 
@@ -78,12 +81,12 @@ def dirs_with_main():
 
     return result
 
-def install_openwhisk_actions(packaging_params):
+def get_action_params_to_env():
 
     # Each action definition needs to be declared with certain default parameters (like a config binding)
-    # And those parameters are set based on the environment variables declared in docs/install.adoc.  
+    # And those parameters are set based on the environment variables declared in docs/install.adoc.
     # This map defines all of the required params for each action, and which env variable it should get
-    # the value from 
+    # the value from
     action_params_to_env = {
         "fetch-aws-keys":{
             "TargetAwsAccounts": "TARGET_AWS_ACCOUNTS",
@@ -92,7 +95,7 @@ def install_openwhisk_actions(packaging_params):
         "github-user-aggregator": {
             "GithubAccessToken": "GITHUB_ACCESS_TOKEN",
             "GithubOrgs": "GITHUB_ORGS",
-            "KeyNukerOrg": "KEYNUKER_ORG",            
+            "KeyNukerOrg": "KEYNUKER_ORG",
         },
         "github-user-events-scanner": {
             "GithubAccessToken": "GITHUB_ACCESS_TOKEN",
@@ -123,6 +126,30 @@ def install_openwhisk_actions(packaging_params):
             "WebAction": True,
         },
     }
+    return action_params_to_env
+
+def verify_openwhisk_actions_env_variables(packaging_params):
+
+    action_params_to_env = get_action_params_to_env()
+
+    # First do a pass to loop over all actions that will be installed and make sure that
+    # all proper env variables are set.  This speeds up the failure time when env variables are missing.
+    for path in dirs_with_main():
+        print("Verifying env variables for OpenWhisk action for path: {}".format(path))
+        packaging_params.path = path
+        verify_openwhisk_action_env_variables_in_path(action_params_to_env, path)
+
+
+def install_openwhisk_actions(packaging_params):
+
+    action_params_to_env = get_action_params_to_env()
+
+    # First do a pass to loop over all actions that will be installed and make sure that
+    # all proper env variables are set.  This speeds up the failure time when env variables are missing.
+    for path in dirs_with_main():
+        print("Verifying env variables for OpenWhisk action for path: {}".format(path))
+        packaging_params.path = path
+        verify_openwhisk_action_env_variables_in_path(action_params_to_env, path)
 
     actions = []
     for path in dirs_with_main():
@@ -202,6 +229,23 @@ def install_openwhisk_action_sequences(available_actions):
     return action_sequences.keys()
 
 
+def verify_openwhisk_action_env_variables_in_path(action_params_to_env, path):
+
+    # Save the current working directory
+    cwd = os.getcwd()
+
+    os.chdir(path)
+
+    openwhisk_action = os.path.basename(os.getcwd())
+    params_to_env = action_params_to_env[openwhisk_action]
+
+    expanded_params = expand_params(params_to_env)
+
+    # Restore the original current working directory
+    os.chdir(cwd)
+
+
+
 def install_openwhisk_action_in_path(packaging_params, action_params_to_env, path):
 
     """
@@ -223,20 +267,14 @@ def install_openwhisk_action_in_path(packaging_params, action_params_to_env, pat
     openwhisk_action = os.path.basename(os.getcwd())
     params_to_env = action_params_to_env[openwhisk_action]
 
-    if not openwhisk_action_exists(openwhisk_action):
-        install_openwhisk_action(
-            packaging_params,
-            openwhisk_action,
-            params_to_env,
-            )
-    else:
+    if openwhisk_action_exists(openwhisk_action):
         delete_openwhisk_action(openwhisk_action)
-        install_openwhisk_action(
-            packaging_params,
-            openwhisk_action,
-            params_to_env,
-            )
 
+    install_openwhisk_action(
+        packaging_params,
+        openwhisk_action,
+        params_to_env,
+    )
 
     # Restore the original current working directory
     os.chdir(cwd) 
