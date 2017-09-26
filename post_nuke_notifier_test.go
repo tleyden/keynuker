@@ -5,15 +5,14 @@ import (
 	"testing"
 	"time"
 
+	"fmt"
+
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/service/iam"
 	"github.com/google/go-github/github"
 	"github.com/stretchr/testify/assert"
-	"fmt"
-	"github.com/aws/aws-sdk-go/service/iam"
 	"gopkg.in/mailgun/mailgun-go.v1"
-	"encoding/json"
 )
-
 
 func TestSendPostNukeNotifications(t *testing.T) {
 
@@ -38,12 +37,12 @@ func TestSendPostNukeNotifications(t *testing.T) {
 						AccessKeyId: aws.String("fake-aws-access-key"),
 					},
 				},
-				DeleteAccessKeyOutput: &iam.DeleteAccessKeyOutput {},
+				DeleteAccessKeyOutput: &iam.DeleteAccessKeyOutput{},
 			},
 		},
 		KeynukerAdminEmailCCAddress: fakeAdminEmail,
-		EmailFromAddress: fakeAdminEmail,
-		MailerParams: MailerParams{},
+		EmailFromAddress:            fakeAdminEmail,
+		MailerParams:                MailerParams{},
 	}
 
 	// Unless integration tests are enabled, use mock
@@ -59,11 +58,10 @@ func TestSendPostNukeNotifications(t *testing.T) {
 		mg, err = NewMailgunFromEnvironmentVariables()
 		assert.NoError(t, err, fmt.Sprintf("Unexpected error"))
 
-		fakeUserEmail = "youremail@your.org"  // Replace these to receive emails
+		fakeUserEmail = "youremail@your.org" // Replace these to receive emails
 		fakeAdminEmail = "fakeAdmin@your.org"
 
 	}
-
 
 	// Call post nuke notifier
 	result, err := SendPostNukeMockNotifications(mg, params)
@@ -87,7 +85,5 @@ func TestSendPostNukeNotifications(t *testing.T) {
 		assert.True(t, len(result.DeliveryIds) >= 1)
 
 	}
-
-
 
 }
