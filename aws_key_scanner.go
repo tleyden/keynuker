@@ -7,15 +7,9 @@ import (
 	"regexp"
 )
 
-type AwsKeyScanner struct {
-}
-
-func NewAwsKeyScanner() *AwsKeyScanner {
-	return &AwsKeyScanner{}
-}
 
 // Scan the content to see if any of the aws keys are present
-func (aks AwsKeyScanner) Scan(accessKeyMetadata []FetchedAwsAccessKey, content []byte) (leaks []FetchedAwsAccessKey, nearbyContent []byte, err error) {
+func Scan(accessKeyMetadata []FetchedAwsAccessKey, content []byte) (leaks []FetchedAwsAccessKey, nearbyContent []byte, err error) {
 
 	for _, keyMetadata := range accessKeyMetadata {
 

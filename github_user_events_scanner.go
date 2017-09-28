@@ -170,8 +170,7 @@ func (gues GithubUserEventsScanner) scanAwsKeysForUser(ctx context.Context, user
 		// Scan for leaked keys
 		log.Printf("User: %v. Scanning %d bytes of content for event: %v", *user.Login, len(downstreamEventContent), *userEvent.ID)
 
-		keyScanner := NewAwsKeyScanner()
-		leakedKeys, nearbyContent, err := keyScanner.Scan(params.AccessKeyMetadata, downstreamEventContent)
+		leakedKeys, nearbyContent, err := Scan(params.AccessKeyMetadata, downstreamEventContent)
 		if err != nil {
 			scanResult.Error = fmt.Errorf("Failed to scan event content.  Event: %+v Error: %v", userEvent, err)
 			return scanResult, scanResult.Error
