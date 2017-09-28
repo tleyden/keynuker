@@ -25,3 +25,4 @@ func TestCreateApiHostBaseUrl(t *testing.T) {
 	assert.True(t, strings.Contains(baseUrl.Path, "api"))
 
 }
+

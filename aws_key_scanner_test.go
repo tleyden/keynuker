@@ -9,6 +9,7 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/couchbaselabs/go.assert"
+	"bytes"
 )
 
 func TestAwsKeyScanner(t *testing.T) {
@@ -34,4 +35,38 @@ func TestAwsKeyScanner(t *testing.T) {
 	assert.True(t, err2 == nil)
 	assert.True(t, len(noLeakedKeys) == 0)
 
+}
+
+func BenchmarkAwsKeyScanner(b *testing.B) {
+
+	// Setup keys and content
+	leakedKeyPrefix := "FakeAccessKey"
+	accessKeyMetadata := []FetchedAwsAccessKey{}
+
+	contentBuffer := bytes.NewBufferString("")
+
+	numIterations := 1000
+	for i := 0; i < numIterations; i++ {
+		leakedKey := fmt.Sprintf("%s-%d", i, leakedKeyPrefix)
+		fetchedAwsAccessKey := FetchedAwsAccessKey{
+			AccessKeyId: aws.String(leakedKey),
+			UserName:    aws.String("fakeuser@test.com"),
+		}
+		accessKeyMetadata = append(accessKeyMetadata, fetchedAwsAccessKey)
+
+		contentBuffer.WriteString(fmt.Sprintf(`"patch":"@@ -1,2 +1,2 @@\n \n-Oops I just leaked %s! `, leakedKey))
+	}
+
+	eventContent := contentBuffer.Bytes()
+
+	// Reset benchmark timer so that the results aren't skewed by the time taken during setup
+	b.ResetTimer()
+
+	for n := 0; n < b.N; n++ {
+		_, _, err := Scan(accessKeyMetadata, eventContent)
+		if err != nil {
+			b.Fatalf("Unexpected error scanning content.  Err: %v", err)
+		}
+
+	}
 }
