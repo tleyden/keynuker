@@ -118,8 +118,9 @@ The basic end-to-end functionality is working, except for notifications, but the
 * https://www.cloudconformity.com[CloudConformity]
 
 
-== 👀 Related Misc
+== 👀 Related Reddit Discussions
 
+* https://www.reddit.com/r/aws/comments/734lof/keynuker_nuke_aws_keys_accidentally_leaked_to/[reddit/aws: KeyNuker announcement + discussions]
 * https://www.reddit.com/r/aws/comments/6pjf7n/we_got_hacked_looking_for_ideas_on_preventative/[reddit/aws: We got hacked. Looking for ideas on preventative measures going forward.]
 * https://www.reddit.com/r/aws/comments/6onzgb/what_aws_security_compliances_do_you_guys_have/[reddit/aws: What AWS security compliances do you guys have for your environment?]
 
