@@ -108,7 +108,7 @@ The basic end-to-end functionality is working, except for notifications, but the
 * http://pre-commit.com/[pre-commit] - A pre-commit framework, that includes the http://pre-commit.com/hooks.html[detect-aws-credentials] plugin
 * https://www.reddit.com/r/netsec/comments/5ll7ng/truffle_hog_a_tool_that_searches_entire_commit/[TruffleHog] -- A tool that Searches Entire Commit History in Git Repositories for High Entropy Strings to Find Secrets Accidentally Committed to Version Control
 * https://rtyley.github.io/bfg-repo-cleaner/[BFG Repo cleaner] - Removes large or troublesome blobs like git-filter-branch does
-
+* https://aws.amazon.com/blogs/compute/automate-your-it-operations-using-aws-step-functions-and-amazon-cloudwatch-events/[AWS_RISK_CREDENTIALS_EXPOSED CloudWatch Event]
 == ⚙ Related Services
 
 * https://www.gitguardian.com/[Git Guardian] -- Scanning service that alerts you of text strings that appear to be API keys (Github and more)
