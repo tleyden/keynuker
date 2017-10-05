@@ -225,7 +225,7 @@ func (gues GithubUserEventsScanner) discoverLeakerEmail(userEvent *github.Event)
 	switch v := payload.(type) {
 	case *github.PushEvent:
 
-		if strings.Contains(*v.Ref, keynuker_go_common.KeyNukerIntegrationTestBranch) {
+		if v.Ref != nil && strings.Contains(*v.Ref, keynuker_go_common.KeyNukerIntegrationTestBranch) {
 			// skip this since as an experiment
 			log.Printf("Skipping push event %v on %v branch", *v.PushID, keynuker_go_common.KeyNukerIntegrationTestBranch)
 			return "", nil

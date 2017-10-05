@@ -194,7 +194,7 @@ func TestScanGithubUserEventsForAwsKeys(t *testing.T) {
 		assert.True(t, err == nil)
 		assert.True(t, len(docWrapper.LeakedKeyEvents) == 1)
 		assert.Equal(t, *docWrapper.LeakedKeyEvents[0].GithubEvent.ID, *mockGithubEvent1.ID)
-		assert.Equal(t, docWrapper.LeakedKeyEvents[0].LeakerEmail, "testuser@gmail.com")
+		assert.Equal(t, "testuser@gmail.com", docWrapper.LeakedKeyEvents[0].LeakerEmail)
 		assert.True(t, len(docWrapper.GithubEventCheckpoints) == 2)
 		assert.Equal(t, *docWrapper.GithubEventCheckpoints[*githubUser.Login].ID, *mockGithubEvent2.ID)
 
