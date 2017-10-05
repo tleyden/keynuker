@@ -22,23 +22,7 @@ import (
 	"net/url"
 )
 
-var fakePushEvent = `{
-   "id":"6678269483",
-   "type":"PushEvent",
-   "actor":{
-      "id":296876,
-      "login":"testuser",
-      "display_login":"testuser",
-      "gravatar_id":"",
-      "url":"https://api.github.com/users/testuser",
-      "avatar_url":"https://avatars.githubusercontent.com/u/296876?"
-   },
-   "repo":{
-      "id":105893932,
-      "name":"testuser/go-github",
-      "url":"https://api.github.com/repos/testuser/go-github"
-   },
-   "payload":{
+var fakePushEventRawPayload = `{
       "push_id":2031009949,
       "size":1,
       "distinct_size":1,
@@ -57,10 +41,7 @@ var fakePushEvent = `{
             "url":"https://api.github.com/repos/testuser/go-github/commits/148f8d11f8f50ed4c43026a009176c00dd521ada"
          }
       ]
-   },
-   "public":true,
-   "created_at":"2017-10-05T13:44:04Z"
-}`
+   }`
 
 func TestScanGithubUserEventsForAwsKeys(t *testing.T) {
 
@@ -117,7 +98,7 @@ func TestScanGithubUserEventsForAwsKeys(t *testing.T) {
 					Username:            *githubUser.Login,
 					SinceEventTimestamp: githubCheckpointEvent.CreatedAt,
 				}
-				rawPayload := json.RawMessage(fakePushEvent)
+				rawPayload := json.RawMessage(fakePushEventRawPayload)
 				mockGithubEvent1 = &github.Event{
 					Type:      aws.String("PushEvent"),
 					ID:        aws.String("mockGithubEvent1"),
