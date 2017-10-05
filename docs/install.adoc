@@ -46,6 +46,15 @@ In the AWS web admin UI, create a new IAM user called `KeyNuker` with only **Pro
 
 Then under **Security credentials**, click the **Create access key** button to create a new AWS Access Key and Secret, which you should use to set the environment variable `TARGET_AWS_ACCOUNTS` as described below
 
+Or to do the same steps via the CLI:
+
+```
+$ cd /path/to/keynuker
+$ aws iam create-policy --policy-name IAMUserListDeleteKeys --policy-document file://docs/iam_policy.json 
+$ aws iam create-user --user-name Keynuker
+$ aws iam attach-user-policy --policy-arn arn:aws:iam::{aws_account_id}:policy/IAMUserListDeleteKeys --user-name Keynuker
+```
+
 == Generate a github access token
 
 Login to github and go to https://github.com/settings/tokens/new[generate an access token].  The only permission needed is the `read:org` (Read org and team membership) permission.  You should be logged in as a user that is a **member** of the Github organization(s) that you want to monitor user activity for.

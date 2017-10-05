@@ -1,0 +1,17 @@
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Sid": "Stmt1499788629000",
+            "Effect": "Allow",
+            "Action": [
+                "iam:DeleteAccessKey",
+                "iam:ListAccessKeys",
+                "iam:ListUsers"
+            ],
+            "Resource": [
+                "*"
+            ]
+        }
+    ]
+}
