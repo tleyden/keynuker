@@ -44,6 +44,8 @@ In the AWS web admin UI, create a new IAM user called `KeyNuker` with only **Pro
 }
 ```
 
+NOTE: the most up-to-date version of this policy is in `docs/keynuker-iam-user-policy.yml`
+
 Then under **Security credentials**, click the **Create access key** button to create a new AWS Access Key and Secret, which you should use to set the environment variable `TARGET_AWS_ACCOUNTS` as described below
 
 Or to do the same steps via the CLI:
