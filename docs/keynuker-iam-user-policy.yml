@@ -1,0 +1,33 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: KeyNuker IAM User and Policy
+Parameters: {}
+Resources:
+  keynukeruser:
+    Type: AWS::IAM::User
+    Properties:
+      Path: /
+      Policies:
+        - PolicyName: KeyNukerListDeleteAccessKeys
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Sid: Stmt1499788629000
+                Effect: Allow
+                Action:
+                  - iam:DeleteAccessKey
+                  - iam:ListAccessKeys
+                  - iam:ListUsers
+                Resource:
+                  - '*'
+      UserName: KeyNuker
+  keynukeraccesskey:
+    Type: "AWS::IAM::AccessKey" 
+    Properties: 
+      UserName: !Ref keynukeruser
+Outputs:
+  AwsAccessKey:
+    Description: The Aws access key
+    Value: !Ref keynukeraccesskey
+  AwsSecretAccessKey:
+    Description: The Aws secret access key
+    Value: !GetAtt keynukeraccesskey.SecretAccessKey

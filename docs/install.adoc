@@ -44,7 +44,18 @@ In the AWS web admin UI, create a new IAM user called `KeyNuker` with only **Pro
 }
 ```
 
+NOTE: the most up-to-date version of this policy is in `docs/keynuker-iam-user-policy.yml`
+
 Then under **Security credentials**, click the **Create access key** button to create a new AWS Access Key and Secret, which you should use to set the environment variable `TARGET_AWS_ACCOUNTS` as described below
+
+Or to do the same steps via the CLI:
+
+```
+$ cd /path/to/keynuker
+$ aws cloudformation create-stack --stack-name KeyNukerIAMAccess --template-body file://docs/keynuker-iam-user-policy.yml --capabilities CAPABILITY_IAM CAPABILITY_NAMED_IAM 
+$ aws cloudformation describe-stacks --stack-name KeyNukerIAMAccess --query 'Stacks[0].Outputs[?OutputKey==`AwsAccessKey`].OutputValue' --output text
+$ aws cloudformation describe-stacks --stack-name KeyNukerIAMAccess --query 'Stacks[0].Outputs[?OutputKey==`AwsSecretAccessKey`].OutputValue' --output text
+```
 
 == Generate a github access token
 
