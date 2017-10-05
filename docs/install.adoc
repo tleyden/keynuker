@@ -53,6 +53,14 @@ $ cd /path/to/keynuker
 $ aws iam create-policy --policy-name IAMUserListDeleteKeys --policy-document file://docs/iam_policy.json 
 $ aws iam create-user --user-name Keynuker
 $ aws iam attach-user-policy --policy-arn arn:aws:iam::{aws_account_id}:policy/IAMUserListDeleteKeys --user-name Keynuker
+$ aws iam create-access-key --user-name Keynuker
+```
+
+Or via cloudformation:
+
+```
+$ cd /path/to/keynuker
+$ aws cloudformation create-stack --stack-name KeyNukerIAMAccess --template-body file://docs/keynuker-iam-user-policy.yml --capabilities CAPABILITY_IAM CAPABILITY_NAMED_IAM 
 ```
 
 == Generate a github access token
