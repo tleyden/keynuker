@@ -170,8 +170,7 @@ func (gues GithubUserEventsScanner) scanAwsKeysForUser(ctx context.Context, user
 		// Scan for leaked keys
 		log.Printf("User: %v. Scanning %d bytes of content for event: %v", *user.Login, len(downstreamEventContent), *userEvent.ID)
 
-		keyScanner := NewAwsKeyScanner()
-		leakedKeys, nearbyContent, err := keyScanner.Scan(params.AccessKeyMetadata, downstreamEventContent)
+		leakedKeys, nearbyContent, err := Scan(params.AccessKeyMetadata, downstreamEventContent)
 		if err != nil {
 			scanResult.Error = fmt.Errorf("Failed to scan event content.  Event: %+v Error: %v", userEvent, err)
 			return scanResult, scanResult.Error
@@ -226,7 +225,7 @@ func (gues GithubUserEventsScanner) discoverLeakerEmail(userEvent *github.Event)
 	switch v := payload.(type) {
 	case *github.PushEvent:
 
-		if strings.Contains(*v.Ref, keynuker_go_common.KeyNukerIntegrationTestBranch) {
+		if v.Ref != nil && strings.Contains(*v.Ref, keynuker_go_common.KeyNukerIntegrationTestBranch) {
 			// skip this since as an experiment
 			log.Printf("Skipping push event %v on %v branch", *v.PushID, keynuker_go_common.KeyNukerIntegrationTestBranch)
 			return "", nil

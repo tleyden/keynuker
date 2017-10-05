@@ -22,6 +22,27 @@ import (
 	"net/url"
 )
 
+var fakePushEventRawPayload = `{
+      "push_id":2031009949,
+      "size":1,
+      "distinct_size":1,
+      "ref":"refs/heads/patch-1",
+      "head":"148f8d11f8f50ed4c43026a009176c00dd521ada",
+      "before":"64c38a12bfba4aefcb14b60fc9cd196f4f31634e",
+      "commits":[
+         {
+            "sha":"148f8d11f8f50ed4c43026a009176c00dd521ada",
+            "author":{
+               "email":"testuser@gmail.com",
+               "name":"Test User"
+            },
+            "message":"Fixes #743 Panic when calling github.Event.ParsePayload() with nil RawPayload (artificial mock scenario)",
+            "distinct":true,
+            "url":"https://api.github.com/repos/testuser/go-github/commits/148f8d11f8f50ed4c43026a009176c00dd521ada"
+         }
+      ]
+   }`
+
 func TestScanGithubUserEventsForAwsKeys(t *testing.T) {
 
 	// Unless integration tests are enabled, use mock fetcher
@@ -77,15 +98,18 @@ func TestScanGithubUserEventsForAwsKeys(t *testing.T) {
 					Username:            *githubUser.Login,
 					SinceEventTimestamp: githubCheckpointEvent.CreatedAt,
 				}
+				rawPayload := json.RawMessage(fakePushEventRawPayload)
 				mockGithubEvent1 = &github.Event{
 					Type:      aws.String("PushEvent"),
 					ID:        aws.String("mockGithubEvent1"),
 					CreatedAt: aws.Time(time.Now()),
+					RawPayload: &rawPayload,
 				}
 				mockGithubEvent2 = &github.Event{
 					Type:      aws.String("PushEvent"),
 					ID:        aws.String("mockGithubEvent2"),
 					CreatedAt: aws.Time(time.Now()),
+					RawPayload: &rawPayload,
 				}
 				mockFetcher.On("FetchUserEvents", context.Background(), expectedFetchUserEventsInput).Return(
 					[]*github.Event{
@@ -151,8 +175,10 @@ func TestScanGithubUserEventsForAwsKeys(t *testing.T) {
 		assert.True(t, err == nil)
 		assert.True(t, len(docWrapper.LeakedKeyEvents) == 1)
 		assert.Equal(t, *docWrapper.LeakedKeyEvents[0].GithubEvent.ID, *mockGithubEvent1.ID)
+		assert.Equal(t, "testuser@gmail.com", docWrapper.LeakedKeyEvents[0].LeakerEmail)
 		assert.True(t, len(docWrapper.GithubEventCheckpoints) == 2)
 		assert.Equal(t, *docWrapper.GithubEventCheckpoints[*githubUser.Login].ID, *mockGithubEvent2.ID)
+
 
 	}
 
