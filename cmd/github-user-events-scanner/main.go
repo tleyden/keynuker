@@ -8,7 +8,6 @@ import (
 
 	"github.com/tleyden/keynuker"
 	"github.com/tleyden/keynuker/keynuker-go-common"
-	"time"
 )
 
 // Scan Github user events for AWS keys

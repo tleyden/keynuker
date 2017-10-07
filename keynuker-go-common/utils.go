@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"log"
 )
 
 // Same function signature as github.com/jthomas/ow callback, but that's not exposed so redefine it here
@@ -37,4 +38,28 @@ func InvokeActionStdIo(callback OpenWhiskCallback) {
 
 	// Write result doc to stdout
 	fmt.Printf("%s", string(outputBytes))
+}
+
+type Logger interface {
+	Printf(format string, v ...interface{})
+}
+
+type BoundedLogger struct {
+	numInvocations int
+	maxInvocations int
+}
+
+func (b *BoundedLogger) Printf(format string, v ...interface{}) {
+	if b.numInvocations < b.maxInvocations {
+		log.Printf(format, v)
+		b.numInvocations += 1
+	}
+}
+
+func CreateBoundedLogger(maxInvocations int) Logger {
+	return &BoundedLogger{
+		numInvocations: 0,
+		maxInvocations: maxInvocations,
+	}
+
 }

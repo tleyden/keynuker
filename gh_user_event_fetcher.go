@@ -32,7 +32,7 @@ type GithubUserEventFetcher interface {
 	FetchDownstreamContent(ctx context.Context, userEvent *github.Event) (content []byte, err error)
 }
 
-type GoGithubUserEventFetcher struct {
+type  GoGithubUserEventFetcher struct {
 	*GithubClientWrapper
 }
 
@@ -88,13 +88,16 @@ func (guef GoGithubUserEventFetcher) FetchUserEvents(ctx context.Context, fetchU
 			return nil, err
 		}
 
+		// Create a logger that will only log at most 5 messages about older checkpoints, to prevent spamming logs
+		boundedLogger := keynuker_go_common.CreateBoundedLogger(5)
+
 		// Loop over events and append to result
 		for _, event := range eventsPerPage {
 
 			// If the event is older than our checkpoint, skip it.  This filtering also happens in GithubUserEventsScanner.scanAwsKeysForUser()
 			if fetchUserEventsInput.SinceEventTimestamp != nil && eventCreatedAtBefore(event, fetchUserEventsInput.SinceEventTimestamp) {
 				msg := "Event %v created_at %v, but that is older than checkpoint at %v, so skipping.  User: %v"
-				log.Printf(msg, *event.ID, *event.CreatedAt, *fetchUserEventsInput.SinceEventTimestamp, fetchUserEventsInput.Username)
+				boundedLogger.Printf(msg, *event.ID, *event.CreatedAt, *fetchUserEventsInput.SinceEventTimestamp, fetchUserEventsInput.Username)
 				continue
 			}
 			events = append(events, event)
