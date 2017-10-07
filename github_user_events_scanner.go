@@ -224,6 +224,12 @@ func (gues GithubUserEventsScanner) scanAwsKeysForUser(ctx context.Context, user
 			continue
 		}
 
+		// Logging
+		msg := "Fetching downstream content for event. " +
+			"User: %v. Event id: %v  Event created at: %v Stored checkpoint: %v Checkpoint ID: %v"
+		log.Printf(msg, *user.Login, *userEvent.ID, *userEvent.CreatedAt,
+			*fetchUserEventsInput.SinceEventTimestamp, *fetchUserEventsInput.CheckpointID)
+
 		downstreamEventContent, err := gues.fetcher.FetchDownstreamContent(ctx, userEvent)
 		if err != nil {
 			msg := "Failed to fetch user event content.  Event: %+v Error: %v"
@@ -231,9 +237,13 @@ func (gues GithubUserEventsScanner) scanAwsKeysForUser(ctx context.Context, user
 			return scanResult, scanResult.Error
 		}
 
-		// Scan for leaked keys
-		log.Printf("User: %v. Scanning %d bytes of content for event: %v", *user.Login, len(downstreamEventContent), *userEvent.ID)
+		// Logging
+		msg = "Scanning %d bytes of content for event. " +
+			"User: %v. Event id: %v  Event created at: %v Stored checkpoint: %v Checkpoint ID: %v"
+		log.Printf(msg, len(downstreamEventContent), *user.Login, *userEvent.ID, *userEvent.CreatedAt,
+			*fetchUserEventsInput.SinceEventTimestamp, *fetchUserEventsInput.CheckpointID)
 
+		// Scan for leaked keys
 		leakedKeys, nearbyContent, err := Scan(params.AccessKeyMetadata, downstreamEventContent)
 		if err != nil {
 			scanResult.Error = fmt.Errorf("Failed to scan event content.  Event: %+v Error: %v", userEvent, err)
