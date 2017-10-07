@@ -93,6 +93,8 @@ func (guef GoGithubUserEventFetcher) FetchUserEvents(ctx context.Context, fetchU
 
 			// If the event is older than our checkpoint, skip it.  This filtering also happens in GithubUserEventsScanner.scanAwsKeysForUser()
 			if fetchUserEventsInput.SinceEventTimestamp != nil && eventCreatedAtBefore(event, fetchUserEventsInput.SinceEventTimestamp) {
+				msg := "Event %v created_at %v, but that is older than checkpoint at %v, so skipping.  User: %v"
+				log.Printf(msg, *event.ID, *event.CreatedAt, *fetchUserEventsInput.SinceEventTimestamp, fetchUserEventsInput.Username)
 				continue
 			}
 			events = append(events, event)
@@ -140,7 +142,7 @@ func (guef GoGithubUserEventFetcher) FetchDownstreamContent(ctx context.Context,
 
 		if strings.Contains(*v.Ref, keynuker_go_common.KeyNukerIntegrationTestBranch) {
 			// skip this since as an experiment
-			log.Printf("Skipping push event %v on %v branch", *v.PushID, keynuker_go_common.KeyNukerIntegrationTestBranch)
+			log.Printf("Skipping push event %v since it's on %v testing branch", *v.PushID, keynuker_go_common.KeyNukerIntegrationTestBranch)
 			return []byte(""), nil
 		}
 
