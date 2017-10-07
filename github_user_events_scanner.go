@@ -139,15 +139,7 @@ func (gues GithubUserEventsScanner) scanAwsKeysForUser(ctx context.Context, user
 
 	scanResult.User = user
 
-	fetchUserEventsInput := FetchUserEventsInput{
-		Username: *user.Login,
-	}
-
-	// If there is a stored checkpoint for that user, use it
-	githubCheckpointEvent, ok := params.GithubEventCheckpoints[*user.Login]
-	if ok {
-		fetchUserEventsInput.SinceEventTimestamp = githubCheckpointEvent.CreatedAt
-	}
+	fetchUserEventsInput := params.CreateFetchUserEventsInput(user)
 
 	userEvents, err := gues.fetcher.FetchUserEvents(ctx, fetchUserEventsInput)
 	if err != nil {
@@ -163,8 +155,9 @@ func (gues GithubUserEventsScanner) scanAwsKeysForUser(ctx context.Context, user
 
 	for _, userEvent := range userEvents {
 
-		//// Make sure that it's _after_ the stored checkpoint, otherwise skip it since it's already been scanned
-		if (*userEvent.CreatedAt).Before(*githubCheckpointEvent.CreatedAt) {
+		// Make sure that it's _after_ the stored checkpoint, otherwise skip it since it's already been scanned
+		// NOTE: this code is a "double check" with the code in FetchUserEvents()
+		if (*userEvent.CreatedAt).Before(*fetchUserEventsInput.SinceEventTimestamp) {
 			msg := "Skipping event since after stored checkpoint. User: %v. Event id: %v  Event created at: %v Stored checkpoint: %v"
 			log.Printf(msg, *user.Login, *userEvent.ID, *userEvent.CreatedAt, *checkpointEvent.CreatedAt)
 			continue
@@ -284,6 +277,26 @@ func (p ParamsScanGithubUserEventsForAwsKeys) Validate() error {
 	return nil
 }
 
+func (p ParamsScanGithubUserEventsForAwsKeys) CreateFetchUserEventsInput(user *github.User) FetchUserEventsInput {
+
+	fetchUserEventsInput := FetchUserEventsInput{
+		Username: *user.Login,
+	}
+
+	// If there is a stored checkpoint for that user, use it
+	githubCheckpointEvent, ok := p.GithubEventCheckpoints[*user.Login]
+	if ok {
+
+		if githubCheckpointEvent == nil {
+			fetchUserEventsInput.SinceEventTimestamp = aws.Time(time.Now().Add(keynuker_go_common.DefaultCheckpointEventTimeWindow))
+		} else {
+			fetchUserEventsInput.SinceEventTimestamp = githubCheckpointEvent.CreatedAt
+		}
+	}
+
+	return fetchUserEventsInput
+}
+
 func (p ParamsScanGithubUserEventsForAwsKeys) WithDefaultKeynukerOrg() ParamsScanGithubUserEventsForAwsKeys {
 
 	returnParams := p
@@ -315,8 +328,9 @@ func (p ParamsScanGithubUserEventsForAwsKeys) SetDefaultCheckpointsForMissing(re
 	// that is 24 hours old, so that only events from last 24 hours are processed, in order to
 	// limit the amount of work this call ScanGithubUserEventsForAwsKeys() will perform.
 	for _, githubUser := range returnParams.GithubUsers {
-		_, ok := returnParams.GithubEventCheckpoints.CheckpointForUser(githubUser)
-		if !ok {
+
+		checkpoint, ok := returnParams.GithubEventCheckpoints.CheckpointForUser(githubUser)
+		if !ok || checkpoint == nil {
 			githubCheckpointEvent := &github.Event{
 				CreatedAt: aws.Time(time.Now().Add(recentTimeWindow)), // eg, time.Hour * -12
 			}

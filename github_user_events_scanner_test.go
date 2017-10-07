@@ -308,3 +308,60 @@ func TestScanGithubLargePushEvents(t *testing.T) {
 	log.Printf("doc result: %v err: %v", docWrapper, err)
 
 }
+
+func TestCreateFetchUserEventsInputNilCheckpoint(t *testing.T) {
+
+	testUsername := "testuser"
+	p := ParamsScanGithubUserEventsForAwsKeys{
+		GithubEventCheckpoints: GithubEventCheckpoints{
+			testUsername: nil,
+		},
+	}
+
+	user := &github.User{}
+	user.Login = aws.String(testUsername)
+	fetchUserEventsInput := p.CreateFetchUserEventsInput(user)
+	assert.EqualValues(t, fetchUserEventsInput.Username, testUsername)
+	assert.True(t, fetchUserEventsInput.SinceEventTimestamp.Before(time.Now()))
+
+}
+
+func TestCreateFetchUserEventsInputNormalCheckpoint(t *testing.T) {
+
+	testUsername := "testuser"
+	now := time.Now()
+	p := ParamsScanGithubUserEventsForAwsKeys{
+		GithubEventCheckpoints: GithubEventCheckpoints{
+			testUsername: &github.Event{
+				CreatedAt: aws.Time(now),
+			},
+		},
+	}
+
+	user := &github.User{}
+	user.Login = aws.String(testUsername)
+	fetchUserEventsInput := p.CreateFetchUserEventsInput(user)
+	assert.EqualValues(t, fetchUserEventsInput.Username, testUsername)
+	assert.True(t, fetchUserEventsInput.SinceEventTimestamp.Equal(now))
+
+}
+
+func TestSetDefaultCheckpointsForMissing(t *testing.T) {
+
+	testUsername := "testuser"
+	params := ParamsScanGithubUserEventsForAwsKeys{
+		GithubUsers: []*github.User {
+			{
+				Login: aws.String(testUsername),
+			},
+		},
+		GithubEventCheckpoints: GithubEventCheckpoints{
+			testUsername: nil,
+		},
+	}
+	paramsWithDefaultCheckpoints := params.SetDefaultCheckpointsForMissing(keynuker_go_common.DefaultCheckpointEventTimeWindow)
+	checkpointForTestUser := paramsWithDefaultCheckpoints.GithubEventCheckpoints[testUsername]
+	assert.True(t, checkpointForTestUser.CreatedAt.Before(time.Now()))
+
+
+}
