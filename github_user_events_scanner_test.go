@@ -70,9 +70,10 @@ func TestScanGithubUserEventsForAwsKeys(t *testing.T) {
 		githubUserNoEvents,
 	}
 
-	// Make a fake checkpoint event that has the current timestamp
+	// Make a fake checkpoint event that is 24 hours ago
+	githubCheckpointEventCreatedAt := time.Now().Add(time.Hour * -24)
 	githubCheckpointEvent := &github.Event{
-		CreatedAt: aws.Time(time.Now().Add(time.Hour * -24)),
+		CreatedAt: aws.Time(githubCheckpointEventCreatedAt),
 	}
 	githubEventCheckpoints := GithubEventCheckpoints{}
 	githubEventCheckpoints[*githubUser.Login] = githubCheckpointEvent
@@ -82,8 +83,11 @@ func TestScanGithubUserEventsForAwsKeys(t *testing.T) {
 	var mockFetcher *GithubUserEventFetcherMock
 	var liveGithubFetcher *GoGithubUserEventFetcher
 
-	var mockGithubEvent1 *github.Event
-	var mockGithubEvent2 *github.Event
+	var (
+		mockGithubEvent1 *github.Event
+		mockGithubEvent2 *github.Event
+		mockGithubEvent3 *github.Event
+	)
 
 	switch useMockFetcher {
 	case true:
@@ -111,10 +115,17 @@ func TestScanGithubUserEventsForAwsKeys(t *testing.T) {
 					CreatedAt: aws.Time(time.Now()),
 					RawPayload: &rawPayload,
 				}
+				mockGithubEvent3 = &github.Event{
+					Type:      aws.String("PushEvent"),
+					ID:        aws.String("mockGithubEvent3"),
+					CreatedAt: aws.Time(githubCheckpointEventCreatedAt.Add(time.Hour * -24)),
+					RawPayload: &rawPayload,
+				}
 				mockFetcher.On("FetchUserEvents", context.Background(), expectedFetchUserEventsInput).Return(
 					[]*github.Event{
 						mockGithubEvent1,
 						mockGithubEvent2,
+						mockGithubEvent3,
 					},
 					nil, // no error
 				)
@@ -179,6 +190,9 @@ func TestScanGithubUserEventsForAwsKeys(t *testing.T) {
 		assert.True(t, len(docWrapper.GithubEventCheckpoints) == 2)
 		assert.Equal(t, *docWrapper.GithubEventCheckpoints[*githubUser.Login].ID, *mockGithubEvent2.ID)
 
+		// There should only be two calls to FetchDownstreamContent -- this should catch cases where
+		// the event that is older than the checkpoint erroneously triggers a call to FetchDownstreamContent
+		mockFetcher.AssertNumberOfCalls(t, "FetchDownstreamContent", 2)
 
 	}
 
