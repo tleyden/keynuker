@@ -197,8 +197,10 @@ func (gues GithubUserEventsScanner) scanAwsKeysForUser(ctx context.Context, user
 
 		// Make sure that it's _after_ the stored checkpoint, otherwise skip it since it's already been scanned
 		// NOTE: this code is a "double check" with the code in FetchUserEvents()
-		if (*userEvent.CreatedAt).Before(*fetchUserEventsInput.SinceEventTimestamp) || (*userEvent.CreatedAt).Equal(*fetchUserEventsInput.SinceEventTimestamp) {
-			msg := "Skipping event since before or equal to stored checkpoint date. User: %v. Event id: %v  Event created at: %v Stored checkpoint: %v"
+		if (*userEvent.CreatedAt).Before(*fetchUserEventsInput.SinceEventTimestamp) ||
+			(*userEvent.CreatedAt).Equal(*fetchUserEventsInput.SinceEventTimestamp) {
+			msg := "Skipping event since before or equal to stored checkpoint date. " +
+				"User: %v. Event id: %v  Event created at: %v Stored checkpoint: %v"
 			boundedLogger.Printf(msg, *user.Login, *userEvent.ID, *userEvent.CreatedAt, *fetchUserEventsInput.SinceEventTimestamp)
 
 			// Update the checkpoint, if it's the most recent event, despite the fact that we are skipping this event.
