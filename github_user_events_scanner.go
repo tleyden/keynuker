@@ -190,12 +190,15 @@ func (gues GithubUserEventsScanner) scanAwsKeysForUser(ctx context.Context, user
 
 	log.Printf("Scanning %d events for user: %v", len(userEvents), *user.Login)
 
-	// Create a logger that will only log at most 5 messages about older checkpoints, to prevent spamming logs
+	// Create a logger that will only log at most 5 messages about older checkpoints, to prevent spamming the logs
 	boundedLogger := keynuker_go_common.CreateBoundedLogger(5)
 
 	for _, userEvent := range userEvents {
 
 		// Make sure that it's _after_ the stored checkpoint, otherwise skip it since it's already been scanned
+		// The reason it can't just check Before() || Equal() is that if two or more events had thesame timestamp,
+		// and the tool polled the api and only get one of the events, then the others would be ignored by
+		// the checkpointing algorithm
 		if (*userEvent.CreatedAt).Before(*fetchUserEventsInput.SinceEventTimestamp) {
 			msg := "Skipping event since before checkpoint date. " +
 				"User: %v. Event id: %v  Event created at: %v Stored checkpoint: %v"
@@ -204,6 +207,18 @@ func (gues GithubUserEventsScanner) scanAwsKeysForUser(ctx context.Context, user
 			// Update the checkpoint, if it's the most recent event, despite the fact that we are skipping this event.
 			// This covers the edge case where _all_ events returned by the user are older than the checkpoint -- in
 			// that case it's still necessary to bump the checkpoint to the most recent event in that event set.
+			scanResult.SetCheckpointIfMostRecent(userEvent)
+
+			continue
+		}
+
+		// If the event has the exact same ID as the checkpoint event ID, then skip it since it's already been scanned.
+		if *userEvent.ID == *fetchUserEventsInput.CheckpointID {
+			msg := "Skipping event since it has the same event ID as the checkpoint. " +
+				"User: %v. Event id: %v  Event created at: %v  Checkpoint timestamp: %v Checkpoint ID: %v"
+			boundedLogger.Printf(msg, *user.Login, *userEvent.ID, *userEvent.CreatedAt,
+				*fetchUserEventsInput.SinceEventTimestamp, *fetchUserEventsInput.CheckpointID)
+
 			scanResult.SetCheckpointIfMostRecent(userEvent)
 
 			continue
@@ -327,8 +342,10 @@ func (p ParamsScanGithubUserEventsForAwsKeys) CreateFetchUserEventsInput(user *g
 
 		if githubCheckpointEvent == nil {
 			fetchUserEventsInput.SinceEventTimestamp = aws.Time(time.Now().Add(keynuker_go_common.DefaultCheckpointEventTimeWindow))
+			fetchUserEventsInput.CheckpointID = nil
 		} else {
 			fetchUserEventsInput.SinceEventTimestamp = githubCheckpointEvent.CreatedAt
+			fetchUserEventsInput.CheckpointID = githubCheckpointEvent.ID
 		}
 	}
 

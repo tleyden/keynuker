@@ -79,6 +79,7 @@ func TestScanGithubUserEventsForAwsKeys(t *testing.T) {
 	githubCheckpointEventCreatedAt := time.Now().Add(time.Hour * -24)
 	githubCheckpointEvent := &github.Event{
 		CreatedAt: aws.Time(githubCheckpointEventCreatedAt),
+		ID:        aws.String("mockGithubEventBeforeCheckpoint3"),
 	}
 	githubEventCheckpoints := GithubEventCheckpoints{}
 	githubEventCheckpoints[*githubUser.Login] = githubCheckpointEvent
@@ -90,11 +91,12 @@ func TestScanGithubUserEventsForAwsKeys(t *testing.T) {
 	var liveGithubFetcher *GoGithubUserEventFetcher
 
 	var (
-		mockGithubEvent1                *github.Event
-		mockGithubEvent2                *github.Event
-		mockGithubEvent3                *github.Event
-		mockGithubEventBeforeCheckpoint *github.Event
+		mockGithubEvent1                 *github.Event
+		mockGithubEvent2                 *github.Event
+		mockGithubEvent3                 *github.Event
+		mockGithubEventBeforeCheckpoint  *github.Event
 		mockGithubEventBeforeCheckpoint2 *github.Event
+		mockGithubEventBeforeCheckpoint3 *github.Event
 	)
 
 	switch useMockFetcher {
@@ -109,25 +111,26 @@ func TestScanGithubUserEventsForAwsKeys(t *testing.T) {
 				expectedFetchUserEventsInput := FetchUserEventsInput{
 					Username:            *githubUser.Login,
 					SinceEventTimestamp: githubCheckpointEvent.CreatedAt,
+					CheckpointID:        githubCheckpointEvent.ID,
 				}
 				rawPayload := json.RawMessage(fakePushEventRawPayload)
 				mockGithubEvent1 = &github.Event{
 					Type:       aws.String("PushEvent"),
 					ID:         aws.String("mockGithubEvent1"),
 					CreatedAt:  aws.Time(time.Now()),
-					RawPayload: &rawPayload,
+					RawPayload: &rawPayload, // not used except to satisfy go-github parser
 				}
 				mockGithubEvent2 = &github.Event{
 					Type:       aws.String("PushEvent"),
 					ID:         aws.String("mockGithubEvent2"),
 					CreatedAt:  aws.Time(time.Now()),
-					RawPayload: &rawPayload,
+					RawPayload: &rawPayload, // not used except to satisfy go-github parser
 				}
-				mockGithubEvent3 = &github.Event{
+				mockGithubEvent3 = &github.Event{ // this event will be ignored since it's 24 hours before than checkpoint
 					Type:       aws.String("PushEvent"),
 					ID:         aws.String("mockGithubEvent3"),
 					CreatedAt:  aws.Time(githubCheckpointEventCreatedAt.Add(time.Hour * -24)),
-					RawPayload: &rawPayload,
+					RawPayload: &rawPayload, // not used except to satisfy go-github parser
 				}
 				mockFetcher.On("FetchUserEvents", context.Background(), expectedFetchUserEventsInput).Return(
 					[]*github.Event{
@@ -152,6 +155,7 @@ func TestScanGithubUserEventsForAwsKeys(t *testing.T) {
 				expectedFetchUserEventsInput := FetchUserEventsInput{
 					Username:            *githubUserNoEvents.Login,
 					SinceEventTimestamp: githubCheckpointEvent.CreatedAt,
+					CheckpointID:        githubCheckpointEvent.ID,
 				}
 				mockFetcher.On("FetchUserEvents", context.Background(), expectedFetchUserEventsInput).Return(
 					[]*github.Event{},
@@ -161,24 +165,32 @@ func TestScanGithubUserEventsForAwsKeys(t *testing.T) {
 				expectedFetchUserEventsInput := FetchUserEventsInput{
 					Username:            *githubUserOnlyEventsBeforeCheckpoint.Login,
 					SinceEventTimestamp: githubCheckpointEvent.CreatedAt,
+					CheckpointID:        githubCheckpointEvent.ID,
 				}
 				rawPayload := json.RawMessage(fakePushEventRawPayload)
 				mockGithubEventBeforeCheckpoint = &github.Event{
 					Type:       aws.String("PushEvent"),
 					ID:         aws.String("mockGithubEventBeforeCheckpoint"),
 					CreatedAt:  aws.Time(githubCheckpointEventCreatedAt.Add(time.Hour * -24)),
-					RawPayload: &rawPayload,
+					RawPayload: &rawPayload, // not used except to satisfy go-github parser
 				}
 				mockGithubEventBeforeCheckpoint2 = &github.Event{
 					Type:       aws.String("PushEvent"),
 					ID:         aws.String("mockGithubEventBeforeCheckpoint2"),
 					CreatedAt:  aws.Time(githubCheckpointEventCreatedAt.Add(time.Hour * -12)),
-					RawPayload: &rawPayload,
+					RawPayload: &rawPayload, // not used except to satisfy go-github parser
+				}
+				mockGithubEventBeforeCheckpoint3 = &github.Event{ // simulate the case where one of the events is the checkpoint event
+					Type:       aws.String("PushEvent"),
+					ID:         githubCheckpointEvent.ID, // this github event has same ID and CreatedAt as the checkpoint
+					CreatedAt:  aws.Time(githubCheckpointEventCreatedAt),
+					RawPayload: &rawPayload, // not used except to satisfy go-github parser
 				}
 				mockFetcher.On("FetchUserEvents", context.Background(), expectedFetchUserEventsInput).Return(
 					[]*github.Event{
 						mockGithubEventBeforeCheckpoint,
 						mockGithubEventBeforeCheckpoint2,
+						mockGithubEventBeforeCheckpoint3,
 					},
 					nil, // no error
 				)
@@ -235,13 +247,14 @@ func TestScanGithubUserEventsForAwsKeys(t *testing.T) {
 		checkpoint := docWrapper.GithubEventCheckpoints[*githubUserOnlyEventsBeforeCheckpoint.Login]
 		assert.NotNil(t, checkpoint)
 
-		// Two events were returned for the githubUserOnlyEventsBeforeCheckpoint -- the one that was
-		// recorded as the checkpoint should be the more recent event from the two events.
-		// - The existing checkpoint was githubCheckpointEventCreatedAt (24 hours ago),
-		// - More recent event was 12 hours before checkpoint (36 hours ago)
+		// Three events were returned for the githubUserOnlyEventsBeforeCheckpoint -- the one that was
+		// recorded as the checkpoint should be the most recent from the three events (and happens to be
+		// identical to the checkpointed event).  The three events are:
+		// - An event that has the same created_at (and ID) as the checkpoint <-- this should be the new checkpoint
+		// - A recent event that was 12 hours before checkpoint (36 hours ago)
 		// - Older event was 24 hours before checkpoint (48 hours ago)
-		assert.True(t, checkpoint.CreatedAt.After(githubCheckpointEventCreatedAt.Add(time.Hour * -24)))
-		assert.True(t, checkpoint.CreatedAt.Before(githubCheckpointEventCreatedAt))
+		assert.True(t, checkpoint.CreatedAt.Equal(githubCheckpointEventCreatedAt))
+		assert.True(t, *checkpoint.ID == *githubCheckpointEvent.ID)
 
 		// There should only be two calls to FetchDownstreamContent -- this should catch cases where
 		// the event that is older than the checkpoint erroneously triggers a call to FetchDownstreamContent

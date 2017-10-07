@@ -44,6 +44,11 @@ type FetchUserEventsInput struct {
 
 	// For checkpointing purposes, only consider events that are _after_ this timestamp
 	SinceEventTimestamp *time.Time
+
+	// For checkpointing purposes.  Ignore events with same ID as checkpoint.  (note: this could
+	// eventually replace the time based checkpointing)
+	CheckpointID *string
+
 }
 
 func NewGoGithubUserEventFetcher(accessToken string) *GoGithubUserEventFetcher {
