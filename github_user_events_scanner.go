@@ -32,6 +32,25 @@ type ScanResult struct {
 	Error           error
 }
 
+func (s *ScanResult) SetCheckpointIfMostRecent(latestEventScanned *github.Event) {
+
+	 if latestEventScanned == nil {
+	 	// Ignore nil events
+	 	return
+	 }
+
+	 // If there is no checkpoint event yet whatsoever, set as current event no matter what it is
+	 if s.CheckpointEvent == nil {
+	 	s.CheckpointEvent = latestEventScanned
+	 }
+
+	// Otherwise only set the checkpoint if current event happened after checkpoint
+	if (*latestEventScanned.CreatedAt).After(*s.CheckpointEvent.CreatedAt) {
+		s.CheckpointEvent = latestEventScanned
+	}
+
+}
+
 func NewGithubUserEventsScanner(fetcher GithubUserEventFetcher) *GithubUserEventsScanner {
 
 	return &GithubUserEventsScanner{
@@ -149,9 +168,12 @@ func (gues GithubUserEventsScanner) scanAwsKeysForUser(ctx context.Context, user
 	}
 
 	// Track the latest event processed during this scan
-	var checkpointEvent *github.Event
+	// var checkpointEvent *github.Event
 
 	log.Printf("Scanning %d events for user: %v", len(userEvents), *user.Login)
+
+	// Create a logger that will only log at most 5 messages about older checkpoints, to prevent spamming logs
+	boundedLogger := keynuker_go_common.CreateBoundedLogger(5)
 
 	for _, userEvent := range userEvents {
 
@@ -159,7 +181,13 @@ func (gues GithubUserEventsScanner) scanAwsKeysForUser(ctx context.Context, user
 		// NOTE: this code is a "double check" with the code in FetchUserEvents()
 		if (*userEvent.CreatedAt).Before(*fetchUserEventsInput.SinceEventTimestamp) {
 			msg := "Skipping event since after stored checkpoint. User: %v. Event id: %v  Event created at: %v Stored checkpoint: %v"
-			log.Printf(msg, *user.Login, *userEvent.ID, *userEvent.CreatedAt, *fetchUserEventsInput.SinceEventTimestamp)
+			boundedLogger.Printf(msg, *user.Login, *userEvent.ID, *userEvent.CreatedAt, *fetchUserEventsInput.SinceEventTimestamp)
+
+			// Update the checkpoint, if it's the most recent event, despite the fact that we are skipping this event.
+			// This covers the edge case where _all_ events returned by the user are older than the checkpoint -- in
+			// that case it's still necessary to bump the checkpoint to the most recent event in that event set.
+			scanResult.SetCheckpointIfMostRecent(userEvent)
+
 			continue
 		}
 
@@ -201,16 +229,8 @@ func (gues GithubUserEventsScanner) scanAwsKeysForUser(ctx context.Context, user
 			scanResult.LeakedKeyEvents = append(scanResult.LeakedKeyEvents, leakedKeyEvent)
 		}
 
-		// Update checkpoint.  If there is no checkpoint event yet, set as current event
-		if checkpointEvent == nil {
-			checkpointEvent = userEvent
-		} else {
-			// Otherwise only set the checkpoint if current event happened after checkpoint
-			if (*userEvent.CreatedAt).After(*checkpointEvent.CreatedAt) {
-				checkpointEvent = userEvent
-			}
-		}
-		scanResult.CheckpointEvent = checkpointEvent
+		// Update checkpoint.
+		scanResult.SetCheckpointIfMostRecent(userEvent)
 
 	}
 

@@ -232,10 +232,16 @@ func TestScanGithubUserEventsForAwsKeys(t *testing.T) {
 
 		// The user with only events older than the checkpoint should also have a non-nil checkpoint
 		// corresponding to the most recent event that was scanned and skipped
-		assert.NotNil(t, docWrapper.GithubEventCheckpoints[*githubUserOnlyEventsBeforeCheckpoint.Login])
+		checkpoint := docWrapper.GithubEventCheckpoints[*githubUserOnlyEventsBeforeCheckpoint.Login]
+		assert.NotNil(t, checkpoint)
 
-
-
+		// Two events were returned for the githubUserOnlyEventsBeforeCheckpoint -- the one that was
+		// recorded as the checkpoint should be the more recent event from the two events.
+		// - The existing checkpoint was githubCheckpointEventCreatedAt (24 hours ago),
+		// - More recent event was 12 hours before checkpoint (36 hours ago)
+		// - Older event was 24 hours before checkpoint (48 hours ago)
+		assert.True(t, checkpoint.CreatedAt.After(githubCheckpointEventCreatedAt.Add(time.Hour * -24)))
+		assert.True(t, checkpoint.CreatedAt.Before(githubCheckpointEventCreatedAt))
 
 		// There should only be two calls to FetchDownstreamContent -- this should catch cases where
 		// the event that is older than the checkpoint erroneously triggers a call to FetchDownstreamContent
