@@ -12,6 +12,9 @@ const (
 	DocIdPrefixGithubUsers = "github_users"
 
 	DocIdPrefixAwsKeys = "aws_keys"
+
+	DocIdPrefixGithubEventCheckpoints = "github_event_checkpoints"
+
 )
 
 // Environment Variable Names

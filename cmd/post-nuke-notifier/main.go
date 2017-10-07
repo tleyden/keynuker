@@ -29,6 +29,16 @@ func OpenWhiskCallback(value json.RawMessage) (interface{}, error) {
 		return nil, err
 	}
 
-	return resultDoc, nil
+	docId := keynuker_go_common.GenerateDocId(
+		keynuker_go_common.DocIdPrefixGithubEventCheckpoints,
+		params.KeyNukerOrg,
+	)
+
+	docWrapper := keynuker.DocumentWrapperPostNukeNotifier {
+		DocId: docId,
+		Doc: resultDoc,
+	}
+
+	return docWrapper, nil
 
 }

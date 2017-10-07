@@ -91,7 +91,7 @@ func (guef GoGithubUserEventFetcher) FetchUserEvents(ctx context.Context, fetchU
 		// Loop over events and append to result
 		for _, event := range eventsPerPage {
 
-			// If the event is older than our checkpoint, skip it
+			// If the event is older than our checkpoint, skip it.  This filtering also happens in GithubUserEventsScanner.scanAwsKeysForUser()
 			if fetchUserEventsInput.SinceEventTimestamp != nil && eventCreatedAtBefore(event, fetchUserEventsInput.SinceEventTimestamp) {
 				continue
 			}

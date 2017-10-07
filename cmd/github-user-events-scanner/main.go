@@ -33,9 +33,9 @@ func OpenWhiskCallback(value json.RawMessage) (interface{}, error) {
 
 	params = params.WithDefaultKeynukerOrg()
 
-	// TODO: the input to this openwhisk action should contain the checkpoints
-	// TODO: rather than hardcoding this to 12 hours ago
-	params = params.WithDefaultCheckpoints(time.Hour * -12)
+	// If any checkpoints are missing (null), set a default checkpoint of 12 hours to
+	// prevent excessive unwanted historical scanning
+	params = params.SetDefaultCheckpointsForMissing(time.Hour * -12)
 
 	fetcher := keynuker.NewGoGithubUserEventFetcher(params.GithubAccessToken)
 

@@ -341,7 +341,7 @@ func (e EndToEndIntegrationTest) RunKeyNuker(accessKeyToNuke *iam.AccessKey) (er
 
 	recentEventTimeWindow := time.Minute * -10 // Last 5 seconds would probably work too, but give it some margin of error
 
-	paramsScanGithubUserEventsForAwsKeys = paramsScanGithubUserEventsForAwsKeys.WithDefaultCheckpoints(recentEventTimeWindow)
+	paramsScanGithubUserEventsForAwsKeys = paramsScanGithubUserEventsForAwsKeys.SetDefaultCheckpointsForMissing(recentEventTimeWindow)
 
 	fetcher := NewGoGithubUserEventFetcher(e.GithubAccessToken)
 

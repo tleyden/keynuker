@@ -302,7 +302,7 @@ func (p ParamsScanGithubUserEventsForAwsKeys) WithDefaultKeynukerOrg() ParamsSca
 // as of the time of this writing.
 //
 // Example recentTimeWindow: time.Duration(time.Hour * -12)
-func (p ParamsScanGithubUserEventsForAwsKeys) WithDefaultCheckpoints(recentTimeWindow time.Duration) ParamsScanGithubUserEventsForAwsKeys {
+func (p ParamsScanGithubUserEventsForAwsKeys) SetDefaultCheckpointsForMissing(recentTimeWindow time.Duration) ParamsScanGithubUserEventsForAwsKeys {
 
 	returnParams := p
 
