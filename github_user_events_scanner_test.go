@@ -13,13 +13,14 @@ import (
 	"context"
 	"fmt"
 
+	"io/ioutil"
+	"net/url"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/google/go-github/github"
 	"github.com/stretchr/testify/assert"
 	"github.com/tleyden/keynuker/keynuker-go-common"
 	"gopkg.in/h2non/gock.v1"
-	"io/ioutil"
-	"net/url"
 )
 
 var fakePushEventRawPayload = `{
@@ -65,9 +66,13 @@ func TestScanGithubUserEventsForAwsKeys(t *testing.T) {
 	githubUserNoEvents := &github.User{
 		Login: aws.String("nobody"),
 	}
+	githubUserOnlyEventsBeforeCheckpoint := &github.User{
+		Login: aws.String("userOnlyEventsBeforeCheckpoint"),
+	}
 	githubUsers := []*github.User{
 		githubUser,
 		githubUserNoEvents,
+		githubUserOnlyEventsBeforeCheckpoint,
 	}
 
 	// Make a fake checkpoint event that is 24 hours ago
@@ -78,15 +83,18 @@ func TestScanGithubUserEventsForAwsKeys(t *testing.T) {
 	githubEventCheckpoints := GithubEventCheckpoints{}
 	githubEventCheckpoints[*githubUser.Login] = githubCheckpointEvent
 	githubEventCheckpoints[*githubUserNoEvents.Login] = githubCheckpointEvent
+	githubEventCheckpoints[*githubUserOnlyEventsBeforeCheckpoint.Login] = githubCheckpointEvent
 
 	var fetcher GithubUserEventFetcher
 	var mockFetcher *GithubUserEventFetcherMock
 	var liveGithubFetcher *GoGithubUserEventFetcher
 
 	var (
-		mockGithubEvent1 *github.Event
-		mockGithubEvent2 *github.Event
-		mockGithubEvent3 *github.Event
+		mockGithubEvent1                *github.Event
+		mockGithubEvent2                *github.Event
+		mockGithubEvent3                *github.Event
+		mockGithubEventBeforeCheckpoint *github.Event
+		mockGithubEventBeforeCheckpoint2 *github.Event
 	)
 
 	switch useMockFetcher {
@@ -104,21 +112,21 @@ func TestScanGithubUserEventsForAwsKeys(t *testing.T) {
 				}
 				rawPayload := json.RawMessage(fakePushEventRawPayload)
 				mockGithubEvent1 = &github.Event{
-					Type:      aws.String("PushEvent"),
-					ID:        aws.String("mockGithubEvent1"),
-					CreatedAt: aws.Time(time.Now()),
+					Type:       aws.String("PushEvent"),
+					ID:         aws.String("mockGithubEvent1"),
+					CreatedAt:  aws.Time(time.Now()),
 					RawPayload: &rawPayload,
 				}
 				mockGithubEvent2 = &github.Event{
-					Type:      aws.String("PushEvent"),
-					ID:        aws.String("mockGithubEvent2"),
-					CreatedAt: aws.Time(time.Now()),
+					Type:       aws.String("PushEvent"),
+					ID:         aws.String("mockGithubEvent2"),
+					CreatedAt:  aws.Time(time.Now()),
 					RawPayload: &rawPayload,
 				}
 				mockGithubEvent3 = &github.Event{
-					Type:      aws.String("PushEvent"),
-					ID:        aws.String("mockGithubEvent3"),
-					CreatedAt: aws.Time(githubCheckpointEventCreatedAt.Add(time.Hour * -24)),
+					Type:       aws.String("PushEvent"),
+					ID:         aws.String("mockGithubEvent3"),
+					CreatedAt:  aws.Time(githubCheckpointEventCreatedAt.Add(time.Hour * -24)),
 					RawPayload: &rawPayload,
 				}
 				mockFetcher.On("FetchUserEvents", context.Background(), expectedFetchUserEventsInput).Return(
@@ -149,6 +157,32 @@ func TestScanGithubUserEventsForAwsKeys(t *testing.T) {
 					[]*github.Event{},
 					nil, // no error
 				)
+			case githubUserOnlyEventsBeforeCheckpoint:
+				expectedFetchUserEventsInput := FetchUserEventsInput{
+					Username:            *githubUserOnlyEventsBeforeCheckpoint.Login,
+					SinceEventTimestamp: githubCheckpointEvent.CreatedAt,
+				}
+				rawPayload := json.RawMessage(fakePushEventRawPayload)
+				mockGithubEventBeforeCheckpoint = &github.Event{
+					Type:       aws.String("PushEvent"),
+					ID:         aws.String("mockGithubEventBeforeCheckpoint"),
+					CreatedAt:  aws.Time(githubCheckpointEventCreatedAt.Add(time.Hour * -24)),
+					RawPayload: &rawPayload,
+				}
+				mockGithubEventBeforeCheckpoint2 = &github.Event{
+					Type:       aws.String("PushEvent"),
+					ID:         aws.String("mockGithubEventBeforeCheckpoint2"),
+					CreatedAt:  aws.Time(githubCheckpointEventCreatedAt.Add(time.Hour * -12)),
+					RawPayload: &rawPayload,
+				}
+				mockFetcher.On("FetchUserEvents", context.Background(), expectedFetchUserEventsInput).Return(
+					[]*github.Event{
+						mockGithubEventBeforeCheckpoint,
+						mockGithubEventBeforeCheckpoint2,
+					},
+					nil, // no error
+				)
+
 			}
 		}
 
@@ -187,8 +221,21 @@ func TestScanGithubUserEventsForAwsKeys(t *testing.T) {
 		assert.True(t, len(docWrapper.LeakedKeyEvents) == 1)
 		assert.Equal(t, *docWrapper.LeakedKeyEvents[0].GithubEvent.ID, *mockGithubEvent1.ID)
 		assert.Equal(t, "testuser@gmail.com", docWrapper.LeakedKeyEvents[0].LeakerEmail)
-		assert.True(t, len(docWrapper.GithubEventCheckpoints) == 2)
+		assert.True(t, len(docWrapper.GithubEventCheckpoints) == 3)
 		assert.Equal(t, *docWrapper.GithubEventCheckpoints[*githubUser.Login].ID, *mockGithubEvent2.ID)
+
+		// The user with actual events should have a non-nil checkpoint
+		assert.NotNil(t, docWrapper.GithubEventCheckpoints[*githubUser.Login])
+
+		// The user with no events should have a nil checkpoint
+		assert.Nil(t, docWrapper.GithubEventCheckpoints[*githubUserNoEvents.Login])
+
+		// The user with only events older than the checkpoint should also have a non-nil checkpoint
+		// corresponding to the most recent event that was scanned and skipped
+		assert.NotNil(t, docWrapper.GithubEventCheckpoints[*githubUserOnlyEventsBeforeCheckpoint.Login])
+
+
+
 
 		// There should only be two calls to FetchDownstreamContent -- this should catch cases where
 		// the event that is older than the checkpoint erroneously triggers a call to FetchDownstreamContent
@@ -207,7 +254,6 @@ func TestScanGithubUserEventsForAwsKeys(t *testing.T) {
 // TODO: This test isn't finished.  The mock needs to be extended to handle the scanning of additional commits
 // TODO: See the end-to-end-integration test for examples.
 func TestScanGithubLargePushEvents(t *testing.T) {
-
 
 	// ------------------------------------ Create Event Fetcher -------------------------------------------------------
 
@@ -233,9 +279,7 @@ func TestScanGithubLargePushEvents(t *testing.T) {
 
 	leakedKey := "FakeAccessKey"
 
-
 	// ------------------------------------ Setup Gock HTTP mock -------------------------------------------------------
-
 
 	defer gock.Off() // Flush pending mocks after test execution
 
@@ -276,9 +320,8 @@ func TestScanGithubLargePushEvents(t *testing.T) {
 			JSON(map[string]string{
 				"content": fmt.Sprintf("commit %d", i),
 			},
-		)
+			)
 	}
-
 
 	// ------------------------------------ Invoke Scanner -------------------------------------------------------------
 
@@ -350,7 +393,7 @@ func TestSetDefaultCheckpointsForMissing(t *testing.T) {
 
 	testUsername := "testuser"
 	params := ParamsScanGithubUserEventsForAwsKeys{
-		GithubUsers: []*github.User {
+		GithubUsers: []*github.User{
 			{
 				Login: aws.String(testUsername),
 			},
@@ -362,6 +405,5 @@ func TestSetDefaultCheckpointsForMissing(t *testing.T) {
 	paramsWithDefaultCheckpoints := params.SetDefaultCheckpointsForMissing(keynuker_go_common.DefaultCheckpointEventTimeWindow)
 	checkpointForTestUser := paramsWithDefaultCheckpoints.GithubEventCheckpoints[testUsername]
 	assert.True(t, checkpointForTestUser.CreatedAt.Before(time.Now()))
-
 
 }
