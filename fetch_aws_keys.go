@@ -6,12 +6,14 @@ package keynuker
 import (
 	"fmt"
 
+	"log"
+	"time"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/iam"
 	"github.com/tleyden/keynuker/keynuker-go-common"
-	"time"
 )
 
 // Look up all the AWS keys associated with the AWS account corresponding to AwsAccessKeyId
@@ -34,59 +36,12 @@ func FetchAwsKeys(params ParamsFetchAwsKeys) (docWrapper DocumentWrapperFetchAws
 	}
 
 	for _, targetAwsAccount := range params.TargetAwsAccounts {
-
-		// Create AWS session
-		sess, err := session.NewSession(&aws.Config{
-			Credentials: credentials.NewCredentials(
-				&credentials.StaticProvider{Value: credentials.Value{
-					AccessKeyID:     targetAwsAccount.AwsAccessKeyId,
-					SecretAccessKey: targetAwsAccount.AwsSecretAccessKey,
-				}},
-			),
-		})
+		fetchedAwsKeys, err := FetchAwsKeysTargetAccount(targetAwsAccount)
 		if err != nil {
-			return DocumentWrapperFetchAwsKeys{}, fmt.Errorf("Error creating aws session: %v", err)
+			log.Printf("Error fetching aws keys for target aws account.  Err: %v", err)
+			continue
 		}
-
-		// Create IAM client with the session.
-		svc := iam.New(sess)
-
-		// Fetch list of IAM users
-		iamUsers, err := FetchIAMUsers(svc)
-		if err != nil {
-			return DocumentWrapperFetchAwsKeys{}, err
-		}
-
-		for _, user := range iamUsers {
-
-			listAccessKeysInput := &iam.ListAccessKeysInput{
-				UserName: user.UserName,
-				MaxItems: aws.Int64(1000),
-			}
-
-			listAccessKeysOutput, err := svc.ListAccessKeys(listAccessKeysInput)
-			if err != nil {
-				return DocumentWrapperFetchAwsKeys{}, fmt.Errorf("Error listing access keys for user: %v.  Err: %v", user, err)
-			}
-
-			// Panic if more than 1K results, which is not handled
-			if *listAccessKeysOutput.IsTruncated {
-				// TODO: remove panic and put in a paginated loop.  Move to tleyden/awsutils + unit tests against mocks
-				return DocumentWrapperFetchAwsKeys{}, fmt.Errorf("Output is truncated and this code does not handle it")
-			}
-
-			for _, accessKeyMetadata := range listAccessKeysOutput.AccessKeyMetadata {
-
-				fetchedAwsAccessKey := NewFetchedAwsAccessKey(
-					accessKeyMetadata,
-					targetAwsAccount.AwsAccessKeyId,
-				)
-
-				doc.AccessKeyMetadata = append(doc.AccessKeyMetadata, *fetchedAwsAccessKey)
-			}
-
-		}
-
+		doc.AccessKeyMetadata = append(doc.AccessKeyMetadata, fetchedAwsKeys...)
 	}
 
 	docWrapper = DocumentWrapperFetchAwsKeys{
@@ -95,6 +50,67 @@ func FetchAwsKeys(params ParamsFetchAwsKeys) (docWrapper DocumentWrapperFetchAws
 	}
 
 	return docWrapper, nil
+
+}
+
+func FetchAwsKeysTargetAccount(targetAwsAccount TargetAwsAccount) (fetchedAwsKeys []FetchedAwsAccessKey, err error) {
+
+	fetchedAwsKeys = []FetchedAwsAccessKey{}
+
+	// Create AWS session
+	sess, err := session.NewSession(&aws.Config{
+		Credentials: credentials.NewCredentials(
+			&credentials.StaticProvider{Value: credentials.Value{
+				AccessKeyID:     targetAwsAccount.AwsAccessKeyId,
+				SecretAccessKey: targetAwsAccount.AwsSecretAccessKey,
+			}},
+		),
+	})
+	if err != nil {
+		return fetchedAwsKeys, fmt.Errorf("Error creating aws session: %v", err)
+	}
+
+	// Create IAM client with the session.
+	svc := iam.New(sess)
+
+	// Fetch list of IAM users
+	iamUsers, err := FetchIAMUsers(svc)
+	if err != nil {
+		// TODO: safely emit the targetAwsAccount.AwsAccessKeyId to the logs by truncating it or hashing it
+		return fetchedAwsKeys, fmt.Errorf("Error fetching list of IAM users.  Error: %v", err)
+	}
+
+	for _, user := range iamUsers {
+
+		listAccessKeysInput := &iam.ListAccessKeysInput{
+			UserName: user.UserName,
+			MaxItems: aws.Int64(1000),
+		}
+
+		listAccessKeysOutput, err := svc.ListAccessKeys(listAccessKeysInput)
+		if err != nil {
+			return fetchedAwsKeys, fmt.Errorf("Error listing access keys for user: %v.  Err: %v", user, err)
+		}
+
+		// Panic if more than 1K results, which is not handled
+		if *listAccessKeysOutput.IsTruncated {
+			// TODO: Put this in a paginated loop.  Add unit tests against mocks
+			log.Printf("Error: Output is truncated and this code does not handle it")
+		}
+
+		for _, accessKeyMetadata := range listAccessKeysOutput.AccessKeyMetadata {
+
+			fetchedAwsAccessKey := NewFetchedAwsAccessKey(
+				accessKeyMetadata,
+				targetAwsAccount.AwsAccessKeyId,
+			)
+
+			fetchedAwsKeys = append(fetchedAwsKeys, *fetchedAwsAccessKey)
+		}
+
+	}
+
+	return fetchedAwsKeys, nil
 
 }
 
