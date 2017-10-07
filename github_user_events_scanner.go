@@ -51,6 +51,24 @@ func (s *ScanResult) SetCheckpointIfMostRecent(latestEventScanned *github.Event)
 
 }
 
+// Return a compact (stripped) version of the checkpoint event that has the minimal
+// fields to still be useful
+func (s ScanResult) CompactCheckpointEvent() *github.Event {
+
+	if s.CheckpointEvent == nil {
+		return nil
+	}
+
+	resultEvent := &github.Event{}
+	resultEvent.CreatedAt = s.CheckpointEvent.CreatedAt
+	resultEvent.ID = s.CheckpointEvent.ID
+	resultEvent.Type = s.CheckpointEvent.Type
+
+	return resultEvent
+
+}
+
+
 func NewGithubUserEventsScanner(fetcher GithubUserEventFetcher) *GithubUserEventsScanner {
 
 	return &GithubUserEventsScanner{
@@ -120,7 +138,7 @@ func (gues GithubUserEventsScanner) ScanAwsKeys(params ParamsScanGithubUserEvent
 				continue
 			}
 
-			githubEventCheckpoints[*scanResult.User.Login] = scanResult.CheckpointEvent
+			githubEventCheckpoints[*scanResult.User.Login] = scanResult.CompactCheckpointEvent()
 
 			leakedKeyEvents = append(leakedKeyEvents, scanResult.LeakedKeyEvents...)
 		}
