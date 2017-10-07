@@ -132,7 +132,8 @@ func (gues GithubUserEventsScanner) ScanAwsKeys(params ParamsScanGithubUserEvent
 
 }
 
-func (gues GithubUserEventsScanner) scanAwsKeysForUser(ctx context.Context, user *github.User, params ParamsScanGithubUserEventsForAwsKeys) (scanResult ScanResult, err error) {
+func (gues GithubUserEventsScanner) scanAwsKeysForUser(ctx context.Context, user *github.User,
+	params ParamsScanGithubUserEventsForAwsKeys) (scanResult ScanResult, err error) {
 
 	log.Printf("ScanGithubUserEventsForAwsKeys for user: %v", *user.Login)
 
@@ -150,7 +151,8 @@ func (gues GithubUserEventsScanner) scanAwsKeysForUser(ctx context.Context, user
 
 	userEvents, err := gues.fetcher.FetchUserEvents(ctx, fetchUserEventsInput)
 	if err != nil {
-		scanResult.Error = fmt.Errorf("Failed to fetch user events.  ParamsScanGithubUserEventsForAwsKeys: %+v Error: %v", fetchUserEventsInput, err)
+		msg := "Failed to fetch user events.  ParamsScanGithubUserEventsForAwsKeys: %+v Error: %v"
+		scanResult.Error = fmt.Errorf(msg, fetchUserEventsInput, err)
 		return scanResult, scanResult.Error
 	}
 
@@ -161,9 +163,17 @@ func (gues GithubUserEventsScanner) scanAwsKeysForUser(ctx context.Context, user
 
 	for _, userEvent := range userEvents {
 
+		//// Make sure that it's _after_ the stored checkpoint, otherwise skip it since it's already been scanned
+		if (*userEvent.CreatedAt).Before(*githubCheckpointEvent.CreatedAt) {
+			msg := "Skipping event since after stored checkpoint. User: %v. Event id: %v  Event created at: %v Stored checkpoint: %v"
+			log.Printf(msg, *user.Login, *userEvent.ID, *userEvent.CreatedAt, *checkpointEvent.CreatedAt)
+			continue
+		}
+
 		downstreamEventContent, err := gues.fetcher.FetchDownstreamContent(ctx, userEvent)
 		if err != nil {
-			scanResult.Error = fmt.Errorf("Failed to fetch user event content.  Event: %+v Error: %v", userEvent, err)
+			msg := "Failed to fetch user event content.  Event: %+v Error: %v"
+			scanResult.Error = fmt.Errorf(msg, userEvent, err)
 			return scanResult, scanResult.Error
 		}
 
