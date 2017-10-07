@@ -51,7 +51,7 @@ type BoundedLogger struct {
 
 func (b *BoundedLogger) Printf(format string, v ...interface{}) {
 	if b.numInvocations < b.maxInvocations {
-		log.Printf(format, v)
+		log.Printf(format, v...)
 		b.numInvocations += 1
 	}
 }
