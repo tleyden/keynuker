@@ -159,7 +159,7 @@ func (gues GithubUserEventsScanner) scanAwsKeysForUser(ctx context.Context, user
 		// NOTE: this code is a "double check" with the code in FetchUserEvents()
 		if (*userEvent.CreatedAt).Before(*fetchUserEventsInput.SinceEventTimestamp) {
 			msg := "Skipping event since after stored checkpoint. User: %v. Event id: %v  Event created at: %v Stored checkpoint: %v"
-			log.Printf(msg, *user.Login, *userEvent.ID, *userEvent.CreatedAt, *checkpointEvent.CreatedAt)
+			log.Printf(msg, *user.Login, *userEvent.ID, *userEvent.CreatedAt, *fetchUserEventsInput.SinceEventTimestamp)
 			continue
 		}
 
