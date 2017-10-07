@@ -22,8 +22,13 @@ import (
 
 //go:generate goautomock -template=testify -o "github_user_event_fetcher_mock.go" GithubUserEventFetcher
 
+// Abstract the calls to the github API in an interface for dependency injection / mocking purposes
 type GithubUserEventFetcher interface {
+
+	// Given a github username and filtering parameters, fetch events from the user event stream
 	FetchUserEvents(ctx context.Context, fetchUserEventsInput FetchUserEventsInput) ([]*github.Event, error)
+
+	// Given a specific github event (eg, a commit), get the actual content for that event to be scanned for aws keys
 	FetchDownstreamContent(ctx context.Context, userEvent *github.Event) (content []byte, err error)
 }
 
@@ -31,13 +36,13 @@ type GoGithubUserEventFetcher struct {
 	*GithubClientWrapper
 }
 
+// Input parameters for the github user event fetcher, which include filtering params such as checkpoint filtering
 type FetchUserEventsInput struct {
+
+	// The github username
 	Username string
 
-	EventTypesToInclude []string
-
-	SinceEventId uint64
-
+	// For checkpointing purposes, only consider events that are _after_ this timestamp
 	SinceEventTimestamp *time.Time
 }
 

@@ -76,6 +76,11 @@ func LookupGithubUsersAwsKeys(params ParamsLookupGithubUsersAwsKeys) (docWrapper
 	}
 	docWrapper.AccessKeyMetadata = docAwsKeys.AccessKeyMetadata
 
+
+	// TODO: lookup github checkpoints doc (not being stored yet)
+
+
+
 	return docWrapper, nil
 
 }
