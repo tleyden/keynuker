@@ -111,7 +111,7 @@ func TestScanGithubUserEventsForAwsKeys(t *testing.T) {
 				expectedFetchUserEventsInput := FetchUserEventsInput{
 					Username:            *githubUser.Login,
 					SinceEventTimestamp: githubCheckpointEvent.CreatedAt,
-					CheckpointID:        githubCheckpointEvent.ID,
+					CheckpointID:        *githubCheckpointEvent.ID,
 				}
 				rawPayload := json.RawMessage(fakePushEventRawPayload)
 				mockGithubEvent1 = &github.Event{
@@ -155,7 +155,7 @@ func TestScanGithubUserEventsForAwsKeys(t *testing.T) {
 				expectedFetchUserEventsInput := FetchUserEventsInput{
 					Username:            *githubUserNoEvents.Login,
 					SinceEventTimestamp: githubCheckpointEvent.CreatedAt,
-					CheckpointID:        githubCheckpointEvent.ID,
+					CheckpointID:        *githubCheckpointEvent.ID,
 				}
 				mockFetcher.On("FetchUserEvents", context.Background(), expectedFetchUserEventsInput).Return(
 					[]*github.Event{},
@@ -165,7 +165,7 @@ func TestScanGithubUserEventsForAwsKeys(t *testing.T) {
 				expectedFetchUserEventsInput := FetchUserEventsInput{
 					Username:            *githubUserOnlyEventsBeforeCheckpoint.Login,
 					SinceEventTimestamp: githubCheckpointEvent.CreatedAt,
-					CheckpointID:        githubCheckpointEvent.ID,
+					CheckpointID:        *githubCheckpointEvent.ID,
 				}
 				rawPayload := json.RawMessage(fakePushEventRawPayload)
 				mockGithubEventBeforeCheckpoint = &github.Event{
@@ -292,6 +292,7 @@ func TestScanGithubLargePushEvents(t *testing.T) {
 	// Make a fake checkpoint event that has the current timestamp
 	githubCheckpointEvent := &github.Event{
 		CreatedAt: aws.Time(time.Now().Add(time.Hour * -24)),
+		ID: aws.String("FakeEventID"),
 	}
 	githubEventCheckpoints := GithubEventCheckpoints{}
 	githubEventCheckpoints[*githubUser.Login] = githubCheckpointEvent
@@ -396,6 +397,7 @@ func TestCreateFetchUserEventsInputNormalCheckpoint(t *testing.T) {
 		GithubEventCheckpoints: GithubEventCheckpoints{
 			testUsername: &github.Event{
 				CreatedAt: aws.Time(now),
+				ID: aws.String("FakeEventID"),
 			},
 		},
 	}

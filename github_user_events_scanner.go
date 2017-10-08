@@ -213,11 +213,11 @@ func (gues GithubUserEventsScanner) scanAwsKeysForUser(ctx context.Context, user
 		}
 
 		// If the event has the exact same ID as the checkpoint event ID, then skip it since it's already been scanned.
-		if *userEvent.ID == *fetchUserEventsInput.CheckpointID {
+		if fetchUserEventsInput.MatchesCheckpointID(userEvent) {
 			msg := "Skipping event since it has the same event ID as the checkpoint. " +
 				"User: %v. Event id: %v  Event created at: %v  Checkpoint timestamp: %v Checkpoint ID: %v"
 			boundedLogger.Printf(msg, *user.Login, *userEvent.ID, *userEvent.CreatedAt,
-				*fetchUserEventsInput.SinceEventTimestamp, *fetchUserEventsInput.CheckpointID)
+				*fetchUserEventsInput.SinceEventTimestamp, fetchUserEventsInput.CheckpointID)
 
 			scanResult.SetCheckpointIfMostRecent(userEvent)
 
@@ -228,7 +228,7 @@ func (gues GithubUserEventsScanner) scanAwsKeysForUser(ctx context.Context, user
 		msg := "Fetching downstream content for event. " +
 			"User: %v. Event id: %v  Event created at: %v Stored checkpoint: %v Checkpoint ID: %v"
 		log.Printf(msg, *user.Login, *userEvent.ID, *userEvent.CreatedAt,
-			*fetchUserEventsInput.SinceEventTimestamp, *fetchUserEventsInput.CheckpointID)
+			*fetchUserEventsInput.SinceEventTimestamp, fetchUserEventsInput.CheckpointID)
 
 		downstreamEventContent, err := gues.fetcher.FetchDownstreamContent(ctx, userEvent)
 		if err != nil {
@@ -241,7 +241,7 @@ func (gues GithubUserEventsScanner) scanAwsKeysForUser(ctx context.Context, user
 		msg = "Scanning %d bytes of content for event. " +
 			"User: %v. Event id: %v  Event created at: %v Stored checkpoint: %v Checkpoint ID: %v"
 		log.Printf(msg, len(downstreamEventContent), *user.Login, *userEvent.ID, *userEvent.CreatedAt,
-			*fetchUserEventsInput.SinceEventTimestamp, *fetchUserEventsInput.CheckpointID)
+			*fetchUserEventsInput.SinceEventTimestamp, fetchUserEventsInput.CheckpointID)
 
 		// Scan for leaked keys
 		leakedKeys, nearbyContent, err := Scan(params.AccessKeyMetadata, downstreamEventContent)
@@ -352,10 +352,11 @@ func (p ParamsScanGithubUserEventsForAwsKeys) CreateFetchUserEventsInput(user *g
 
 		if githubCheckpointEvent == nil {
 			fetchUserEventsInput.SinceEventTimestamp = aws.Time(time.Now().Add(keynuker_go_common.DefaultCheckpointEventTimeWindow))
-			fetchUserEventsInput.CheckpointID = nil
 		} else {
 			fetchUserEventsInput.SinceEventTimestamp = githubCheckpointEvent.CreatedAt
-			fetchUserEventsInput.CheckpointID = githubCheckpointEvent.ID
+			if githubCheckpointEvent.ID != nil {
+				fetchUserEventsInput.CheckpointID = *githubCheckpointEvent.ID
+			}
 		}
 	}
 
@@ -398,6 +399,7 @@ func (p ParamsScanGithubUserEventsForAwsKeys) SetDefaultCheckpointsForMissing(re
 		if !ok || checkpoint == nil {
 			githubCheckpointEvent := &github.Event{
 				CreatedAt: aws.Time(time.Now().Add(recentTimeWindow)), // eg, time.Hour * -12
+				ID: aws.String("ArtificialCheckpointId"),
 			}
 			returnParams.GithubEventCheckpoints[*githubUser.Login] = githubCheckpointEvent
 		}

@@ -47,9 +47,18 @@ type FetchUserEventsInput struct {
 
 	// For checkpointing purposes.  Ignore events with same ID as checkpoint.  (note: this could
 	// eventually replace the time based checkpointing)
-	CheckpointID *string
+	CheckpointID string
 
 }
+
+func (f FetchUserEventsInput) MatchesCheckpointID(event *github.Event) bool {
+	if event == nil {
+		return false
+	}
+
+	return *event.ID == f.CheckpointID
+}
+
 
 func NewGoGithubUserEventFetcher(accessToken string) *GoGithubUserEventFetcher {
 	return &GoGithubUserEventFetcher{
