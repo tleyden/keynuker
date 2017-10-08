@@ -32,6 +32,43 @@ type ScanResult struct {
 	Error           error
 }
 
+func (s *ScanResult) SetCheckpointIfMostRecent(latestEventScanned *github.Event) {
+
+	 if latestEventScanned == nil {
+	 	// Ignore nil events
+	 	return
+	 }
+
+	 // If there is no checkpoint event yet whatsoever, set as current event no matter what it is
+	 if s.CheckpointEvent == nil {
+	 	s.CheckpointEvent = latestEventScanned
+	 }
+
+	// Otherwise only set the checkpoint if current event happened after checkpoint
+	if (*latestEventScanned.CreatedAt).After(*s.CheckpointEvent.CreatedAt) {
+		s.CheckpointEvent = latestEventScanned
+	}
+
+}
+
+// Return a compact (stripped) version of the checkpoint event that has the minimal
+// fields to still be useful
+func (s ScanResult) CompactCheckpointEvent() *github.Event {
+
+	if s.CheckpointEvent == nil {
+		return nil
+	}
+
+	resultEvent := &github.Event{}
+	resultEvent.CreatedAt = s.CheckpointEvent.CreatedAt
+	resultEvent.ID = s.CheckpointEvent.ID
+	resultEvent.Type = s.CheckpointEvent.Type
+
+	return resultEvent
+
+}
+
+
 func NewGithubUserEventsScanner(fetcher GithubUserEventFetcher) *GithubUserEventsScanner {
 
 	return &GithubUserEventsScanner{
@@ -101,7 +138,7 @@ func (gues GithubUserEventsScanner) ScanAwsKeys(params ParamsScanGithubUserEvent
 				continue
 			}
 
-			githubEventCheckpoints[*scanResult.User.Login] = scanResult.CheckpointEvent
+			githubEventCheckpoints[*scanResult.User.Login] = scanResult.CompactCheckpointEvent()
 
 			leakedKeyEvents = append(leakedKeyEvents, scanResult.LeakedKeyEvents...)
 		}
@@ -132,44 +169,81 @@ func (gues GithubUserEventsScanner) ScanAwsKeys(params ParamsScanGithubUserEvent
 
 }
 
-func (gues GithubUserEventsScanner) scanAwsKeysForUser(ctx context.Context, user *github.User, params ParamsScanGithubUserEventsForAwsKeys) (scanResult ScanResult, err error) {
+func (gues GithubUserEventsScanner) scanAwsKeysForUser(ctx context.Context, user *github.User,
+	params ParamsScanGithubUserEventsForAwsKeys) (scanResult ScanResult, err error) {
 
 	log.Printf("ScanGithubUserEventsForAwsKeys for user: %v", *user.Login)
 
 	scanResult.User = user
 
-	fetchUserEventsInput := FetchUserEventsInput{
-		Username: *user.Login,
-	}
-
-	// If there is a stored checkpoint for that user, use it
-	githubCheckpointEvent, ok := params.GithubEventCheckpoints[*user.Login]
-	if ok {
-		fetchUserEventsInput.SinceEventTimestamp = githubCheckpointEvent.CreatedAt
-	}
+	fetchUserEventsInput := params.CreateFetchUserEventsInput(user)
 
 	userEvents, err := gues.fetcher.FetchUserEvents(ctx, fetchUserEventsInput)
 	if err != nil {
-		scanResult.Error = fmt.Errorf("Failed to fetch user events.  ParamsScanGithubUserEventsForAwsKeys: %+v Error: %v", fetchUserEventsInput, err)
+		msg := "Failed to fetch user events.  ParamsScanGithubUserEventsForAwsKeys: %+v Error: %v"
+		scanResult.Error = fmt.Errorf(msg, fetchUserEventsInput, err)
 		return scanResult, scanResult.Error
 	}
 
 	// Track the latest event processed during this scan
-	var checkpointEvent *github.Event
+	// var checkpointEvent *github.Event
 
 	log.Printf("Scanning %d events for user: %v", len(userEvents), *user.Login)
 
+	// Create a logger that will only log at most 5 messages about older checkpoints, to prevent spamming the logs
+	boundedLogger := keynuker_go_common.CreateBoundedLogger(5)
+
 	for _, userEvent := range userEvents {
+
+		// Make sure that it's _after_ the stored checkpoint, otherwise skip it since it's already been scanned
+		// The reason it can't just check Before() || Equal() is that if two or more events had thesame timestamp,
+		// and the tool polled the api and only get one of the events, then the others would be ignored by
+		// the checkpointing algorithm
+		if (*userEvent.CreatedAt).Before(*fetchUserEventsInput.SinceEventTimestamp) {
+			msg := "Skipping event since before checkpoint date. " +
+				"User: %v. Event id: %v  Event created at: %v Stored checkpoint: %v"
+			boundedLogger.Printf(msg, *user.Login, *userEvent.ID, *userEvent.CreatedAt, *fetchUserEventsInput.SinceEventTimestamp)
+
+			// Update the checkpoint, if it's the most recent event, despite the fact that we are skipping this event.
+			// This covers the edge case where _all_ events returned by the user are older than the checkpoint -- in
+			// that case it's still necessary to bump the checkpoint to the most recent event in that event set.
+			scanResult.SetCheckpointIfMostRecent(userEvent)
+
+			continue
+		}
+
+		// If the event has the exact same ID as the checkpoint event ID, then skip it since it's already been scanned.
+		if fetchUserEventsInput.MatchesCheckpointID(userEvent) {
+			msg := "Skipping event since it has the same event ID as the checkpoint. " +
+				"User: %v. Event id: %v  Event created at: %v  Checkpoint timestamp: %v Checkpoint ID: %v"
+			boundedLogger.Printf(msg, *user.Login, *userEvent.ID, *userEvent.CreatedAt,
+				*fetchUserEventsInput.SinceEventTimestamp, fetchUserEventsInput.CheckpointID)
+
+			scanResult.SetCheckpointIfMostRecent(userEvent)
+
+			continue
+		}
+
+		// Logging
+		msg := "Fetching downstream content for event. " +
+			"User: %v. Event id: %v  Event created at: %v Stored checkpoint: %v Checkpoint ID: %v"
+		log.Printf(msg, *user.Login, *userEvent.ID, *userEvent.CreatedAt,
+			*fetchUserEventsInput.SinceEventTimestamp, fetchUserEventsInput.CheckpointID)
 
 		downstreamEventContent, err := gues.fetcher.FetchDownstreamContent(ctx, userEvent)
 		if err != nil {
-			scanResult.Error = fmt.Errorf("Failed to fetch user event content.  Event: %+v Error: %v", userEvent, err)
+			msg := "Failed to fetch user event content.  Event: %+v Error: %v"
+			scanResult.Error = fmt.Errorf(msg, userEvent, err)
 			return scanResult, scanResult.Error
 		}
 
-		// Scan for leaked keys
-		log.Printf("User: %v. Scanning %d bytes of content for event: %v", *user.Login, len(downstreamEventContent), *userEvent.ID)
+		// Logging
+		msg = "Scanning %d bytes of content for event. " +
+			"User: %v. Event id: %v  Event created at: %v Stored checkpoint: %v Checkpoint ID: %v"
+		log.Printf(msg, len(downstreamEventContent), *user.Login, *userEvent.ID, *userEvent.CreatedAt,
+			*fetchUserEventsInput.SinceEventTimestamp, fetchUserEventsInput.CheckpointID)
 
+		// Scan for leaked keys
 		leakedKeys, nearbyContent, err := Scan(params.AccessKeyMetadata, downstreamEventContent)
 		if err != nil {
 			scanResult.Error = fmt.Errorf("Failed to scan event content.  Event: %+v Error: %v", userEvent, err)
@@ -198,16 +272,8 @@ func (gues GithubUserEventsScanner) scanAwsKeysForUser(ctx context.Context, user
 			scanResult.LeakedKeyEvents = append(scanResult.LeakedKeyEvents, leakedKeyEvent)
 		}
 
-		// Update checkpoint.  If there is no checkpoint event yet, set as current event
-		if checkpointEvent == nil {
-			checkpointEvent = userEvent
-		} else {
-			// Otherwise only set the checkpoint if current event happened after checkpoint
-			if (*userEvent.CreatedAt).After(*checkpointEvent.CreatedAt) {
-				checkpointEvent = userEvent
-			}
-		}
-		scanResult.CheckpointEvent = checkpointEvent
+		// Update checkpoint.
+		scanResult.SetCheckpointIfMostRecent(userEvent)
 
 	}
 
@@ -274,6 +340,29 @@ func (p ParamsScanGithubUserEventsForAwsKeys) Validate() error {
 	return nil
 }
 
+func (p ParamsScanGithubUserEventsForAwsKeys) CreateFetchUserEventsInput(user *github.User) FetchUserEventsInput {
+
+	fetchUserEventsInput := FetchUserEventsInput{
+		Username: *user.Login,
+	}
+
+	// If there is a stored checkpoint for that user, use it
+	githubCheckpointEvent, ok := p.GithubEventCheckpoints[*user.Login]
+	if ok {
+
+		if githubCheckpointEvent == nil {
+			fetchUserEventsInput.SinceEventTimestamp = aws.Time(time.Now().Add(keynuker_go_common.DefaultCheckpointEventTimeWindow))
+		} else {
+			fetchUserEventsInput.SinceEventTimestamp = githubCheckpointEvent.CreatedAt
+			if githubCheckpointEvent.ID != nil {
+				fetchUserEventsInput.CheckpointID = *githubCheckpointEvent.ID
+			}
+		}
+	}
+
+	return fetchUserEventsInput
+}
+
 func (p ParamsScanGithubUserEventsForAwsKeys) WithDefaultKeynukerOrg() ParamsScanGithubUserEventsForAwsKeys {
 
 	returnParams := p
@@ -292,7 +381,7 @@ func (p ParamsScanGithubUserEventsForAwsKeys) WithDefaultKeynukerOrg() ParamsSca
 // as of the time of this writing.
 //
 // Example recentTimeWindow: time.Duration(time.Hour * -12)
-func (p ParamsScanGithubUserEventsForAwsKeys) WithDefaultCheckpoints(recentTimeWindow time.Duration) ParamsScanGithubUserEventsForAwsKeys {
+func (p ParamsScanGithubUserEventsForAwsKeys) SetDefaultCheckpointsForMissing(recentTimeWindow time.Duration) ParamsScanGithubUserEventsForAwsKeys {
 
 	returnParams := p
 
@@ -305,10 +394,12 @@ func (p ParamsScanGithubUserEventsForAwsKeys) WithDefaultCheckpoints(recentTimeW
 	// that is 24 hours old, so that only events from last 24 hours are processed, in order to
 	// limit the amount of work this call ScanGithubUserEventsForAwsKeys() will perform.
 	for _, githubUser := range returnParams.GithubUsers {
-		_, ok := returnParams.GithubEventCheckpoints.CheckpointForUser(githubUser)
-		if !ok {
+
+		checkpoint, ok := returnParams.GithubEventCheckpoints.CheckpointForUser(githubUser)
+		if !ok || checkpoint == nil {
 			githubCheckpointEvent := &github.Event{
 				CreatedAt: aws.Time(time.Now().Add(recentTimeWindow)), // eg, time.Hour * -12
+				ID: aws.String("ArtificialCheckpointId"),
 			}
 			returnParams.GithubEventCheckpoints[*githubUser.Login] = githubCheckpointEvent
 		}

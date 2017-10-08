@@ -110,6 +110,7 @@ def get_action_params_to_env():
             "TargetAwsAccounts": "TARGET_AWS_ACCOUNTS",
         },
         "post-nuke-notifier": {
+            "KeyNukerOrg": "KEYNUKER_ORG",
             "email_from_address": "KEYNUKER_EMAIL_FROM_ADDRESS",
             "admin_email_cc_address": "KEYNUKER_ADMIN_EMAIL_CC_ADDRESS",
             "mailer_api_key": "KEYNUKER_MAILER_API_KEY",
@@ -189,6 +190,12 @@ def install_openwhisk_action_sequences(available_actions):
             "write-doc",
         ],
 
+        # Nested sequence for doing the post-nuke-notifying and writing to DB
+        "post-nuke-notifier-write-doc": [
+            "post-nuke-notifier",
+            "write-doc",
+        ],
+
         # Main sequence
         "github-user-events-scanner-nuker": [
             "fetch-aws-keys-write-doc",
@@ -196,7 +203,7 @@ def install_openwhisk_action_sequences(available_actions):
             "lookup-github-users-aws-keys",
             "github-user-events-scanner",
             "nuke-leaked-aws-keys",
-            "post-nuke-notifier",
+            "post-nuke-notifier-write-doc",
         ]
 
     }

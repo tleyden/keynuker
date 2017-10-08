@@ -73,6 +73,19 @@ func (gua GithubUserAggregator) ListMembers(ctx context.Context) ([]*github.User
 
 }
 
+// Get a compacted list of the users that only contains the user data that concerns the keynuker application
+// TODO: this should convert to a keynuker.GithubUser (doesn't exist yet) to increase compile time checking
+func (gua GithubUserAggregator) CompactedUsers(users []*github.User) []*github.User {
+	resultUsers := []*github.User{}
+	for _, user := range users {
+		resultUser := &github.User{}
+		resultUser.Login = user.Login
+		resultUser.ID = user.ID
+		resultUsers = append(resultUsers, resultUser)
+	}
+	return resultUsers
+}
+
 func (gua GithubUserAggregator) ListMembersForOrg(ctx context.Context, org string) ([]*github.User, error) {
 
 	// Keep track of which page we are on when iterating over API results

@@ -22,24 +22,43 @@ import (
 
 //go:generate goautomock -template=testify -o "github_user_event_fetcher_mock.go" GithubUserEventFetcher
 
+// Abstract the calls to the github API in an interface for dependency injection / mocking purposes
 type GithubUserEventFetcher interface {
+
+	// Given a github username and filtering parameters, fetch events from the user event stream
 	FetchUserEvents(ctx context.Context, fetchUserEventsInput FetchUserEventsInput) ([]*github.Event, error)
+
+	// Given a specific github event (eg, a commit), get the actual content for that event to be scanned for aws keys
 	FetchDownstreamContent(ctx context.Context, userEvent *github.Event) (content []byte, err error)
 }
 
-type GoGithubUserEventFetcher struct {
+type  GoGithubUserEventFetcher struct {
 	*GithubClientWrapper
 }
 
+// Input parameters for the github user event fetcher, which include filtering params such as checkpoint filtering
 type FetchUserEventsInput struct {
+
+	// The github username
 	Username string
 
-	EventTypesToInclude []string
-
-	SinceEventId uint64
-
+	// For checkpointing purposes, only consider events that are _after_ this timestamp
 	SinceEventTimestamp *time.Time
+
+	// For checkpointing purposes.  Ignore events with same ID as checkpoint.  (note: this could
+	// eventually replace the time based checkpointing)
+	CheckpointID string
+
 }
+
+func (f FetchUserEventsInput) MatchesCheckpointID(event *github.Event) bool {
+	if event == nil {
+		return false
+	}
+
+	return *event.ID == f.CheckpointID
+}
+
 
 func NewGoGithubUserEventFetcher(accessToken string) *GoGithubUserEventFetcher {
 	return &GoGithubUserEventFetcher{
@@ -85,13 +104,7 @@ func (guef GoGithubUserEventFetcher) FetchUserEvents(ctx context.Context, fetchU
 
 		// Loop over events and append to result
 		for _, event := range eventsPerPage {
-
-			// If the event is older than our checkpoint, skip it
-			if fetchUserEventsInput.SinceEventTimestamp != nil && eventCreatedAtBefore(event, fetchUserEventsInput.SinceEventTimestamp) {
-				continue
-			}
 			events = append(events, event)
-
 		}
 
 		if response.NextPage <= curApiResultPage {
@@ -135,7 +148,7 @@ func (guef GoGithubUserEventFetcher) FetchDownstreamContent(ctx context.Context,
 
 		if strings.Contains(*v.Ref, keynuker_go_common.KeyNukerIntegrationTestBranch) {
 			// skip this since as an experiment
-			log.Printf("Skipping push event %v on %v branch", *v.PushID, keynuker_go_common.KeyNukerIntegrationTestBranch)
+			log.Printf("Skipping push event %v since it's on %v testing branch", *v.PushID, keynuker_go_common.KeyNukerIntegrationTestBranch)
 			return []byte(""), nil
 		}
 

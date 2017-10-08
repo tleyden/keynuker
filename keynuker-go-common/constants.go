@@ -3,6 +3,8 @@
 
 package keynuker_go_common
 
+import "time"
+
 // Note: this package should not have any dependencies to any other keynuker-go sub-packages,
 // since they will probably create circular dependencies
 
@@ -12,6 +14,9 @@ const (
 	DocIdPrefixGithubUsers = "github_users"
 
 	DocIdPrefixAwsKeys = "aws_keys"
+
+	DocIdPrefixGithubEventCheckpoints = "github_event_checkpoints"
+
 )
 
 // Environment Variable Names
@@ -62,4 +67,17 @@ const (
 	GithubRefsHeadsPrefix = "refs/heads"
 
 	GithubMasterBranch = "master"
+
+
 )
+
+var (
+
+	// If there is no recorded checkpoint for a user, how far back should the scanning go in the github user event history?
+	DefaultCheckpointEventTimeWindow time.Duration
+
+)
+
+func init() {
+	DefaultCheckpointEventTimeWindow = time.Hour * -12
+}

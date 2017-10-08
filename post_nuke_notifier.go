@@ -9,8 +9,8 @@ import (
 	"os"
 
 	"encoding/json"
-	"gopkg.in/mailgun/mailgun-go.v1"
 	"github.com/tleyden/keynuker/keynuker-go-common"
+	"gopkg.in/mailgun/mailgun-go.v1"
 )
 
 // Mailer (Mailgun) Params
@@ -31,8 +31,10 @@ type ParamsPostNukeNotifier struct {
 	// MailerParams
 	MailerParams
 
+	// This is the name of the KeyNuker "org/tenant".  Defaults to "default", but allows to be extended multi-tenant.
+	KeyNukerOrg string
+
 	// These fields are inputs from the upstream nuke-leaked-aws-keys action
-	Id                     string `json:"_id"`
 	NukedKeyEvents         []NukedKeyEvent
 	GithubEventCheckpoints GithubEventCheckpoints
 
@@ -41,7 +43,6 @@ type ParamsPostNukeNotifier struct {
 
 	// Optionally specify the Keynuker admin email to be CC'd about any leaked/nuked keys
 	KeynukerAdminEmailCCAddress string `json:"admin_email_cc_address"`
-
 }
 
 func (p ParamsPostNukeNotifier) Validate() error {
@@ -55,12 +56,17 @@ func (p ParamsPostNukeNotifier) Validate() error {
 }
 
 type ResultPostNukeNotifier struct {
-	Id                     string `json:"_id"`
 	NukedKeyEvents         []NukedKeyEvent
 	GithubEventCheckpoints GithubEventCheckpoints
 
 	// Mailgun delivery id's for messages
 	DeliveryIds []string
+}
+
+type DocumentWrapperPostNukeNotifier struct {
+	// Serialize into a form that the cloudant db adapter expects
+	Doc   ResultPostNukeNotifier `json:"doc"`
+	DocId string                 `json:"docid"`
 }
 
 // Entry point with dependency injection that takes a mailer object, might be live mailgun endpoint or mock
@@ -73,7 +79,6 @@ func SendPostNukeNotifications(mailer mailgun.Mailgun, params ParamsPostNukeNoti
 	// Propagate params -> result
 	result.NukedKeyEvents = params.NukedKeyEvents
 	result.GithubEventCheckpoints = params.GithubEventCheckpoints
-	result.Id = params.Id
 
 	for _, nukedKeyEvent := range params.NukedKeyEvents {
 

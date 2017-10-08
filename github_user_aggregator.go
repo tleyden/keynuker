@@ -34,10 +34,12 @@ func AggregateGithubUsers(params ParamsGithubUserAggregator) (DocumentWrapperGit
 		return DocumentWrapperGithubUserAggregator{}, fmt.Errorf("Error listing members for orgs: %v.  Error: %v", params.GithubOrgs, err)
 	}
 
+	compactedUsers := ghUserAggregator.CompactedUsers(users)
+
 	// Create result doc
 	doc := DocumentGithubUserAggregator{
 		Id:          docId,
-		GithubUsers: users,
+		GithubUsers: compactedUsers,
 	}
 
 	// Create result doc wrapper

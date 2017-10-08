@@ -170,7 +170,8 @@ type FetchedAwsAccessKey struct {
 	// The name of the IAM user that the key is associated with.
 	UserName *string `min:"1" type:"string"`
 
-	// The AWS access key used to monitor this AWS account's keys.  Need to track since this same key will need to be used to nuke as well
+	// The AWS access key used to monitor this AWS account's keys.  Need to track since this same key will need to be used to nuke as well.
+	// TODO: this should be the sha1 hash of the key, not the access key itself.  That would keep the access key out of the response json
 	MonitorAwsAccessKeyId string
 }
 

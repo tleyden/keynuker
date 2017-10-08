@@ -11,6 +11,7 @@ import (
 	"github.com/flimzy/kivik"
 	_ "github.com/flimzy/kivik/driver/couchdb" // The CouchDB driver
 	"github.com/tleyden/keynuker/keynuker-go-common"
+	"log"
 )
 
 // For a given KeyNuker org (or default org), look up:
@@ -76,6 +77,27 @@ func LookupGithubUsersAwsKeys(params ParamsLookupGithubUsersAwsKeys) (docWrapper
 	}
 	docWrapper.AccessKeyMetadata = docAwsKeys.AccessKeyMetadata
 
+	// Lookup github checkpoints doc
+	docIdGithubEventCheckpoints := keynuker_go_common.GenerateDocId(
+		keynuker_go_common.DocIdPrefixGithubEventCheckpoints,
+		params.KeyNukerOrg,
+	)
+	rowGithubEventCheckpoints, err := db.Get(ctx, docIdGithubEventCheckpoints, options)
+	if err != nil {
+		// An error looking up the doc should not be propagated, since it might be normal (eg, first time run there will be no checkpoint doc)
+		// TODO: verify this is a 404 error and not some other error, which should emit a logging warning or error
+		msg := "Unable to find existing github event checkpoints doc %v.  Assuming this is the first time run.  Underling db error: %v"
+		log.Printf(msg, docIdGithubEventCheckpoints, err)
+	}
+
+	if rowGithubEventCheckpoints != nil {
+		docGithubEventCheckpoints := DocumentWithGithubEventCheckpoints{}
+		if err := rowGithubEventCheckpoints.ScanDoc(&docGithubEventCheckpoints); err != nil {
+			return docWrapper, err
+		}
+		docWrapper.GithubEventCheckpoints = docGithubEventCheckpoints.GithubEventCheckpoints
+	}
+
 	return docWrapper, nil
 
 }
@@ -110,6 +132,10 @@ type DocumentWrapperLookupGithubUsersAwsKeys struct {
 
 	// AWS access keys to scan for
 	AccessKeyMetadata *json.RawMessage
+
+	// Github event checkpoint which represent the last scanned github event for each known github user
+	GithubEventCheckpoints *json.RawMessage
+
 }
 
 type DocumentWithGithubUsers struct {
@@ -118,4 +144,8 @@ type DocumentWithGithubUsers struct {
 
 type DocumentWithAwsKeys struct {
 	AccessKeyMetadata *json.RawMessage
+}
+
+type DocumentWithGithubEventCheckpoints struct {
+	GithubEventCheckpoints *json.RawMessage
 }
