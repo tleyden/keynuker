@@ -18,6 +18,7 @@ import (
 
 	"github.com/google/go-github/github"
 	"github.com/tleyden/keynuker/keynuker-go-common"
+	"fmt"
 )
 
 //go:generate goautomock -template=testify -o "github_user_event_fetcher_mock.go" GithubUserEventFetcher
@@ -79,9 +80,8 @@ func (guef GoGithubUserEventFetcher) FetchUserEvents(ctx context.Context, fetchU
 	// Loop over all pages returned by API and accumulate events
 	// TODO: #1 needs to also collect github gists
 	// TODO: #2 filter out any events that aren't in EventTypesToInclude
-	// TODO: #3 should skip any events that are before SinceEventId and SinceEventTimestamp
-	// TODO: #4 the code to loop over all pages could be extracted out into a re-usable wrappr function
-	// TODO: #5 what should publicOnly be set to?  Seems like it depends on the permissions of the accesstoken
+	// TODO: #3 the code to loop over all pages could be extracted out into a re-usable wrappr function
+	// TODO: #4 what should publicOnly be set to?  Seems like it depends on the permissions of the accesstoken
 	// TODO:    and it would be good to grab private events if the access token gives enough permissions
 
 	for {
@@ -142,10 +142,6 @@ func (guef GoGithubUserEventFetcher) FetchDownstreamContent(ctx context.Context,
 
 		maxCommitsPerPushEvent := 20
 
-		if *v.Size > maxCommitsPerPushEvent {
-			log.Printf("WARNING: PushEvent %v has > 20 commits, but only 20 commtis will be scanned.", *v.PushID)
-		}
-
 		if strings.Contains(*v.Ref, keynuker_go_common.KeyNukerIntegrationTestBranch) {
 			// skip this since as an experiment
 			log.Printf("Skipping push event %v since it's on %v testing branch", *v.PushID, keynuker_go_common.KeyNukerIntegrationTestBranch)
@@ -157,7 +153,7 @@ func (guef GoGithubUserEventFetcher) FetchDownstreamContent(ctx context.Context,
 			log.Printf("Getting content for commit: %v url: %v", *commit.SHA, commit.GetURL())
 			content, err := guef.FetchUrlContent(ctx, commit.GetURL())
 			if err != nil {
-				return nil, err
+				return nil, fmt.Errorf("Error getting content for commit: %v url: %v.  Error: %v", *commit.SHA, commit.GetURL(), err)
 			}
 			buffer.Write(content)
 		}
@@ -166,10 +162,12 @@ func (guef GoGithubUserEventFetcher) FetchDownstreamContent(ctx context.Context,
 		// Example PushEvent w/ more than 20 commits: https://gist.github.com/tleyden/68d972b02b2b9306fa6e2eb26310b751
 		if *v.Size > maxCommitsPerPushEvent {
 
+			log.Printf("PushEvent %v has > 20 commits but this API call only returns 20.  Making separate API call.", *v.PushID)
+
 			// Fetch the rest of the commits for this push event and append downstream content to buffer
 			err := guef.FetchCommitsForPushEvent(ctx, userEvent, v, &buffer)
 			if err != nil {
-				return nil, err
+				return nil, fmt.Errorf("Error fetching additional commits for push event: %v.  Error: %v", *v.PushID, err)
 			}
 
 		}

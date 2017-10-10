@@ -22,6 +22,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/iam"
 	"github.com/google/go-github/github"
 	"github.com/tleyden/keynuker/keynuker-go-common"
+	"strconv"
 )
 
 // INSTRUCTIONS to run integration tests are in the Developer Guide (developers.adoc)
@@ -86,8 +87,16 @@ func (e EndToEndIntegrationTest) Run() error {
 			return err
 		}
 
+		if err := keyLeakScenario.RecordLatestEventFeedID(); err != nil {
+			return fmt.Errorf("Error recording latest event id from user event feed: %v", err)
+		}
+
 		if err := keyLeakScenario.Leak(awsAccessKey); err != nil {
 			return fmt.Errorf("Error running testScenario: %v", err)
+		}
+
+		if err := keyLeakScenario.WaitForLeakOnEventFeed(); err != nil {
+			return fmt.Errorf("Error waiting for leaked event to appear on user event feed: %v", err)
 		}
 
 		if err := e.RunKeyNuker(awsAccessKey); err != nil {
@@ -412,6 +421,8 @@ func (e EndToEndIntegrationTest) RunKeyNuker(accessKeyToNuke *iam.AccessKey) (er
 type KeyLeakScenario interface {
 	Leak(accessKey *iam.AccessKey) error
 	Cleanup() error
+	RecordLatestEventFeedID() error
+	WaitForLeakOnEventFeed() error
 }
 
 // --------------------------------------------- LeakKeyViaOlderCommit Scenario ----------------------------------------
@@ -435,6 +446,8 @@ func NewLeakKeyViaOlderCommit(githubAccessToken, targetGithubRepo string) *LeakK
 }
 
 func (lkvoc *LeakKeyViaOlderCommit) Leak(accessKey *iam.AccessKey) error {
+
+	log.Printf("LeakKeyViaOlderCommit.Leak() called")
 
 	ctx := context.Background()
 
@@ -551,6 +564,17 @@ func (lkvoc LeakKeyViaOlderCommit) WaitForPushEvent(ctx context.Context, branch,
 	return nil
 
 }
+
+func (lkvoc LeakKeyViaOlderCommit) RecordLatestEventFeedID() error {
+	// No-op due to being implemented via WaitForPushEvent()
+	return nil
+}
+
+func (lkvoc LeakKeyViaOlderCommit) WaitForLeakOnEventFeed() error {
+	// No-op due to being implemented via WaitForPushEvent()\
+	return nil
+}
+
 
 func (lkvoc LeakKeyViaOlderCommit) CreateBranchIfNotExist(branch string) error {
 
@@ -707,6 +731,7 @@ type LeakKeyViaNewGithubIssue struct {
 	IssueCreatedForLeak        *github.Issue
 	IssueCommentCreatedForLeak *github.IssueComment
 	GithubUser                 *github.User
+	LatestEventPreLeak  *github.Event
 }
 
 func NewLeakKeyViaNewGithubIssue(githubAccessToken, targetGithubRepo string) *LeakKeyViaNewGithubIssue {
@@ -718,15 +743,18 @@ func NewLeakKeyViaNewGithubIssue(githubAccessToken, targetGithubRepo string) *Le
 	return leakKeyViaNewGithubIssue
 }
 
+
+
 func (lkvc *LeakKeyViaNewGithubIssue) Leak(accessKey *iam.AccessKey) error {
+
+	log.Printf("LeakKeyViaNewGithubIssue.Leak() called")
 
 	ctx := context.Background()
 
 	var err error
 
 	// Find out the github username (aka user login)
-	lkvc.GithubUser, _, err = lkvc.GithubClientWrapper.ApiClient.Users.Get(ctx, "")
-	if err != nil {
+	if err := lkvc.discoverGithubUser(); err != nil {
 		return err
 	}
 
@@ -772,6 +800,148 @@ func (lkvc *LeakKeyViaNewGithubIssue) Leak(accessKey *iam.AccessKey) error {
 	}
 
 	return nil
+
+}
+
+func (lkvc *LeakKeyViaNewGithubIssue) discoverGithubUser() (err error) {
+
+	ctx := context.Background()
+
+	// Find out the github username (aka user login)
+	lkvc.GithubUser, _, err = lkvc.GithubClientWrapper.ApiClient.Users.Get(ctx, "")
+	return err
+
+}
+
+func (lkvc *LeakKeyViaNewGithubIssue) RecordLatestEventFeedID() error {
+
+	ctx := context.Background()
+
+	// Find out the github username (aka user login)
+	if err := lkvc.discoverGithubUser(); err != nil {
+		return err
+	}
+
+	// Get latest event from feed and store it
+	listOptions := &github.ListOptions{
+		PerPage: MaxPerPage,
+		Page:    0,
+	}
+
+	events, _, err := lkvc.GithubClientWrapper.ApiClient.Activity.ListEventsPerformedByUser(
+		ctx,
+		*lkvc.GithubUser.Login,
+		false,
+		listOptions,
+	)
+
+	if err != nil {
+		return err
+	}
+
+	for _, event := range events {
+
+		// If we don't yet have an event stored for the LatestEventPreLeak, then use this this one no
+		// matter what it's value
+		if lkvc.LatestEventPreLeak == nil {
+			lkvc.LatestEventPreLeak = event
+			continue
+		}
+
+		existingEventId, err := lkvc.LatestEventPreLeakID()
+		if err != nil {
+			return err
+		}
+
+		eventId, err := strconv.Atoi(*event.ID)
+		if err != nil {
+			return err
+		}
+
+		if eventId > existingEventId {
+			lkvc.LatestEventPreLeak = event
+		}
+
+	}
+
+	return nil
+}
+
+func (lkvc LeakKeyViaNewGithubIssue) LatestEventPreLeakID() (int, error) {
+	if lkvc.LatestEventPreLeak == nil {
+		return 0, fmt.Errorf("No latest event stored")
+	}
+	rawEventIdString := *lkvc.LatestEventPreLeak.ID
+	return strconv.Atoi(rawEventIdString)
+}
+
+func (lkvc LeakKeyViaNewGithubIssue) WaitForLeakOnEventFeed() error {
+
+	// Polling loop to wait for an event that is _after_ the recorded latest event id, and
+	// has an event type of PushEvent
+
+	ctx := context.Background()
+
+	for {
+
+		// Get latest event from feed and store it
+
+		listOptions := &github.ListOptions{
+			PerPage: MaxPerPage,
+			Page:    0,
+		}
+
+		events, _, err := lkvc.GithubClientWrapper.ApiClient.Activity.ListEventsPerformedByUser(
+			ctx,
+			*lkvc.GithubUser.Login,
+			false,
+			listOptions,
+		)
+
+		if err != nil {
+			return err
+		}
+
+		if lkvc.LatestEventPreLeak == nil {
+			return fmt.Errorf("No LatestEventPreLeak")
+		}
+
+		for _, event := range events {
+
+			latestPreLeakEventId, err := lkvc.LatestEventPreLeakID()
+			if err != nil {
+				return err
+			}
+
+			eventId, err := strconv.Atoi(*event.ID)
+			if err != nil {
+				return err
+			}
+
+			// Ignore any events that are earlier or equal to the stored latest preleak event id
+			if eventId <= latestPreLeakEventId {
+				continue
+			}
+
+			// is this an IssueEvent?  Then it's the one we were waiting for
+			payload, err := event.ParsePayload()
+			if err != nil {
+				return err
+			}
+
+			switch payload.(type) {
+			case *github.IssueCommentEvent:
+				// I've been WAITING for an event like you ...
+				return nil
+			}
+
+		}
+
+		log.Printf("Waiting for IssueCommentEvent to show up on event feed.  Sleep/retry")
+		time.Sleep(time.Second)
+
+	}
+
 
 }
 
