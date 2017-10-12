@@ -149,12 +149,11 @@ func (e *EndToEndIntegrationTest) InitGithubAccess() error {
 
 func (e *EndToEndIntegrationTest) InitAwsIamSession() error {
 
-	targetAwsAccounts, err := GetTargetAwsAccountsFromEnv()
+
+	targetAwsAccounts, err := GetIntegrationTestTargetAwsAccountsFromEnv()
 	if err != nil {
 		return err
 	}
-
-	// Just use the first aws account
 	e.TargetAwsAccount = targetAwsAccounts[0]
 
 	// Create AWS session
@@ -310,7 +309,7 @@ func (e EndToEndIntegrationTest) RunKeyNuker(accessKeyToNuke *iam.AccessKey) (er
 
 	// ------------------------ Fetch Aws Keys -------------------------
 
-	targetAwsAccounts, err := GetTargetAwsAccountsFromEnv()
+	targetAwsAccounts, err := GetIntegrationTestTargetAwsAccountsFromEnv()
 	if err != nil {
 		return err
 	}

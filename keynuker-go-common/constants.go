@@ -37,6 +37,10 @@ const (
 
 	EnvVarKeyNukerTestIntegrationTestsEnabled = "KEYNUKER_INTEGRATION_TESTS_ENABLED"
 
+	EnvVarKeyNukerTestIntegrationAccessKey = "KEYNUKER_INTEGRATION_TEST_ACCESS_KEY"
+	EnvVarKeyNukerTestIntegrationSecretAccessKey = "KEYNUKER_INTEGRATION_TEST_SECRET_ACCESS_KEY"
+
+
 	EnvVarKeyNukerTestGithubOrgs = "GITHUB_ORGS"
 
 
