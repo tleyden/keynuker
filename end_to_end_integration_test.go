@@ -24,6 +24,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/iam"
 	"github.com/google/go-github/github"
 	"github.com/tleyden/keynuker/keynuker-go-common"
+	"github.com/satori/go.uuid"
 )
 
 // INSTRUCTIONS to run integration tests are in the Developer Guide (developers.adoc)
@@ -467,7 +468,8 @@ func (lkvoc *LeakKeyViaOlderCommit) Leak(accessKey *iam.AccessKey) error {
 	// Push harmless commits - needs to be greater than 20 to detect issue https://github.com/tleyden/keynuker/issues/6
 	for i := 0; i < 21; i++ {
 		body := fmt.Sprintf("LeakKeyViaOlderCommit commit %d", i)
-		path := fmt.Sprintf("KeyNukerEndToEndIntegrationTest harmless commit %d", i)
+		path := fmt.Sprintf("KeyNukerEndToEndIntegrationHarmlessFile-%d.txt", i)
+
 		if _, err := lkvoc.PushCommit(path, body); err != nil {
 			return err
 		}
@@ -482,7 +484,11 @@ func (lkvoc *LeakKeyViaOlderCommit) Leak(accessKey *iam.AccessKey) error {
 			return fmt.Errorf("Unable to load large commit asset: %v", err)
 		}
 		body := fmt.Sprintf("%s access key id: %v", largeFile, *accessKey.AccessKeyId)
-		commit, errPushCommit := lkvoc.PushCommit("KeyNukerEndToEndIntegrationTest leaked key commit (largefile)", body)
+
+		// Make filename unique, otherwise will end up with a small diff from previous test rather than entire file content
+		path := fmt.Sprintf("KeyNukerEndToEndIntegrationTestLeakedKeyLargefile-%s.txt", uuid.NewV4())
+		log.Printf("Large commit filename: %v", path)
+		commit, errPushCommit := lkvoc.PushCommit(path, body)
 		if errPushCommit != nil {
 			return errPushCommit
 		}
@@ -490,7 +496,8 @@ func (lkvoc *LeakKeyViaOlderCommit) Leak(accessKey *iam.AccessKey) error {
 	case false:
 		// Push a single commit with a leaked key
 		body := fmt.Sprintf("LeakKeyViaOlderCommit access key id: %v", *accessKey.AccessKeyId)
-		commit, errPushCommit := lkvoc.PushCommit("KeyNukerEndToEndIntegrationTest leaked key commit", body)
+		path := "KeyNukerEndToEndIntegrationTestLeakedKeyFile.txt"
+		commit, errPushCommit := lkvoc.PushCommit(path, body)
 		if errPushCommit != nil {
 			return errPushCommit
 		}
