@@ -13,4 +13,4 @@ aws cloudformation create-stack --stack-name KeyNukerIAMAccess --template-body f
 aws cloudformation describe-stacks --stack-name KeyNukerIAMAccess --query 'Stacks[0].Outputs[?OutputKey==`AwsAccessKey`].OutputValue' --output text --profile $AWS_PROFILE && \
 aws cloudformation describe-stacks --stack-name KeyNukerIAMAccess --query 'Stacks[0].Outputs[?OutputKey==`AwsSecretAccessKey`].OutputValue' --output text --profile $AWS_PROFILE
 
-echo "Success!  You now have a Cloudformation Template named KeyNukerIAMAccess and an IAM user named KeyNuker with an associated policy that allows ListUsers, ListKeys, DeleteKeys.  To uninstall, delete the Cloudformation from the Web UI or via the CLI"
+echo "Success!  You now have a Cloudformation named KeyNukerIAMAccess and an IAM user named KeyNuker with an associated policy that allows ListUsers, ListKeys, DeleteKeys.  To uninstall, delete the KeyNukerIAMAccess Cloudformation from the Web UI or via the CLI"
