@@ -441,7 +441,7 @@ func NewLeakKeyViaOlderCommit(githubAccessToken, targetGithubRepo string) *LeakK
 		GithubAccessToken:        githubAccessToken,
 		GithubRepoLeakTargetRepo: targetGithubRepo,
 		GitBranch:                fmt.Sprintf("%v/%v", keynuker_go_common.GithubRefsHeadsPrefix, keynuker_go_common.KeyNukerIntegrationTestBranch),
-		PushLargeCommit:          true,
+		PushLargeCommit:          false,
 	}
 	leakKeyViaOlderCommit.GithubClientWrapper = NewGithubClientWrapper(githubAccessToken)
 	return leakKeyViaOlderCommit
