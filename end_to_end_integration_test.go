@@ -541,6 +541,9 @@ func (lkvoc *LeakKeyViaOlderCommit) Leak(accessKey *iam.AccessKey) error {
 
 func (lkvoc LeakKeyViaOlderCommit) WaitForPushEvent(ctx context.Context, branch, headSHA string) error {
 
+	log.Printf("WaitForPushEvent called with branch: %s headSHA: %s", branch, headSHA)
+
+
 	// Wait until we see a PushEvent on events feed that is on the master branch and has a head commit
 	// of mergeCommit.SHA
 	for {
@@ -577,6 +580,8 @@ func (lkvoc LeakKeyViaOlderCommit) WaitForPushEvent(ctx context.Context, branch,
 			}
 
 		}
+
+		log.Printf("WaitForPushEvent didn't see branch: %s headSHA: %s, sleeping and retrying", branch, headSHA)
 
 		time.Sleep(time.Second * 5)
 	}
