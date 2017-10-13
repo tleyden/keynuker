@@ -458,12 +458,16 @@ def openwhisk_action_exists(openwhisk_action):
     return subprocess.call(command, shell=True) == 0
 
 def openwhisk_trigger_exists(openwhisk_trigger):
-    # TODO: detect if it exists.  
-    return True
+    command = "wsk trigger get {} parameters".format(
+        openwhisk_trigger,
+    )
+    return subprocess.call(command, shell=True) == 0
 
 def openwhisk_rule_exists(openwhisk_rule):
-    # TODO: detect if it exists.  
-    return True
+    command = "wsk rule get {} parameters".format(
+        openwhisk_rule,
+    )
+    return subprocess.call(command, shell=True) == 0
 
 def build_docker_in_path(path):
 
