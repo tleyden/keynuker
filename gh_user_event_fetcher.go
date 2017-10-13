@@ -192,7 +192,7 @@ func (guef GoGithubUserEventFetcher) FetchCommitsForPushEvent(
 	ctx context.Context, userEvent *github.Event, pushEvent *github.PushEvent, w io.Writer) (completed bool, err error) {
 
 	log.Printf("FetchCommitsForPushEvent: %v.  Number of total commits in push event: %d",
-		*pushEvent, *pushEvent.Size)
+		*pushEvent.PushID, *pushEvent.Size)
 
 	numCommitsToScan := *pushEvent.Size
 	numCommitsScanned := 0
