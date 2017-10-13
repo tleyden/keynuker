@@ -191,8 +191,8 @@ func (guef GoGithubUserEventFetcher) FetchDownstreamContent(ctx context.Context,
 func (guef GoGithubUserEventFetcher) FetchCommitsForPushEvent(
 	ctx context.Context, userEvent *github.Event, pushEvent *github.PushEvent, w io.Writer) (completed bool, err error) {
 
-	log.Printf("FetchCommitsForPushEvent for repo: %v.  Number of total commits in push event: %d",
-		*pushEvent.Repo.GitURL, *pushEvent.Size)
+	log.Printf("FetchCommitsForPushEvent: %v.  Number of total commits in push event: %d",
+		*pushEvent, *pushEvent.Size)
 
 	numCommitsToScan := *pushEvent.Size
 	numCommitsScanned := 0
