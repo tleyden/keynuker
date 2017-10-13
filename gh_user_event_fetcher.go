@@ -165,7 +165,7 @@ func (guef GoGithubUserEventFetcher) FetchDownstreamContent(ctx context.Context,
 			log.Printf("PushEvent %v has > 20 commits but this API call only returns 20.  Making separate API call.", *v.PushID)
 
 			// Fetch the rest of the commits for this push event and append downstream content to buffer
-			err := guef.FetchCommitsForPushEvent(ctx, userEvent, v, &buffer)
+			_, err := guef.FetchCommitsForPushEvent(ctx, userEvent, v, &buffer)
 			if err != nil {
 				return nil, fmt.Errorf("Error fetching additional commits for push event: %v.  Error: %v", *v.PushID, err)
 			}
@@ -188,11 +188,21 @@ func (guef GoGithubUserEventFetcher) FetchDownstreamContent(ctx context.Context,
 // and so the remaining 80 commits will need to be scanned.
 //
 // Github API: https://developer.github.com/v3/repos/commits/
-func (guef GoGithubUserEventFetcher) FetchCommitsForPushEvent(ctx context.Context, userEvent *github.Event, pushEvent *github.PushEvent, w io.Writer) error {
+func (guef GoGithubUserEventFetcher) FetchCommitsForPushEvent(
+	ctx context.Context, userEvent *github.Event, pushEvent *github.PushEvent, w io.Writer) (completed bool, err error) {
+
+	log.Printf("FetchCommitsForPushEvent for repo: %v.  Number of total commits in push event: %d",
+		*pushEvent.Repo.GitURL, *pushEvent.Size)
 
 	numCommitsToScan := *pushEvent.Size
 	numCommitsScanned := 0
 	resultPage := 0
+
+	// One large PushEvent with > 900 commits on https://api.github.com/repos/nolanlawson/mastodon was killing KeyNuker in two ways:
+	// 1. Using up all the GithubApi requests from the allotted 5K / hour
+	// 2. Blowing up the memory usage since it is grossly inefficent and rolls up all content from each event into a buffer
+	// To limit the damage, limit the number of commits scanned in a single push event to approximately 220 (assuming MaxPerPage is 100)
+	maxPages := 2
 
 	// The inline commits in the push event don't need to be re-scanned, so build a map of their sha's
 	inlineCommits := map[string]struct{}{}
@@ -206,7 +216,13 @@ func (guef GoGithubUserEventFetcher) FetchCommitsForPushEvent(ctx context.Contex
 
 		if numCommitsScanned >= numCommitsToScan {
 			// done
-			return nil
+			return true, nil
+		}
+
+		if resultPage > maxPages {
+			notScanned := numCommitsToScan - numCommitsScanned
+			log.Printf("WARNING: not scanning %d commits, due to current limitations.  See https://github.com/tleyden/keynuker/issues/24", notScanned)
+			return false, nil
 		}
 
 		commitListOptions := &github.CommitsListOptions{
@@ -230,7 +246,7 @@ func (guef GoGithubUserEventFetcher) FetchCommitsForPushEvent(ctx context.Contex
 			commitListOptions,
 		)
 		if err != nil {
-			return err
+			return false, fmt.Errorf("Error calling ApiClient.Repositories.ListCommits: %v", err)
 		}
 
 		for _, additionalCommit := range additionalCommits {
@@ -244,7 +260,7 @@ func (guef GoGithubUserEventFetcher) FetchCommitsForPushEvent(ctx context.Contex
 			log.Printf("Getting content for additional commit: %v url: %v", *additionalCommit.SHA, additionalCommit.GetURL())
 			content, err := guef.FetchUrlContent(ctx, additionalCommit.GetURL())
 			if err != nil {
-				return err
+				return false, fmt.Errorf("Error calling guef.FetchUrlContent on url: %v.  Error: %v", additionalCommit.GetURL(), err)
 			}
 			w.Write(content)
 
@@ -252,7 +268,7 @@ func (guef GoGithubUserEventFetcher) FetchCommitsForPushEvent(ctx context.Contex
 
 			if numCommitsScanned >= numCommitsToScan {
 				// done
-				return nil
+				return true, nil
 			}
 
 		}
@@ -263,7 +279,7 @@ func (guef GoGithubUserEventFetcher) FetchCommitsForPushEvent(ctx context.Contex
 
 	}
 
-	return nil
+	return true, nil
 }
 
 func (guef GoGithubUserEventFetcher) FetchUrlContent(ctx context.Context, url string) (content []byte, err error) {
