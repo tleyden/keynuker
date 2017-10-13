@@ -16,13 +16,14 @@ import (
 
 	"strings"
 
+	"strconv"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/iam"
 	"github.com/google/go-github/github"
 	"github.com/tleyden/keynuker/keynuker-go-common"
-	"strconv"
 )
 
 // INSTRUCTIONS to run integration tests are in the Developer Guide (developers.adoc)
@@ -149,12 +150,11 @@ func (e *EndToEndIntegrationTest) InitGithubAccess() error {
 
 func (e *EndToEndIntegrationTest) InitAwsIamSession() error {
 
-	targetAwsAccounts, err := GetTargetAwsAccountsFromEnv()
+
+	targetAwsAccounts, err := GetIntegrationTestTargetAwsAccountsFromEnv()
 	if err != nil {
 		return err
 	}
-
-	// Just use the first aws account
 	e.TargetAwsAccount = targetAwsAccounts[0]
 
 	// Create AWS session
@@ -310,7 +310,7 @@ func (e EndToEndIntegrationTest) RunKeyNuker(accessKeyToNuke *iam.AccessKey) (er
 
 	// ------------------------ Fetch Aws Keys -------------------------
 
-	targetAwsAccounts, err := GetTargetAwsAccountsFromEnv()
+	targetAwsAccounts, err := GetIntegrationTestTargetAwsAccountsFromEnv()
 	if err != nil {
 		return err
 	}
@@ -433,6 +433,7 @@ type LeakKeyViaOlderCommit struct {
 	GithubClientWrapper      *GithubClientWrapper
 	GithubUser               *github.User
 	GitBranch                string
+	PushLargeCommit          bool // Push a commit > 1 MB
 }
 
 func NewLeakKeyViaOlderCommit(githubAccessToken, targetGithubRepo string) *LeakKeyViaOlderCommit {
@@ -440,6 +441,7 @@ func NewLeakKeyViaOlderCommit(githubAccessToken, targetGithubRepo string) *LeakK
 		GithubAccessToken:        githubAccessToken,
 		GithubRepoLeakTargetRepo: targetGithubRepo,
 		GitBranch:                fmt.Sprintf("%v/%v", keynuker_go_common.GithubRefsHeadsPrefix, keynuker_go_common.KeyNukerIntegrationTestBranch),
+		PushLargeCommit:          false,
 	}
 	leakKeyViaOlderCommit.GithubClientWrapper = NewGithubClientWrapper(githubAccessToken)
 	return leakKeyViaOlderCommit
@@ -471,11 +473,29 @@ func (lkvoc *LeakKeyViaOlderCommit) Leak(accessKey *iam.AccessKey) error {
 		}
 	}
 
-	// Push a single commit with a leaked key
-	body := fmt.Sprintf("LeakKeyViaOlderCommit access key id: %v", *accessKey.AccessKeyId)
-	_, errPushCommit := lkvoc.PushCommit("KeyNukerEndToEndIntegrationTest leaked key commit", body)
-	if errPushCommit != nil {
-		return errPushCommit
+	// Push a commit.  Either a large (> 1MB commit), or a small commit
+	switch lkvoc.PushLargeCommit {
+	case true:
+		// Push a large commit with a leaked key
+		largeFile, err := Asset("testdata/largefile.txt")
+		if err != nil {
+			return fmt.Errorf("Unable to load large commit asset: %v", err)
+		}
+		body := fmt.Sprintf("%s access key id: %v", largeFile, *accessKey.AccessKeyId)
+		commit, errPushCommit := lkvoc.PushCommit("KeyNukerEndToEndIntegrationTest leaked key commit (largefile)", body)
+		if errPushCommit != nil {
+			return errPushCommit
+		}
+		log.Printf("Pushed large commit with leaked key: %v", *commit.SHA)
+	case false:
+		// Push a single commit with a leaked key
+		body := fmt.Sprintf("LeakKeyViaOlderCommit access key id: %v", *accessKey.AccessKeyId)
+		commit, errPushCommit := lkvoc.PushCommit("KeyNukerEndToEndIntegrationTest leaked key commit", body)
+		if errPushCommit != nil {
+			return errPushCommit
+		}
+		log.Printf("Pushed commit with leaked key: %v", *commit.SHA)
+
 	}
 
 	// Github API: https://developer.github.com/v3/repos/merging/
@@ -521,6 +541,9 @@ func (lkvoc *LeakKeyViaOlderCommit) Leak(accessKey *iam.AccessKey) error {
 
 func (lkvoc LeakKeyViaOlderCommit) WaitForPushEvent(ctx context.Context, branch, headSHA string) error {
 
+	log.Printf("WaitForPushEvent called with branch: %s headSHA: %s", branch, headSHA)
+
+
 	// Wait until we see a PushEvent on events feed that is on the master branch and has a head commit
 	// of mergeCommit.SHA
 	for {
@@ -558,6 +581,8 @@ func (lkvoc LeakKeyViaOlderCommit) WaitForPushEvent(ctx context.Context, branch,
 
 		}
 
+		log.Printf("WaitForPushEvent didn't see branch: %s headSHA: %s, sleeping and retrying", branch, headSHA)
+
 		time.Sleep(time.Second * 5)
 	}
 
@@ -574,7 +599,6 @@ func (lkvoc LeakKeyViaOlderCommit) WaitForLeakOnEventFeed() error {
 	// No-op due to being implemented via WaitForPushEvent()\
 	return nil
 }
-
 
 func (lkvoc LeakKeyViaOlderCommit) CreateBranchIfNotExist(branch string) error {
 
@@ -731,7 +755,7 @@ type LeakKeyViaNewGithubIssue struct {
 	IssueCreatedForLeak        *github.Issue
 	IssueCommentCreatedForLeak *github.IssueComment
 	GithubUser                 *github.User
-	LatestEventPreLeak  *github.Event
+	LatestEventPreLeak         *github.Event
 }
 
 func NewLeakKeyViaNewGithubIssue(githubAccessToken, targetGithubRepo string) *LeakKeyViaNewGithubIssue {
@@ -742,8 +766,6 @@ func NewLeakKeyViaNewGithubIssue(githubAccessToken, targetGithubRepo string) *Le
 	leakKeyViaNewGithubIssue.GithubClientWrapper = NewGithubClientWrapper(githubAccessToken)
 	return leakKeyViaNewGithubIssue
 }
-
-
 
 func (lkvc *LeakKeyViaNewGithubIssue) Leak(accessKey *iam.AccessKey) error {
 
@@ -941,7 +963,6 @@ func (lkvc LeakKeyViaNewGithubIssue) WaitForLeakOnEventFeed() error {
 		time.Sleep(time.Second)
 
 	}
-
 
 }
 

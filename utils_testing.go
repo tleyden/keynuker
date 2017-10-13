@@ -80,6 +80,39 @@ func GetTargetAwsAccountsFromEnv() (targetAwsAccounts []TargetAwsAccount, err er
 
 }
 
+func GetIntegrationTestAwsCredentials() (accessKey, secretAccessKey string, err error) {
+
+	accessKey, ok := os.LookupEnv(keynuker_go_common.EnvVarKeyNukerTestIntegrationAccessKey)
+	if !ok {
+		return "", "", fmt.Errorf("You must define environment variable %s to run this test", keynuker_go_common.EnvVarKeyNukerTestIntegrationAccessKey)
+	}
+
+	secretAccessKey, okSecretKey := os.LookupEnv(keynuker_go_common.EnvVarKeyNukerTestIntegrationSecretAccessKey)
+	if !okSecretKey {
+		return "", "", fmt.Errorf("You must define environment variable %s to run this test", keynuker_go_common.EnvVarKeyNukerTestIntegrationSecretAccessKey)
+	}
+
+	return accessKey, secretAccessKey, nil
+
+}
+
+
+func GetIntegrationTestTargetAwsAccountsFromEnv() (targetAwsAccounts []TargetAwsAccount, err error) {
+
+	accessKey, secretAccessKey, err := GetIntegrationTestAwsCredentials()
+
+	targetAwsAccounts = []TargetAwsAccount{
+		TargetAwsAccount{
+			AwsAccessKeyId: accessKey,
+			AwsSecretAccessKey: secretAccessKey,
+		},
+	}
+
+	return targetAwsAccounts, nil
+
+}
+
+
 func GetGithubOrgsFromEnv() (githubOrgs []string, err error) {
 
 	githubOrgsRaw, ok := os.LookupEnv(keynuker_go_common.EnvVarKeyNukerTestGithubOrgs)
