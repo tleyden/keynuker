@@ -14,11 +14,20 @@ $ wsk action invoke nuke-leaked-aws-keys --param-file github-user-events-scanner
 
 === Generating mocks
 
-The testing mocks are generated via:
+First run `go install` to make sure that the latest compiled code is in `$GOPATH/pkg`
+
+```
+$ go install
+```
+
+Generate the testing mocks via:
 
 ```
 $ ./generate.sh
 ```
+
+Which mocks are generated is controlled by the `//go:generate goautomock` that are in certain files.
+
 
 === Generating bindata
 
