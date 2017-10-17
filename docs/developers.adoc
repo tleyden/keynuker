@@ -20,6 +20,17 @@ The testing mocks are generated via:
 $ ./generate.sh
 ```
 
+=== Generating bindata
+
+Install https://github.com/jteeuwen/go-bindata[go-bindata] and run:
+
+```
+$ go-bindata testdata/
+```
+
+and then hand-modify `bindata.go` to change the package name from `main` -> `keynuker`
+
+
 === Testing related Environment Variables
 
 

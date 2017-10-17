@@ -16,9 +16,9 @@ import (
 	"io"
 	"strings"
 
+	"fmt"
 	"github.com/google/go-github/github"
 	"github.com/tleyden/keynuker/keynuker-go-common"
-	"fmt"
 )
 
 //go:generate goautomock -template=testify -o "github_user_event_fetcher_mock.go" GithubUserEventFetcher
@@ -31,9 +31,12 @@ type GithubUserEventFetcher interface {
 
 	// Given a specific github event (eg, a commit), get the actual content for that event to be scanned for aws keys
 	FetchDownstreamContent(ctx context.Context, userEvent *github.Event) (content []byte, err error)
+
+	// Get an individual commit
+	GetCommit(ctx context.Context, owner, repo, sha string) (*github.RepositoryCommit, *github.Response, error)
 }
 
-type  GoGithubUserEventFetcher struct {
+type GoGithubUserEventFetcher struct {
 	*GithubClientWrapper
 }
 
@@ -49,7 +52,6 @@ type FetchUserEventsInput struct {
 	// For checkpointing purposes.  Ignore events with same ID as checkpoint.  (note: this could
 	// eventually replace the time based checkpointing)
 	CheckpointID string
-
 }
 
 func (f FetchUserEventsInput) MatchesCheckpointID(event *github.Event) bool {
@@ -59,7 +61,6 @@ func (f FetchUserEventsInput) MatchesCheckpointID(event *github.Event) bool {
 
 	return *event.ID == f.CheckpointID
 }
-
 
 func NewGoGithubUserEventFetcher(accessToken string) *GoGithubUserEventFetcher {
 	return &GoGithubUserEventFetcher{
@@ -151,10 +152,35 @@ func (guef GoGithubUserEventFetcher) FetchDownstreamContent(ctx context.Context,
 		commits := v.Commits
 		for _, commit := range commits {
 			log.Printf("Getting content for commit: %v url: %v", *commit.SHA, commit.GetURL())
-			content, err := guef.FetchUrlContent(ctx, commit.GetURL())
+
+			// TODO: convert to RepositoriesService.GetCommit()
+			// func (s *RepositoriesService) GetCommit(ctx context.Context, owner, repo, sha string) (*RepositoryCommit, *Response, error) {
+
+			// The push event has
+
+			repoCommit, _, err := guef.GetCommit(
+				ctx,
+				*v.Repo.Owner.Name,
+				*v.Repo.Name,
+				*commit.SHA,
+			)
 			if err != nil {
 				return nil, fmt.Errorf("Error getting content for commit: %v url: %v.  Error: %v", *commit.SHA, commit.GetURL(), err)
 			}
+
+			for _, repoCommitFile := range repoCommit.Files {
+				buffer.WriteString(repoCommitFile.GetPatch())
+				if repoCommitFile.Patch == nil {
+					// TODO: this means its binary data or larger than 1 MB, call separate API to fetch
+				}
+
+			}
+
+			//content, err := guef.FetchUrlContent(ctx, commit.GetURL())
+			//if err != nil {
+			//	return nil, fmt.Errorf("Error getting content for commit: %v url: %v.  Error: %v", *commit.SHA, commit.GetURL(), err)
+			//}
+
 			buffer.Write(content)
 		}
 
@@ -181,6 +207,12 @@ func (guef GoGithubUserEventFetcher) FetchDownstreamContent(ctx context.Context,
 	}
 
 	return nil, nil
+}
+
+func (guef GoGithubUserEventFetcher) GetCommit(ctx context.Context, owner, repo, sha string) (*github.RepositoryCommit, *github.Response, error) {
+
+	return guef.ApiClient.Repositories.GetCommit(ctx, owner, repo, sha)
+
 }
 
 // Since PushEvents only contain 20 commits max, this fetches the remaining commits and writes the content to the

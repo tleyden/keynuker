@@ -434,10 +434,14 @@ func TestSetDefaultCheckpointsForMissing(t *testing.T) {
 // that requires a separate API to fetch the content
 func TestScanPushEventWithLargeCommit(t *testing.T) {
 
-	filename := "testdata/push_event_containing_large_commit.json"
-	pushEventLargeCommit, err := ioutil.ReadFile(filename)
+	pushEventLargeCommit, err := ioutil.ReadFile("testdata/push_event_containing_large_commit.json")
 	if err != nil {
-		t.Fatalf("Unable to read file: %v.  Err: %v", filename, err)
+		t.Fatalf("Unable to read file.  Err: %v", err)
+	}
+
+	commitEventWithLargeContent, err := ioutil.ReadFile("testdata/commit_with_large_content.json")
+	if err != nil {
+		t.Fatalf("Unable to read file:  Err: %v", err)
 	}
 
 	// Mock github users
@@ -490,11 +494,10 @@ func TestScanPushEventWithLargeCommit(t *testing.T) {
 	)
 
 	// Tee up a response to fetcher.FetchDownstreamContent which returns some content
-	// 	FetchDownstreamContent(ctx context.Context, userEvent *github.Event) (content []byte, err error)
-	//mockFetcher.On("FetchDownstreamContent", context.Background(), mockGithubEvent1).Return(
-	//	[]byte(fmt.Sprintf("Fake content intermixed w/ %s, which is a leaked key", leakedKey)),
-	//	nil, // no error
-	//)
+	mockFetcher.On("FetchDownstreamContent", context.Background(), mockGithubEvent1).Return(
+		commitEventWithLargeContent,
+		nil, // no error
+	)
 
 	params := ParamsScanGithubUserEventsForAwsKeys{
 		AccessKeyMetadata:      accessKeyMetadata,
