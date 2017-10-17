@@ -32,8 +32,6 @@ type GithubUserEventFetcher interface {
 	// Given a specific github event (eg, a commit), get the actual content for that event to be scanned for aws keys
 	FetchDownstreamContent(ctx context.Context, userEvent *github.Event) (content []byte, err error)
 
-	// Get an individual commit
-	GetCommit(ctx context.Context, owner, repo, sha string) (*github.RepositoryCommit, *github.Response, error)
 }
 
 type GoGithubUserEventFetcher struct {
@@ -153,15 +151,13 @@ func (guef GoGithubUserEventFetcher) FetchDownstreamContent(ctx context.Context,
 		for _, commit := range commits {
 			log.Printf("Getting content for commit: %v url: %v", *commit.SHA, commit.GetURL())
 
-			// TODO: convert to RepositoriesService.GetCommit()
-			// func (s *RepositoriesService) GetCommit(ctx context.Context, owner, repo, sha string) (*RepositoryCommit, *Response, error) {
+			// split "org/reponame" into separate strings (["org", "reponame"])
+			repoNameComponents := strings.Split(*userEvent.Repo.Name, "/")
 
-			// The push event has
-
-			repoCommit, _, err := guef.GetCommit(
+			repoCommit, _, err := guef.ApiClient.Repositories.GetCommit(
 				ctx,
-				*v.Repo.Owner.Name,
-				*v.Repo.Name,
+				repoNameComponents[0],
+				repoNameComponents[1],
 				*commit.SHA,
 			)
 			if err != nil {
@@ -172,14 +168,11 @@ func (guef GoGithubUserEventFetcher) FetchDownstreamContent(ctx context.Context,
 				buffer.WriteString(repoCommitFile.GetPatch())
 				if repoCommitFile.Patch == nil {
 					// TODO: this means its binary data or larger than 1 MB, call separate API to fetch
+					log.Printf("Warning: commit %+v has empty patch data.  Either binary data, or greater than 1MB", repoCommitFile)
 				}
 
 			}
 
-			//content, err := guef.FetchUrlContent(ctx, commit.GetURL())
-			//if err != nil {
-			//	return nil, fmt.Errorf("Error getting content for commit: %v url: %v.  Error: %v", *commit.SHA, commit.GetURL(), err)
-			//}
 
 			buffer.Write(content)
 		}
@@ -209,11 +202,7 @@ func (guef GoGithubUserEventFetcher) FetchDownstreamContent(ctx context.Context,
 	return nil, nil
 }
 
-func (guef GoGithubUserEventFetcher) GetCommit(ctx context.Context, owner, repo, sha string) (*github.RepositoryCommit, *github.Response, error) {
 
-	return guef.ApiClient.Repositories.GetCommit(ctx, owner, repo, sha)
-
-}
 
 // Since PushEvents only contain 20 commits max, this fetches the remaining commits and writes the content to the
 // writer passed in.  For example, pushEvent.Size might indicate that there were 100 commits in the push events,
@@ -289,12 +278,31 @@ func (guef GoGithubUserEventFetcher) FetchCommitsForPushEvent(
 				continue
 			}
 
-			log.Printf("Getting content for additional commit: %v url: %v", *additionalCommit.SHA, additionalCommit.GetURL())
-			content, err := guef.FetchUrlContent(ctx, additionalCommit.GetURL())
+
+			// split "org/reponame" into separate strings (["org", "reponame"])
+			repoNameComponents := strings.Split(*userEvent.Repo.Name, "/")
+
+			// The commit struct returned from ListCommits() will just be a stub without content.
+			// Call GetCommit() to get the patch content of the commit, as long as it's < 1 MB.
+			repoCommit, _, err := guef.ApiClient.Repositories.GetCommit(
+				ctx,
+				repoNameComponents[0],
+				repoNameComponents[1],
+				*additionalCommit.SHA,
+			)
 			if err != nil {
-				return false, fmt.Errorf("Error calling guef.FetchUrlContent on url: %v.  Error: %v", additionalCommit.GetURL(), err)
+				return false, fmt.Errorf("Error getting content for commit: %v url: %v.  Error: %v", *additionalCommit.SHA, additionalCommit.GetURL(), err)
 			}
-			w.Write(content)
+
+			// Loop over the files in the commit and append the content to the writer
+			for _, repoCommitFile := range repoCommit.Files {
+				w.Write([]byte(repoCommitFile.GetPatch()))
+				if repoCommitFile.Patch == nil {
+					// TODO: this means its binary data or larger than 1 MB, call separate API to fetch
+					log.Printf("Warning: commit %+v has empty patch data.  Either binary data, or greater than 1MB", repoCommitFile)
+				}
+
+			}
 
 			numCommitsScanned += 1
 
