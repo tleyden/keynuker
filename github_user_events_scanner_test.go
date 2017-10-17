@@ -428,3 +428,88 @@ func TestSetDefaultCheckpointsForMissing(t *testing.T) {
 	assert.True(t, checkpointForTestUser.CreatedAt.Before(time.Now()))
 
 }
+
+
+// Test the functionality related to scanning a PushEvent that contains a large commit ( > 1 MB)
+// that requires a separate API to fetch the content
+func TestScanPushEventWithLargeCommit(t *testing.T) {
+
+	filename := "testdata/push_event_containing_large_commit.json"
+	pushEventLargeCommit, err := ioutil.ReadFile(filename)
+	if err != nil {
+		t.Fatalf("Unable to read file: %v.  Err: %v", filename, err)
+	}
+
+	// Mock github users
+	githubUser := &github.User{
+		Login: aws.String("tleyden"),
+	}
+	githubUsers := []*github.User{
+		githubUser,
+	}
+
+	// Mock AWS access key
+	leakedKey := "FakeAccessKey"
+	accessKeyMetadata := []FetchedAwsAccessKey{
+		{
+			AccessKeyId: aws.String(leakedKey),
+			UserName:    aws.String("fakeuser@test.com"),
+		},
+	}
+
+	// Make a fake checkpoint event that is 24 hours ago
+	githubCheckpointEventCreatedAt := time.Now().Add(time.Hour * -24)
+	githubCheckpointEvent := &github.Event{
+		CreatedAt: aws.Time(githubCheckpointEventCreatedAt),
+		ID:        aws.String("mockGithubEventBeforeCheckpoint3"),
+	}
+	githubEventCheckpoints := GithubEventCheckpoints{}
+	githubEventCheckpoints[*githubUser.Login] = githubCheckpointEvent
+
+	// Create mock user event fetcher
+	mockFetcher := NewGithubUserEventFetcherMock()
+
+	// Tee up a response to call to fetcher.FetchUserEvents() that returns a single event
+	expectedFetchUserEventsInput := FetchUserEventsInput{
+		Username:            *githubUser.Login,
+		SinceEventTimestamp: githubCheckpointEvent.CreatedAt,
+		CheckpointID:        *githubCheckpointEvent.ID,
+	}
+	rawPayload := json.RawMessage(pushEventLargeCommit)
+	mockGithubEvent1 := &github.Event{
+		Type:       aws.String("PushEvent"),
+		ID:         aws.String("mockGithubEvent1"),
+		CreatedAt:  aws.Time(time.Now()),
+		RawPayload: &rawPayload,
+	}
+	mockFetcher.On("FetchUserEvents", context.Background(), expectedFetchUserEventsInput).Return(
+		[]*github.Event{
+			mockGithubEvent1,
+		},
+		nil, // no error
+	)
+
+	// Tee up a response to fetcher.FetchDownstreamContent which returns some content
+	// 	FetchDownstreamContent(ctx context.Context, userEvent *github.Event) (content []byte, err error)
+	//mockFetcher.On("FetchDownstreamContent", context.Background(), mockGithubEvent1).Return(
+	//	[]byte(fmt.Sprintf("Fake content intermixed w/ %s, which is a leaked key", leakedKey)),
+	//	nil, // no error
+	//)
+
+	params := ParamsScanGithubUserEventsForAwsKeys{
+		AccessKeyMetadata:      accessKeyMetadata,
+		GithubUsers:            githubUsers,
+		GithubAccessToken:      "fake_github_access_token",
+		KeyNukerOrg:            "test",
+		GithubEventCheckpoints: githubEventCheckpoints,
+	}
+
+	// Create events scanner and run
+	scanner := NewGithubUserEventsScanner(mockFetcher)
+	docWrapper, err := scanner.ScanAwsKeys(params)
+
+	log.Printf("result doc: %+v", docWrapper)
+
+	assert.NoError(t, err, "Unexpected error: %v", err)
+
+}
