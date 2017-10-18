@@ -10,7 +10,55 @@ import (
 	"strings"
 
 	"github.com/apache/incubator-openwhisk-client-go/whisk"
+	"gopkg.in/mailgun/mailgun-go.v1"
 )
+
+
+type ParamsMonitorActivations struct {
+
+	// MailerParams
+	MailerParams
+
+	// This is the name of the KeyNuker "org/tenant".  Defaults to "default", but allows to be extended multi-tenant.
+	KeyNukerOrg string
+
+	// The FROM address that will be used for any notifications
+	EmailFromAddress string `json:"email_from_address"`
+
+	// Optionally specify the Keynuker admin email to be CC'd about any leaked/nuked keys
+	KeynukerAdminEmailCCAddress string `json:"admin_email_cc_address"`
+
+}
+
+func SendMonitorNotifications(params ParamsMonitorActivations, activationStatus map[string]interface{}) (deliveryId string, err error) {
+
+	mailer := mailgun.NewMailgun(
+		params.MailerParams.Domain,
+		params.MailerParams.ApiKey,
+		params.MailerParams.PublicApiKey,
+	)
+
+	messageBody := fmt.Sprintf(
+		"Failed activations: %+v",
+		activationStatus,
+	)
+
+	message := mailgun.NewMessage(
+		params.EmailFromAddress,
+		"KeyNuker Monitoring: failed activations 💥",
+		messageBody,
+		params.KeynukerAdminEmailCCAddress,
+	)
+
+	mes, id, err := mailer.Send(message)
+	if err != nil {
+		return "", fmt.Errorf("Error sending message: %v.  Mes: %v", err, mes)
+	}
+
+	return id, nil
+
+}
+
 
 // Connect to OpenWhisk API and scan the list of recent activations and look for any failures.
 // If any failures found, return {"status": "failure"}.  Otherwise return {"status": "success"}.
@@ -45,6 +93,12 @@ func OpenWhiskRecentActivationsStatus() (keynukerStatus map[string]interface{}) 
 
 	if len(failedActivations) == 0 {
 		keynukerStatus["status"] = "success"
+	} else {
+		failedActivationIds := []string{}
+		for _, failedActivation := range failedActivations {
+			failedActivationIds = append(failedActivationIds, failedActivation.ActivationID)
+		}
+		keynukerStatus["failedActivationIds"] = failedActivationIds
 	}
 
 	log.Printf("keynukerStatus: %+v", keynukerStatus)
