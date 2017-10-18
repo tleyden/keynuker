@@ -7,6 +7,8 @@ import (
 	"context"
 	"github.com/google/go-github/github"
 	"golang.org/x/oauth2"
+	"net/url"
+	"fmt"
 )
 
 type GithubClientWrapper struct {
@@ -14,7 +16,9 @@ type GithubClientWrapper struct {
 	ApiClient   *github.Client
 }
 
-func NewGithubClientWrapper(accessToken string) *GithubClientWrapper {
+// If you want to use the default github API (as opposed to github enterprise), pass
+// in an empty string for the githubApiBaseUrl
+func NewGithubClientWrapper(accessToken, githubApiBaseUrl string) *GithubClientWrapper {
 
 	ctx := context.Background()
 
@@ -22,8 +26,17 @@ func NewGithubClientWrapper(accessToken string) *GithubClientWrapper {
 		&oauth2.Token{AccessToken: accessToken},
 	)
 	tc := oauth2.NewClient(ctx, ts)
-
+	
 	client := github.NewClient(tc)
+
+	// If an alternative github API base url was given, use that
+	if githubApiBaseUrl != "" {
+		baseUrl, err := url.Parse(githubApiBaseUrl)
+		if err != nil {
+			panic(fmt.Sprintf("Invalid Github API url given: %v", githubApiBaseUrl))
+		}
+		client.BaseURL = baseUrl
+	}
 
 	return &GithubClientWrapper{
 		AccessToken: accessToken,

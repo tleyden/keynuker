@@ -61,9 +61,13 @@ func (f FetchUserEventsInput) MatchesCheckpointID(event *github.Event) bool {
 	return *event.ID == f.CheckpointID
 }
 
-func NewGoGithubUserEventFetcher(accessToken string) *GoGithubUserEventFetcher {
+
+// If you want to use the default github API (as opposed to github enterprise), pass
+// in an empty string for the githubApiBaseUrl
+func NewGoGithubUserEventFetcher(accessToken, githubApiBaseUrl string) *GoGithubUserEventFetcher {
+
 	return &GoGithubUserEventFetcher{
-		GithubClientWrapper: NewGithubClientWrapper(accessToken),
+		GithubClientWrapper: NewGithubClientWrapper(accessToken, ""),  // TODO: get api base uri env variable
 	}
 }
 

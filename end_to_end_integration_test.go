@@ -49,10 +49,10 @@ func TestEndToEndIntegration(t *testing.T) {
 
 	// Setup
 	if err := endToEndIntegrationTest.InitAwsIamSession(); err != nil {
-		t.Fatalf("Error setting up test: %v", err)
+		t.Fatalf("Error setting up test InitAwsIamSession(): %v", err)
 	}
 	if err := endToEndIntegrationTest.InitGithubAccess(); err != nil {
-		t.Fatalf("Error setting up test: %v", err)
+		t.Fatalf("Error setting up test InitGithubAccess(): %v", err)
 	}
 
 	// Run the full end-to-end integration test
@@ -353,7 +353,7 @@ func (e EndToEndIntegrationTest) RunKeyNuker(accessKeyToNuke *iam.AccessKey) (er
 
 	paramsScanGithubUserEventsForAwsKeys = paramsScanGithubUserEventsForAwsKeys.SetDefaultCheckpointsForMissing(recentEventTimeWindow)
 
-	fetcher := NewGoGithubUserEventFetcher(e.GithubAccessToken)
+	fetcher := NewGoGithubUserEventFetcher(e.GithubAccessToken, GetIntegrationGithubApiBaseUrl())
 
 	scanner := NewGithubUserEventsScanner(fetcher)
 
@@ -444,8 +444,11 @@ func NewLeakKeyViaOlderCommit(githubAccessToken, targetGithubRepo string) *LeakK
 		GitBranch:                fmt.Sprintf("%v/%v", keynuker_go_common.GithubRefsHeadsPrefix, keynuker_go_common.KeyNukerIntegrationTestBranch),
 		PushLargeCommit:          false,
 	}
-	leakKeyViaOlderCommit.GithubClientWrapper = NewGithubClientWrapper(githubAccessToken)
+
+	githubApiBaseUrl := GetIntegrationGithubApiBaseUrl()
+	leakKeyViaOlderCommit.GithubClientWrapper = NewGithubClientWrapper(githubAccessToken, githubApiBaseUrl)
 	return leakKeyViaOlderCommit
+
 }
 
 func (lkvoc *LeakKeyViaOlderCommit) Leak(accessKey *iam.AccessKey) error {
@@ -770,7 +773,7 @@ func NewLeakKeyViaNewGithubIssue(githubAccessToken, targetGithubRepo string) *Le
 		GithubAccessToken:        githubAccessToken,
 		GithubRepoLeakTargetRepo: targetGithubRepo,
 	}
-	leakKeyViaNewGithubIssue.GithubClientWrapper = NewGithubClientWrapper(githubAccessToken)
+	leakKeyViaNewGithubIssue.GithubClientWrapper = NewGithubClientWrapper(githubAccessToken, GetIntegrationGithubApiBaseUrl())
 	return leakKeyViaNewGithubIssue
 }
 

@@ -21,7 +21,8 @@ const (
 
 // Environment Variable Names
 const (
-	EnvVarKeyNukerTestGithubAccessToken = "KEYNUKER_GITHUB_ACCESS_TOKEN"
+
+	EnvVarKeyNukerTestGithubAccessToken = "KEYNUKER_INTEGRATION_TEST_GITHUB_ACCESS_TOKEN"
 
 	EnvVarKeyNukerTestDbHost = "KEYNUKER_DB_HOST"
 
@@ -40,6 +41,8 @@ const (
 
 	EnvVarKeyNukerInitiatingAwsAccountCreds = "KEYNUKER_INITIATING_AWS_ACCOUNT"
 
+	EnvVarKeyNukerTestIntegrationGithubApiBaseUrl = "KEYNUKER_INTEGRATION_TEST_GITHUB_BASE_API_URL"
+
 	EnvVarKeyNukerTestGithubOrgs = "KEYNUKER_INTEGRATION_TEST_GITHUB_ORGS"
 
 	EnvVarKeyNukerTestGithubLeakTargetRepo = "KEYNUKER_GITHUB_LEAK_TARGET_REPO"
@@ -53,6 +56,7 @@ const (
 	EnvVarKeyNukerMailerApiKey = "KEYNUKER_MAILER_API_KEY"
 
 	EnvVarKeyNukerMailerPublicApiKey = "KEYNUKER_MAILER_PUBLIC_API_KEY"
+
 
 
 

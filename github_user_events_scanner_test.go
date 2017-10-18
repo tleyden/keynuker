@@ -209,7 +209,7 @@ func TestScanGithubUserEventsForAwsKeys(t *testing.T) {
 			t.Skip("You must define environment variable keynuker_test_gh_access_token to run this test")
 		}
 
-		liveGithubFetcher = NewGoGithubUserEventFetcher(accessToken)
+		liveGithubFetcher = NewGoGithubUserEventFetcher(accessToken, GetIntegrationGithubApiBaseUrl())
 
 		fetcher = liveGithubFetcher
 	}
@@ -283,7 +283,7 @@ func TestScanGithubLargePushEvents(t *testing.T) {
 	}
 
 	// Create user event fetcher
-	fetcher := NewGoGithubUserEventFetcher(accessToken)
+	fetcher := NewGoGithubUserEventFetcher(accessToken, "")
 
 	githubUser := &github.User{
 		Login: aws.String("tleyden"),

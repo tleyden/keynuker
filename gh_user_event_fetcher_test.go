@@ -26,7 +26,7 @@ func TestGithubUserEventFetcher(t *testing.T) {
 
 	ctx := context.Background()
 
-	ghUserEventFetcher := NewGoGithubUserEventFetcher(accessToken)
+	ghUserEventFetcher := NewGoGithubUserEventFetcher(accessToken, GetIntegrationGithubApiBaseUrl())
 
 	fetchUserEventsInput := FetchUserEventsInput{
 		Username: "tahmmee",
@@ -52,7 +52,7 @@ func TestGithubUserEventDownstreamContentFetcher(t *testing.T) {
 
 	ctx := context.Background()
 
-	ghUserEventFetcher := NewGoGithubUserEventFetcher(accessToken)
+	ghUserEventFetcher := NewGoGithubUserEventFetcher(accessToken, GetIntegrationGithubApiBaseUrl())
 
 	fetchUserEventsInput := FetchUserEventsInput{
 		Username: "tleyden",

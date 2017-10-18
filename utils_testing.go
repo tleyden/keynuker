@@ -97,6 +97,14 @@ func GetIntegrationTestAwsCredentials() (accessKey, secretAccessKey string, err 
 }
 
 
+func GetIntegrationGithubApiBaseUrl() string {
+	githubApiBaseUrl, ok := os.LookupEnv(keynuker_go_common.EnvVarKeyNukerTestIntegrationGithubApiBaseUrl)
+	if !ok {
+		return ""
+	}
+	return githubApiBaseUrl
+}
+
 func GetIntegrationTestTargetAwsAccountsFromEnv() (targetAwsAccounts []TargetAwsAccount, err error) {
 
 	accessKey, secretAccessKey, err := GetIntegrationTestAwsCredentials()
