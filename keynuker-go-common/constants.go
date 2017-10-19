@@ -70,6 +70,9 @@ const (
 
 	GithubMasterBranch = "master"
 
+	// The max size in bytes of blob content that will be scanned.
+	// This should be raised to 100 MB once the stream based scanning is implemented.
+	MaxSizeBytesBlobContent = 10000000  // 10 MB
 
 )
 
