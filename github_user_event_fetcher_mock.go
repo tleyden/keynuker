@@ -75,39 +75,3 @@ func (m *GithubUserEventFetcherMock) FetchUserEvents(p0 context.Context, p1 Fetc
 	return r0, r1
 
 }
-
-// GetCommit mocked method
-func (m *GithubUserEventFetcherMock) GetCommit(p0 context.Context, p1 string, p2 string, p3 string) (*github.RepositoryCommit, *github.Response, error) {
-
-	ret := m.Called(p0, p1, p2, p3)
-
-	var r0 *github.RepositoryCommit
-	switch res := ret.Get(0).(type) {
-	case nil:
-	case *github.RepositoryCommit:
-		r0 = res
-	default:
-		panic(fmt.Sprintf("unexpected type: %v", res))
-	}
-
-	var r1 *github.Response
-	switch res := ret.Get(1).(type) {
-	case nil:
-	case *github.Response:
-		r1 = res
-	default:
-		panic(fmt.Sprintf("unexpected type: %v", res))
-	}
-
-	var r2 error
-	switch res := ret.Get(2).(type) {
-	case nil:
-	case error:
-		r2 = res
-	default:
-		panic(fmt.Sprintf("unexpected type: %v", res))
-	}
-
-	return r0, r1, r2
-
-}
