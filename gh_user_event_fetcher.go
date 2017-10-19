@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"github.com/google/go-github/github"
 	"github.com/tleyden/keynuker/keynuker-go-common"
+	"encoding/base64"
 )
 
 //go:generate goautomock -template=testify -o "github_user_event_fetcher_mock.go" GithubUserEventFetcher
@@ -169,6 +170,10 @@ func (guef GoGithubUserEventFetcher) FetchDownstreamContent(ctx context.Context,
 				if repoCommitFile.Patch == nil {
 					// TODO: this means its binary data or larger than 1 MB, call separate API to fetch
 					log.Printf("Warning: commit %+v has empty patch data.  Either binary data, or greater than 1MB", repoCommitFile)
+
+
+
+
 				}
 
 			}
@@ -258,6 +263,7 @@ func (guef GoGithubUserEventFetcher) FetchCommitsForPushEvent(
 		// "tleyden/keynuker" -> ["tleyden", "keynuker"] -> "keynuker"
 		repoNameAndUsername := *userEvent.Repo.Name
 		repoNameAndUsernameComponents := strings.Split(repoNameAndUsername, "/")
+		username := repoNameAndUsernameComponents[0]
 		repoName := repoNameAndUsernameComponents[1]
 
 		additionalCommits, resp, err := guef.ApiClient.Repositories.ListCommits(
@@ -278,16 +284,12 @@ func (guef GoGithubUserEventFetcher) FetchCommitsForPushEvent(
 				continue
 			}
 
-
-			// split "org/reponame" into separate strings (["org", "reponame"])
-			repoNameComponents := strings.Split(*userEvent.Repo.Name, "/")
-
 			// The commit struct returned from ListCommits() will just be a stub without content.
 			// Call GetCommit() to get the patch content of the commit, as long as it's < 1 MB.
 			repoCommit, _, err := guef.ApiClient.Repositories.GetCommit(
 				ctx,
-				repoNameComponents[0],
-				repoNameComponents[1],
+				username,
+				repoName,
 				*additionalCommit.SHA,
 			)
 			if err != nil {
@@ -300,6 +302,32 @@ func (guef GoGithubUserEventFetcher) FetchCommitsForPushEvent(
 				if repoCommitFile.Patch == nil {
 					// TODO: this means its binary data or larger than 1 MB, call separate API to fetch
 					log.Printf("Warning: commit %+v has empty patch data.  Either binary data, or greater than 1MB", repoCommitFile)
+
+					maxSize := 10000000  // cap at 10 MB until keynuker has better ability to scan as a stream
+					blob, _, err := guef.ApiClient.Git.GetBlob(
+						ctx,
+						username,
+						repoName,
+						*repoCommitFile.SHA,
+					)
+					if err != nil {
+						return false, fmt.Errorf("Error getting content for commit file: %+v via blob api.  Error: %v", repoCommitFile, err)
+					}
+					if *blob.Encoding != "base64" {
+						return false, fmt.Errorf("Unexpected encoding for blob commit file: %+v via blob api.  Encoding: %v", repoCommitFile, *blob.Encoding)
+					}
+					if *blob.Size > maxSize {
+						log.Printf("Warning: skipping blob from commit file %+v, since size > max size (%d)", repoCommitFile, maxSize)
+						continue
+					}
+
+					decodedBlobContent, err := base64.StdEncoding.DecodeString(blob.GetContent())
+					if err != nil {
+						return false, fmt.Errorf("Unexpected decoding base64 for blob commit file: %+v via blob api.  Err: %v", repoCommitFile, err)
+					}
+					w.Write(decodedBlobContent)
+
+
 				}
 
 			}

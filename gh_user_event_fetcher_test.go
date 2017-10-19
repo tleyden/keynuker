@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/couchbaselabs/go.assert"
+	"github.com/google/go-github/github"
 	"github.com/tleyden/keynuker/keynuker-go-common"
 )
 
@@ -70,5 +71,60 @@ func TestGithubUserEventDownstreamContentFetcher(t *testing.T) {
 	assert.True(t, err == nil)
 
 	log.Printf("downstreamEventContent: %+v", string(downstreamEventContent))
+
+}
+
+// Not much of a unit test, just makes it easy to run RepositoriesService.GetContents() by hand in isolation
+func TestGithubGetContents(t *testing.T) {
+
+	SkipIfIntegrationsTestsNotEnabled(t)
+
+	accessToken, ok := os.LookupEnv(keynuker_go_common.EnvVarKeyNukerTestGithubAccessToken)
+	if !ok {
+		t.Skip("You must define environment variable keynuker_test_gh_access_token to run this test")
+	}
+
+	githubClientWrapper := NewGithubClientWrapper(accessToken)
+	opt := &github.RepositoryContentGetOptions{
+		Ref: "master",
+	}
+
+	fileContent, dirContent, response, err := githubClientWrapper.ApiClient.Repositories.GetContents(
+		context.Background(),
+		"tleyden",
+		"keynuker-playground",
+		"KeyNukerEndToEndIntegrationTestLeakedKeyLargefile-7486bd90-bd3f-4a97-9066-94f7eb7329ca.txt",
+		opt,
+	)
+
+	log.Printf("fileContent: %v", fileContent)
+	log.Printf("dirContent: %v", dirContent)
+	log.Printf("response: %v", response)
+	log.Printf("err: %v", err)
+
+}
+
+// Not much of a unit test, just makes it easy to run GitService.GetBlob() by hand in isolation
+func TestGithubGetBlob(t *testing.T) {
+
+	SkipIfIntegrationsTestsNotEnabled(t)
+
+	accessToken, ok := os.LookupEnv(keynuker_go_common.EnvVarKeyNukerTestGithubAccessToken)
+	if !ok {
+		t.Skip("You must define environment variable keynuker_test_gh_access_token to run this test")
+	}
+
+	sha := "cc9d0ebcaff7e33b0d08535b0393483bf70ea804"
+	githubClientWrapper := NewGithubClientWrapper(accessToken)
+	blob, response, err := githubClientWrapper.ApiClient.Git.GetBlob(
+		context.Background(),
+		"tleyden",
+		"keynuker-playground",
+		sha,
+	)
+
+	log.Printf("blob: %v", blob)
+	log.Printf("response: %v", response)
+	log.Printf("err: %v", err)
 
 }
