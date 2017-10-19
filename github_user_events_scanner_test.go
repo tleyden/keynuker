@@ -428,3 +428,8 @@ func TestSetDefaultCheckpointsForMissing(t *testing.T) {
 	assert.True(t, checkpointForTestUser.CreatedAt.Before(time.Now()))
 
 }
+
+
+
+
+

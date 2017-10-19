@@ -41,9 +41,7 @@ const (
 	EnvVarKeyNukerTestIntegrationSecretAccessKey = "KEYNUKER_INTEGRATION_TEST_SECRET_ACCESS_KEY"
 
 
-	EnvVarKeyNukerTestGithubOrgs = "GITHUB_ORGS"
-
-
+	EnvVarKeyNukerTestGithubOrgs = "KEYNUKER_INTEGRATION_TEST_GITHUB_ORGS"
 
 	EnvVarKeyNukerTestGithubLeakTargetRepo = "KEYNUKER_GITHUB_LEAK_TARGET_REPO"
 
@@ -72,6 +70,9 @@ const (
 
 	GithubMasterBranch = "master"
 
+	// The max size in bytes of blob content that will be scanned.
+	// This should be raised to 100 MB once the stream based scanning is implemented.
+	MaxSizeBytesBlobContent = 10000000  // 10 MB
 
 )
 
