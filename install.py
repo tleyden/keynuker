@@ -326,6 +326,10 @@ def install_openwhisk_rules(available_sequences, available_actions):
             "trigger": "keynukerAlarmTrigger",
             "action": "github-user-events-scanner-nuker",
         },
+        "scheduled-monitor-activations": {
+            "trigger": "keynukerAlarmTrigger",
+            "action": "monitor-activations",
+        },
     }
 
     for rule, rule_target in rules.iteritems():
