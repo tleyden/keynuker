@@ -11,7 +11,7 @@ import (
 	"github.com/tleyden/keynuker/keynuker-go-common"
 )
 
-func TestFetchAwsKeys(t *testing.T) {
+func TestFetchAwsKeysViaSTSAssumeRole(t *testing.T) {
 
 	SkipIfIntegrationsTestsNotEnabled(t)
 
@@ -20,23 +20,20 @@ func TestFetchAwsKeys(t *testing.T) {
 		t.Skip("Error getting target aws accounts from env: %v", err)
 	}
 
-	accessKeyId, ok := os.LookupEnv(keynuker_go_common.EnvVarKeyNukerAwsAccessKeyId)
+	initiatingAwsAcctCredsRaw, ok := os.LookupEnv(keynuker_go_common.EnvVarKeyNukerInitiatingAwsAccountCreds)
 	if !ok {
-		t.Fatalf("You must define environment variable %s", keynuker_go_common.EnvVarKeyNukerAwsAccessKeyId)
+		t.Fatalf("You must define environment variable %s", keynuker_go_common.EnvVarKeyNukerInitiatingAwsAccountCreds)
 	}
 
-	secretAccessKey, ok := os.LookupEnv(keynuker_go_common.EnvVarKeyNukerAwsSecretAccessKey)
-	if !ok {
-		t.Fatalf("You must define environment variable %s", keynuker_go_common.EnvVarKeyNukerAwsAccessKeyId)
+	initiatingAwsAcctCreds := AwsCredentials{}
+	if err := json.Unmarshal([]byte(initiatingAwsAcctCredsRaw), &initiatingAwsAcctCreds); err != nil {
+		t.Fatalf("Error unmarshalling creds.  Err: %v", err)
 	}
 
 	params := ParamsFetchAwsKeys{
 		KeyNukerOrg:       "default",
 		TargetAwsAccounts: targetAwsAccounts,
-		InitiatingAwsAccountAssumeRole: AwsCredentials{
-			AwsAccessKeyId:     accessKeyId,
-			AwsSecretAccessKey: secretAccessKey,
-		},
+		InitiatingAwsAccountAssumeRole: initiatingAwsAcctCreds,
 	}
 
 	doc, err := FetchAwsKeys(params)
