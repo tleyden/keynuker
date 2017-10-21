@@ -11,13 +11,12 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
+	"github.com/aws/aws-sdk-go/aws/credentials/stscreds"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/iam"
-	"github.com/tleyden/keynuker/keynuker-go-common"
-	"github.com/aws/aws-sdk-go/aws/credentials/stscreds"
 	"github.com/aws/aws-sdk-go/service/sts"
 	"github.com/satori/go.uuid"
-	"os"
+	"github.com/tleyden/keynuker/keynuker-go-common"
 )
 
 // Look up all the AWS keys associated with the AWS account corresponding to AwsAccessKeyId
@@ -40,7 +39,10 @@ func FetchAwsKeys(params ParamsFetchAwsKeys) (docWrapper DocumentWrapperFetchAws
 	}
 
 	for _, targetAwsAccount := range params.TargetAwsAccounts {
-		fetchedAwsKeys, err := FetchAwsKeysTargetAccount(targetAwsAccount)
+		fetchedAwsKeys, err := FetchAwsKeysTargetAccount(
+			params.InitiatingAwsAccountAssumeRole,
+			targetAwsAccount,
+		)
 		if err != nil {
 			log.Printf("Error fetching aws keys for target aws account.  Err: %v", err)
 			continue
@@ -57,7 +59,7 @@ func FetchAwsKeys(params ParamsFetchAwsKeys) (docWrapper DocumentWrapperFetchAws
 
 }
 
-func FetchAwsKeysTargetAccount(targetAwsAccount TargetAwsAccount) (fetchedAwsKeys []FetchedAwsAccessKey, err error) {
+func FetchAwsKeysTargetAccount(initiatingAwsAccount AwsCredentials, targetAwsAccount TargetAwsAccount) (fetchedAwsKeys []FetchedAwsAccessKey, err error) {
 
 	fetchedAwsKeys = []FetchedAwsAccessKey{}
 
@@ -74,19 +76,12 @@ func FetchAwsKeysTargetAccount(targetAwsAccount TargetAwsAccount) (fetchedAwsKey
 			),
 		})
 	case false:
-		accessKeyId, ok := os.LookupEnv(keynuker_go_common.EnvVarKeyNukerAwsAccessKeyId)
-		if !ok {
-			return fetchedAwsKeys, fmt.Errorf("You must define environment variable %s", keynuker_go_common.EnvVarKeyNukerAwsAccessKeyId)
-		}
 
-		secretAccessKey, ok := os.LookupEnv(keynuker_go_common.EnvVarKeyNukerAwsSecretAccessKey)
-		if !ok {
-			return fetchedAwsKeys, fmt.Errorf("You must define environment variable %s", keynuker_go_common.EnvVarKeyNukerAwsAccessKeyId)
-		}
+		log.Printf("Connecting via STS AssumeRole to target account: %v", targetAwsAccount.TargetAwsAccountId)
 
 		AWSCreds := credentials.NewStaticCredentials(
-			accessKeyId,
-			secretAccessKey,
+			initiatingAwsAccount.AwsAccessKeyId,
+			initiatingAwsAccount.AwsSecretAccessKey,
 			"",
 		)
 		AWSConfig := &aws.Config{
@@ -180,7 +175,7 @@ func FetchIAMUsers(svc *iam.IAM) (users []*iam.User, err error) {
 
 }
 
-type TargetAwsAccountDirect struct {
+type AwsCredentials struct {
 
 	// The aws access key to connect as.  This only needs permissions to list IAM users and access keys,
 	// and delete access keys (in the case they are nuked)
@@ -188,7 +183,6 @@ type TargetAwsAccountDirect struct {
 
 	// The secret access key corresponding to AwsAccessKeyId
 	AwsSecretAccessKey string
-
 }
 
 type TargetAwsAccountAssumeRole struct {
@@ -203,15 +197,15 @@ type TargetAwsAccountAssumeRole struct {
 	// The ExternalID which provides a layer of security to avoid the "Confused Deputy" attack
 	// http://docs.aws.amazon.com/STS/latest/APIReference/API_AssumeRole.html
 	AssumeRoleExternalId string
-
 }
 
+// The TargetAwsAccount can be connected to via two ways:
+// - AwsCredentials: Either using direct credentials of a user with the required permissions
+// - TargetAwsAccountAssumeRole: Using STS AssumeRole
 type TargetAwsAccount struct {
-
-	TargetAwsAccountDirect
+	AwsCredentials
 
 	TargetAwsAccountAssumeRole
-
 }
 
 func (t TargetAwsAccount) IsDirect() bool {
@@ -221,6 +215,10 @@ func (t TargetAwsAccount) IsDirect() bool {
 }
 
 type ParamsFetchAwsKeys struct {
+
+	// When using Cross-Account STS AssumeRole, this needs the credentials of the of the "connecting" aka "initiating"
+	// account that is being used to connect to the target account being monitored
+	InitiatingAwsAccountAssumeRole AwsCredentials
 
 	// The list of AWS accounts to fetch all the access keys for
 	TargetAwsAccounts []TargetAwsAccount
