@@ -1,0 +1,22 @@
+[%hardbreaks]
+
+= Setup STS AssumeRole
+:toc: left
+:toclevels: 3
+
+== Initiating AWS Account
+
+
+```
+$ aws cloudformation create-stack --stack-name KeyNukerAssumeRoleInitiatingUser --template-body file://docs/cloudformation/keynuker-assume-role-initiating-user.yml --capabilities CAPABILITY_IAM CAPABILITY_NAMED_IAM
+$ aws cloudformation describe-stacks --stack-name KeyNukerAssumeRoleInitiatingUser --query 'Stacks[0].Outputs[?OutputKey==`AwsAccessKey`].OutputValue' --output text
+$ aws cloudformation describe-stacks --stack-name KeyNukerAssumeRoleInitiatingUser --query 'Stacks[0].Outputs[?OutputKey==`AwsSecretAccessKey`].OutputValue' --output text
+```
+
+Use the `AwsAccessKeyId` and `AwsSecretAccessKey` values from the output for the `KEYNUKER_INITIATING_AWS_ACCOUNT` environment variable.
+
+== Target AWS Accounts
+
+```
+$ aws cloudformation create-stack --stack-name KeyNukerIAMRoleAccess --parameters ParameterKey=InitiatingAcccountAWSID,ParameterValue=999999 ParameterKey=IAMRoleExternalID,ParameterValue=YourExternalID  --template-body file://docs/cloudformation/keynuker-allow-sts-assume-role.yml --capabilities CAPABILITY_IAM CAPABILITY_NAMED_IAM
+```

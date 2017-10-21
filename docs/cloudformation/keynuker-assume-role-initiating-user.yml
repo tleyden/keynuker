@@ -1,0 +1,30 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: KeyNuker initiating IAM Role for STS AssumeRole auth
+Parameters: {}
+Resources:
+  keynukerinitiatinguser:
+    Type: AWS::IAM::User
+    Properties:
+      Path: /
+      Policies:
+        - PolicyName: AllowAssumeRole
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - sts:AssumeRole
+                Resource:
+                  - '*'
+      UserName: KeynukerAssumeRoleInitiatingUser
+  keynukeraccesskey:
+    Type: "AWS::IAM::AccessKey"
+    Properties:
+      UserName: !Ref keynukerinitiatinguser
+Outputs:
+  AwsAccessKey:
+    Description: The Aws access key
+    Value: !Ref keynukeraccesskey
+  AwsSecretAccessKey:
+    Description: The Aws secret access key
+    Value: !GetAtt keynukeraccesskey.SecretAccessKey

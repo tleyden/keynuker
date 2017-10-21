@@ -11,8 +11,11 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
+	"github.com/aws/aws-sdk-go/aws/credentials/stscreds"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/iam"
+	"github.com/aws/aws-sdk-go/service/sts"
+	"github.com/satori/go.uuid"
 	"github.com/tleyden/keynuker/keynuker-go-common"
 )
 
@@ -36,7 +39,10 @@ func FetchAwsKeys(params ParamsFetchAwsKeys) (docWrapper DocumentWrapperFetchAws
 	}
 
 	for _, targetAwsAccount := range params.TargetAwsAccounts {
-		fetchedAwsKeys, err := FetchAwsKeysTargetAccount(targetAwsAccount)
+		fetchedAwsKeys, err := FetchAwsKeysTargetAccount(
+			params.InitiatingAwsAccountAssumeRole,
+			targetAwsAccount,
+		)
 		if err != nil {
 			log.Printf("Error fetching aws keys for target aws account.  Err: %v", err)
 			continue
@@ -53,19 +59,54 @@ func FetchAwsKeys(params ParamsFetchAwsKeys) (docWrapper DocumentWrapperFetchAws
 
 }
 
-func FetchAwsKeysTargetAccount(targetAwsAccount TargetAwsAccount) (fetchedAwsKeys []FetchedAwsAccessKey, err error) {
+func FetchAwsKeysTargetAccount(initiatingAwsAccount AwsCredentials, targetAwsAccount TargetAwsAccount) (fetchedAwsKeys []FetchedAwsAccessKey, err error) {
 
 	fetchedAwsKeys = []FetchedAwsAccessKey{}
 
-	// Create AWS session
-	sess, err := session.NewSession(&aws.Config{
-		Credentials: credentials.NewCredentials(
-			&credentials.StaticProvider{Value: credentials.Value{
-				AccessKeyID:     targetAwsAccount.AwsAccessKeyId,
-				SecretAccessKey: targetAwsAccount.AwsSecretAccessKey,
-			}},
-		),
-	})
+	var sess *session.Session
+
+	switch targetAwsAccount.IsDirect() {
+	case true:
+		sess, err = session.NewSession(&aws.Config{
+			Credentials: credentials.NewCredentials(
+				&credentials.StaticProvider{Value: credentials.Value{
+					AccessKeyID:     targetAwsAccount.AwsAccessKeyId,
+					SecretAccessKey: targetAwsAccount.AwsSecretAccessKey,
+				}},
+			),
+		})
+	case false:
+
+		log.Printf("Connecting via STS AssumeRole to target account: %v", targetAwsAccount.TargetAwsAccountId)
+
+		AWSCreds := credentials.NewStaticCredentials(
+			initiatingAwsAccount.AwsAccessKeyId,
+			initiatingAwsAccount.AwsSecretAccessKey,
+			"",
+		)
+		AWSConfig := &aws.Config{
+			Credentials: AWSCreds,
+		}
+		tempSession := session.New(AWSConfig)
+
+		assumedConfig := &aws.Config{
+			Credentials: credentials.NewCredentials(&stscreds.AssumeRoleProvider{
+				// Client: sts.New(tempSession, &aws.Config{Region: aws.String(region)}),
+				Client: sts.New(tempSession, &aws.Config{}),
+				RoleARN: fmt.Sprintf(
+					"arn:aws:iam::%v:role/%v",
+					targetAwsAccount.TargetAwsAccountId,
+					targetAwsAccount.TargetRoleName,
+				),
+				RoleSessionName: uuid.NewV4().String(),
+				ExternalID:      aws.String(targetAwsAccount.AssumeRoleExternalId),
+				ExpiryWindow:    3600 * time.Second,
+			}),
+		}
+
+		sess = session.New(assumedConfig)
+	}
+
 	if err != nil {
 		return fetchedAwsKeys, fmt.Errorf("Error creating aws session: %v", err)
 	}
@@ -134,7 +175,7 @@ func FetchIAMUsers(svc *iam.IAM) (users []*iam.User, err error) {
 
 }
 
-type TargetAwsAccount struct {
+type AwsCredentials struct {
 
 	// The aws access key to connect as.  This only needs permissions to list IAM users and access keys,
 	// and delete access keys (in the case they are nuked)
@@ -144,7 +185,40 @@ type TargetAwsAccount struct {
 	AwsSecretAccessKey string
 }
 
+type TargetAwsAccountAssumeRole struct {
+
+	// The target AWS account id.  Eg, 012345
+	TargetAwsAccountId string
+
+	// The role on the target account, used to build the role-arn:
+	// arn:aws:iam::012345:role/KeyNuker
+	TargetRoleName string
+
+	// The ExternalID which provides a layer of security to avoid the "Confused Deputy" attack
+	// http://docs.aws.amazon.com/STS/latest/APIReference/API_AssumeRole.html
+	AssumeRoleExternalId string
+}
+
+// The TargetAwsAccount can be connected to via two ways:
+// - AwsCredentials: Either using direct credentials of a user with the required permissions
+// - TargetAwsAccountAssumeRole: Using STS AssumeRole
+type TargetAwsAccount struct {
+	AwsCredentials
+
+	TargetAwsAccountAssumeRole
+}
+
+func (t TargetAwsAccount) IsDirect() bool {
+
+	return t.TargetAwsAccountAssumeRole.TargetAwsAccountId == ""
+
+}
+
 type ParamsFetchAwsKeys struct {
+
+	// When using Cross-Account STS AssumeRole, this needs the credentials of the of the "connecting" aka "initiating"
+	// account that is being used to connect to the target account being monitored
+	InitiatingAwsAccountAssumeRole AwsCredentials
 
 	// The list of AWS accounts to fetch all the access keys for
 	TargetAwsAccounts []TargetAwsAccount

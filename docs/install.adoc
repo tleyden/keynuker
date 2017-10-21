@@ -20,7 +20,14 @@
 
 It's also possible to get this running locally using the https://github.com/apache/incubator-openwhisk[Open Source version of OpenWhisk], but there aren't instructions for that yet.
 
-== Create AWS user with minimal IAM permissions
+== IAM Setup
+
+There are two ways to setup IAM Access to enable KeyNuker to pull in the latest AWS Access Keys from the AWS account(s) you want to protect:
+
+. Direct: Setup an IAM User on the AWS target account, assign permissions, generate an Access Key and bake into KeyNuker parameters
+. AssumeRole: This requires *two* separate AWS accounts.  KeyNuker will have a user in the "initiating" AWS account, and each account you want to monitor will need to have a special role to allow that separate account to access it.
+
+=== Direct: Create AWS user with minimal IAM permissions
 
 In the AWS web admin UI, create a new IAM user called `KeyNuker` with only **Programmatic access** and assign that user the following policy:
 
@@ -52,10 +59,14 @@ Or to do the same steps via the CLI:
 
 ```
 $ cd /path/to/keynuker
-$ aws cloudformation create-stack --stack-name KeyNukerIAMAccess --template-body file://docs/keynuker-iam-user-policy.yml --capabilities CAPABILITY_IAM CAPABILITY_NAMED_IAM 
+$ aws cloudformation create-stack --stack-name KeyNukerIAMAccess --template-body file://docs/cloudformation/keynuker-iam-user-policy.yml --capabilities CAPABILITY_IAM CAPABILITY_NAMED_IAM
 $ aws cloudformation describe-stacks --stack-name KeyNukerIAMAccess --query 'Stacks[0].Outputs[?OutputKey==`AwsAccessKey`].OutputValue' --output text
 $ aws cloudformation describe-stacks --stack-name KeyNukerIAMAccess --query 'Stacks[0].Outputs[?OutputKey==`AwsSecretAccessKey`].OutputValue' --output text
 ```
+
+=== AssumeRole: Add a role/policy with cross-account STS AssumeRole ability
+
+This is in a separate document: link:setup_assume_role.adoc[Add a role/policy with cross-account STS AssumeRole ability]
 
 == Generate a github access token
 
@@ -109,12 +120,16 @@ This is the full list of environment variables you should have set from the abov
 |DB name
 
 |TARGET_AWS_ACCOUNTS
-|'[{"AwsAccessKeyId": "******", "AwsSecretAccessKey": "******"}]'
+|'[{"AwsAccessKeyId": "******", "AwsSecretAccessKey": "******"}]' or '[{"TargetAwsAccountId": "01234", "TargetRoleName": "KeynukerAccess", "AssumeRoleExternalId": "yourexternalid"}]'
 |AWS Access Key ID and secret of AWS account(s) being monitored, only needs limited IAM permissions
+
+|KEYNUKER_INITIATING_AWS_ACCOUNT
+|'{"AwsAccessKeyId": "******", "AwsSecretAccessKey": "******"}'
+|This is specifically needed when using STS AssumeRole for Cross Account access, otherwise set it to a blank string.  AWS Access Key ID and secret of AWS account(s) created in the link:setup_assume_role.adoc[Add a role/policy with cross-account STS AssumeRole ability] instructions under "Initiating AWS Account"
 
 |GITHUB_ACCESS_TOKEN
 |902dcb6f5386e9f3ba
-|Github access token which has the :org read permission
+|Github access token which has the `:org read` permission
 
 |GITHUB_ORGS
 |'["acme", "acme-labs"]'

@@ -103,8 +103,11 @@ func GetIntegrationTestTargetAwsAccountsFromEnv() (targetAwsAccounts []TargetAws
 
 	targetAwsAccounts = []TargetAwsAccount{
 		TargetAwsAccount{
-			AwsAccessKeyId: accessKey,
-			AwsSecretAccessKey: secretAccessKey,
+			AwsCredentials{
+				AwsAccessKeyId: accessKey,
+				AwsSecretAccessKey: secretAccessKey,
+			},
+			TargetAwsAccountAssumeRole{},
 		},
 	}
 

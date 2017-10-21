@@ -40,6 +40,9 @@ const (
 	EnvVarKeyNukerTestIntegrationAccessKey = "KEYNUKER_INTEGRATION_TEST_ACCESS_KEY"
 	EnvVarKeyNukerTestIntegrationSecretAccessKey = "KEYNUKER_INTEGRATION_TEST_SECRET_ACCESS_KEY"
 
+	EnvVarKeyNukerAwsAccessKeyId = "KEYNUKER_AWS_ACCESS_KEY_ID"
+
+	EnvVarKeyNukerAwsSecretAccessKey = "KEYNUKER_AWS_SECRET_ACCESS_KEY"
 
 	EnvVarKeyNukerTestGithubOrgs = "KEYNUKER_INTEGRATION_TEST_GITHUB_ORGS"
 
