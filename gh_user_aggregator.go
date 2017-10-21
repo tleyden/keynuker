@@ -80,7 +80,6 @@ func (gua GithubUserAggregator) CompactedUsers(users []*github.User) []*github.U
 	for _, user := range users {
 		resultUser := &github.User{}
 		resultUser.Login = user.Login
-		resultUser.ID = user.ID
 		resultUsers = append(resultUsers, resultUser)
 	}
 	return resultUsers
