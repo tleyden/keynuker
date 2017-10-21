@@ -1,0 +1,45 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Allow a remote AWS account running KeyNuker to list users, keys, and
+  be able to nuke keys
+Parameters:
+  InitiatingAcccountAWSID:
+    Default: '1234'
+    Type: Number
+    Description: Account number of the initiating AWS account where KeyNuker is running
+  IAMRoleExternalID:
+    Default: externalid
+    Type: String
+    Description: Secret external id
+    MinLength: '5'
+    ConstraintDescription: IAMRoleExternalID must be at least 5 characters.
+Resources:
+  keynukerrole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Action: sts:AssumeRole
+            Effect: Allow
+            Condition:
+              StringEquals:
+                sts:ExternalId: !Ref 'IAMRoleExternalID'
+            Principal:
+              AWS: !Join ['', ['arn:aws:iam::', !Ref 'InitiatingAcccountAWSID', ':root']]
+      Path: /
+      RoleName: KeynukerAccess
+  keynukerrolepolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Action:
+              - iam:DeleteAccessKey
+              - iam:ListAccessKeys
+              - iam:ListUsers
+            Effect: Allow
+            Resource: '*'
+      Path: /
+      Roles:
+        - !Ref 'keynukerrole'
