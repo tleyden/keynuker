@@ -108,6 +108,7 @@ def get_action_params_to_env():
         "github-user-aggregator": {
             "GithubAccessToken": "KEYNUKER_GITHUB_ACCESS_TOKEN",
             "GithubOrgs": "KEYNUKER_GITHUB_ORGS",
+            "GithubUsers": "KEYNUKER_GITHUB_USERS",
             "KeyNukerOrg": "KEYNUKER_ORG",
         },
         "github-user-events-scanner": {
@@ -452,6 +453,9 @@ def expand_params(params_to_env):
         if paramName == "GithubOrgs":
             # This needs special handling since it's an array
             continue
+        if paramName == "GithubUsers":
+            # This needs special handling since it's an array
+            continue
         if paramName == "TargetAwsAccounts":
             # This needs special handling since it's an array
             continue
@@ -475,6 +479,12 @@ def expand_params(params_to_env):
         envVarName = params_to_env["GithubOrgs"]
         envVarVal = os.environ.get(envVarName)
         result += " --param GithubOrgs "
+        result += "\'{}\'".format(envVarVal)
+
+    if "GithubUsers" in params_to_env:
+        envVarName = params_to_env["GithubUsers"]
+        envVarVal = os.environ.get(envVarName)
+        result += " --param GithubUsers "
         result += "\'{}\'".format(envVarVal)
 
     if "TargetAwsAccounts" in params_to_env:

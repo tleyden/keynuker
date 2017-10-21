@@ -135,6 +135,10 @@ This is the full list of environment variables you should have set from the abov
 |'["acme", "acme-labs"]'
 |The list of github orgs you would like to monitor.  The quoting is important: outer quotes as single quotes, inner quotes as double quotes
 
+|KEYNUKER_GITHUB_USERS
+|'["defunkt", "torvalds"]'
+|The list of individual github user logins you would like to monitor, which is appended to the users found from the KEYNUKER_GITHUB_ORGS lookup (if any).  The quoting is important: outer quotes as single quotes, inner quotes as double quotes
+
 |KEYNUKER_MAILER_API_KEY
 |key-82ea6cfe7dc69f6c
 |The Mailgun API key for notifications.  At the moment, mailgun is the only option for outgoing mail.  Please open an issue if you need a different option.  You can find the mailer (Mailgun) API keys in the link:https://mailgun.com/app/account/security[Maigun Web Admin]  For `MAILERAPIKEY` use the value in `Active API Key` and for `MAILERPUBLICAPIKEY` use `Email Validation Key`

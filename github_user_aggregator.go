@@ -12,18 +12,9 @@ import (
 	"golang.org/x/oauth2"
 )
 
-
-
 // Looks up and aggregates all users in the given Github Organizations and returns the de-deduplicated list
 // of users
 
-// WARN: don't write anything to stdout.  Since this is invoked by an OpenWhisk action, that will break the JSON output.
-
-// TODO: --------------------- Individual Usernames
-// TODO: This should also be able to take a list of individual github usernames ["tleyden", ...], and those
-// TODO: would be added to the resulting list of users.  The list of orgs could be empty and the only input
-// TODO: could be a list of usernames (or even a single user).  The OpenWhisk action wrapper will also need to be
-// TODO: updated accordingly.
 // TODO: --------------------- Multiple Access tokens / Rate limit handling
 // TODO: To lower chance that requests are rejected by github for exceeding rate limit, this should
 // TODO: take a slice of access tokens, and it should choose the access token with the most requests available.
@@ -178,7 +169,6 @@ func appendUsersDeDupe(existing, incoming []*github.User) []*github.User {
 
 }
 
-
 // Given a list of github orgs, aggregate all of the users that belong in the orgs
 // and emit a json to stdout with those users.
 // Intended to be run as an OpenWhisk Action
@@ -202,6 +192,11 @@ func AggregateGithubUsers(params ParamsGithubUserAggregator) (DocumentWrapperGit
 		return DocumentWrapperGithubUserAggregator{}, fmt.Errorf("Error listing members for orgs: %v.  Error: %v", params.GithubOrgs, err)
 	}
 
+	// Add all the individual github users from the GithubUsers param
+	individualGithubUsers := params.GetGithubUsers()
+	users = append(users, individualGithubUsers...)
+
+	// Strip out unneeded fields from users
 	compactedUsers := ghUserAggregator.CompactedUsers(users)
 
 	// Create result doc
@@ -230,6 +225,19 @@ type ParamsGithubUserAggregator struct {
 
 	// A list of github organizations, eg ["acme", "acme-labs", ...]
 	GithubOrgs []string
+
+	// A list of individual github user logins you would like to monitor, which is appended to the users found from looking up the users in GithubOrgs.  Eg, ["defunkt", "torvalds"]
+	GithubUsers []string
+}
+
+func (p ParamsGithubUserAggregator) GetGithubUsers() []*github.User {
+	resultUsers := []*github.User{}
+	for _, githubUserLogin := range p.GithubUsers {
+		resultUser := &github.User{}
+		resultUser.Login = &githubUserLogin
+		resultUsers = append(resultUsers, resultUser)
+	}
+	return resultUsers
 }
 
 type DocumentGithubUserAggregator struct {
