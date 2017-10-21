@@ -187,11 +187,11 @@ type AwsCredentials struct {
 
 type TargetAwsAccountAssumeRole struct {
 
-	// The target AWS account id.  Eg, 013746437943
+	// The target AWS account id.  Eg, 012345
 	TargetAwsAccountId string
 
 	// The role on the target account, used to build the role-arn:
-	// arn:aws:iam::013746437943:role/KeyNuker
+	// arn:aws:iam::012345:role/KeyNuker
 	TargetRoleName string
 
 	// The ExternalID which provides a layer of security to avoid the "Confused Deputy" attack
