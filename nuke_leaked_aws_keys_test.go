@@ -15,12 +15,18 @@ func TestFindAwsAccount(t *testing.T) {
 
 	targetAwsAccounts := []TargetAwsAccount{
 		{
-			AwsAccessKeyId:     monitorAwsAccessKeyId,
-			AwsSecretAccessKey: "TestAwsSecretAccessKey",
+			TargetAwsAccountDirect {
+				AwsAccessKeyId:     monitorAwsAccessKeyId,
+				AwsSecretAccessKey: "TestAwsSecretAccessKey",
+			},
+			TargetAwsAccountAssumeRole{},
 		},
 		{
-			AwsAccessKeyId:     "TestAwsAccessKeyId2",
-			AwsSecretAccessKey: "TestAwsSecretAccessKey2",
+			TargetAwsAccountDirect {
+				AwsAccessKeyId:     "TestAwsAccessKeyId2",
+				AwsSecretAccessKey: "TestAwsSecretAccessKey2",
+			},
+			TargetAwsAccountAssumeRole{},
 		},
 	}
 

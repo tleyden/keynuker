@@ -14,6 +14,10 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/iam"
 	"github.com/tleyden/keynuker/keynuker-go-common"
+	"github.com/aws/aws-sdk-go/aws/credentials/stscreds"
+	"github.com/aws/aws-sdk-go/service/sts"
+	"github.com/satori/go.uuid"
+	"os"
 )
 
 // Look up all the AWS keys associated with the AWS account corresponding to AwsAccessKeyId
@@ -57,15 +61,57 @@ func FetchAwsKeysTargetAccount(targetAwsAccount TargetAwsAccount) (fetchedAwsKey
 
 	fetchedAwsKeys = []FetchedAwsAccessKey{}
 
-	// Create AWS session
-	sess, err := session.NewSession(&aws.Config{
-		Credentials: credentials.NewCredentials(
-			&credentials.StaticProvider{Value: credentials.Value{
-				AccessKeyID:     targetAwsAccount.AwsAccessKeyId,
-				SecretAccessKey: targetAwsAccount.AwsSecretAccessKey,
-			}},
-		),
-	})
+	var sess *session.Session
+
+	switch targetAwsAccount.IsDirect() {
+	case true:
+		sess, err = session.NewSession(&aws.Config{
+			Credentials: credentials.NewCredentials(
+				&credentials.StaticProvider{Value: credentials.Value{
+					AccessKeyID:     targetAwsAccount.AwsAccessKeyId,
+					SecretAccessKey: targetAwsAccount.AwsSecretAccessKey,
+				}},
+			),
+		})
+	case false:
+		accessKeyId, ok := os.LookupEnv(keynuker_go_common.EnvVarKeyNukerAwsAccessKeyId)
+		if !ok {
+			return fetchedAwsKeys, fmt.Errorf("You must define environment variable %s", keynuker_go_common.EnvVarKeyNukerAwsAccessKeyId)
+		}
+
+		secretAccessKey, ok := os.LookupEnv(keynuker_go_common.EnvVarKeyNukerAwsSecretAccessKey)
+		if !ok {
+			return fetchedAwsKeys, fmt.Errorf("You must define environment variable %s", keynuker_go_common.EnvVarKeyNukerAwsAccessKeyId)
+		}
+
+		AWSCreds := credentials.NewStaticCredentials(
+			accessKeyId,
+			secretAccessKey,
+			"",
+		)
+		AWSConfig := &aws.Config{
+			Credentials: AWSCreds,
+		}
+		tempSession := session.New(AWSConfig)
+
+		assumedConfig := &aws.Config{
+			Credentials: credentials.NewCredentials(&stscreds.AssumeRoleProvider{
+				// Client: sts.New(tempSession, &aws.Config{Region: aws.String(region)}),
+				Client: sts.New(tempSession, &aws.Config{}),
+				RoleARN: fmt.Sprintf(
+					"arn:aws:iam::%v:role/%v",
+					targetAwsAccount.TargetAwsAccountId,
+					targetAwsAccount.TargetRoleName,
+				),
+				RoleSessionName: uuid.NewV4().String(),
+				ExternalID:      aws.String(targetAwsAccount.AssumeRoleExternalId),
+				ExpiryWindow:    3600 * time.Second,
+			}),
+		}
+
+		sess = session.New(assumedConfig)
+	}
+
 	if err != nil {
 		return fetchedAwsKeys, fmt.Errorf("Error creating aws session: %v", err)
 	}
@@ -134,7 +180,7 @@ func FetchIAMUsers(svc *iam.IAM) (users []*iam.User, err error) {
 
 }
 
-type TargetAwsAccount struct {
+type TargetAwsAccountDirect struct {
 
 	// The aws access key to connect as.  This only needs permissions to list IAM users and access keys,
 	// and delete access keys (in the case they are nuked)
@@ -142,6 +188,36 @@ type TargetAwsAccount struct {
 
 	// The secret access key corresponding to AwsAccessKeyId
 	AwsSecretAccessKey string
+
+}
+
+type TargetAwsAccountAssumeRole struct {
+
+	// The target AWS account id.  Eg, 013746437943
+	TargetAwsAccountId string
+
+	// The role on the target account, used to build the role-arn:
+	// arn:aws:iam::013746437943:role/KeyNuker
+	TargetRoleName string
+
+	// The ExternalID which provides a layer of security to avoid the "Confused Deputy" attack
+	// http://docs.aws.amazon.com/STS/latest/APIReference/API_AssumeRole.html
+	AssumeRoleExternalId string
+
+}
+
+type TargetAwsAccount struct {
+
+	TargetAwsAccountDirect
+
+	TargetAwsAccountAssumeRole
+
+}
+
+func (t TargetAwsAccount) IsDirect() bool {
+
+	return t.TargetAwsAccountAssumeRole.TargetAwsAccountId == ""
+
 }
 
 type ParamsFetchAwsKeys struct {
