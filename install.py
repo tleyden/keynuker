@@ -10,24 +10,30 @@ import shutil
 
 def main():
 
+    packaging_params = get_default_packaging_params()
+
     # Make sure all of the openwhisk actions we are about to install have the proper env variables set that they require
-    verify_openwhisk_actions_env_variables(get_default_packaging_params())
+    verify_openwhisk_actions_env_variables(packaging_params)
 
     # Builds go binaries and packages into zip file
-    build_binaries()
+    build_binaries(packaging_params)
 
     # Installs openwhisk actions via wsk utility to your configured OpenWhisk system
-    install_openwhisk_actions(get_default_packaging_params())
+    install_openwhisk_actions(packaging_params)
 
     print("Success!")
 
-def build_binaries():
+def build_binaries(packaging_params):
     """
     Recursively process all directories in project, and every folder that has a main.go:
 
     - Build go binaries
     - Package binaries into zip file
     """
+
+    if packaging_params.dryRun:
+        return
+
     for path in dirs_with_main():
         print("Building action binary in path: {}".format(path))
         build_binary_in_path(path)
@@ -38,6 +44,12 @@ def build_binary_in_path(path):
     cwd = os.getcwd()
     
     os.chdir(path)
+
+    # Don't build binaries that don't have an entry in get_action_params_to_env()
+    openwhisk_action = os.path.basename(os.getcwd())
+    if openwhisk_action not in get_action_params_to_env():
+        os.chdir(cwd)
+        return
 
     go_build_main()
     zip_binary_main()
@@ -91,6 +103,7 @@ def get_action_params_to_env():
         "fetch-aws-keys":{
             "TargetAwsAccounts": "TARGET_AWS_ACCOUNTS",
             "KeyNukerOrg": "KEYNUKER_ORG",
+            "InitiatingAwsAccountAssumeRole": "KEYNUKER_INITIATING_AWS_ACCOUNT",
         },
         "github-user-aggregator": {
             "GithubAccessToken": "GITHUB_ACCESS_TOKEN",
@@ -131,6 +144,7 @@ def get_action_params_to_env():
             "mailer_domain": "KEYNUKER_MAILER_DOMAIN",
         },
     }
+
     return action_params_to_env
 
 def verify_openwhisk_actions_env_variables(packaging_params):
@@ -158,10 +172,13 @@ def install_openwhisk_actions(packaging_params):
 
     actions = []
     for path in dirs_with_main():
-        print("Installing OpenWhisk action for path: {}".format(path))
+        print("Installing OpenWhisk action for path: {}.".format(path))
         packaging_params.path = path
         action = install_openwhisk_action_in_path(packaging_params, action_params_to_env, path)
         actions.append(action)
+
+    if packaging_params.dryRun:
+        return
 
     sequences = install_openwhisk_action_sequences(actions)
 
@@ -248,6 +265,11 @@ def verify_openwhisk_action_env_variables_in_path(action_params_to_env, path):
     os.chdir(path)
 
     openwhisk_action = os.path.basename(os.getcwd())
+
+    if openwhisk_action not in action_params_to_env:
+        os.chdir(cwd)   # Restore the original current working directory
+        return
+
     params_to_env = action_params_to_env[openwhisk_action]
 
     expanded_params = expand_params(params_to_env)
@@ -276,9 +298,14 @@ def install_openwhisk_action_in_path(packaging_params, action_params_to_env, pat
     os.chdir(path)
 
     openwhisk_action = os.path.basename(os.getcwd())
+
+    if openwhisk_action not in action_params_to_env:
+        os.chdir(cwd) # Restore the original current working directory
+        return
+
     params_to_env = action_params_to_env[openwhisk_action]
 
-    if openwhisk_action_exists(openwhisk_action):
+    if packaging_params.dryRun is False and openwhisk_action_exists(openwhisk_action):
         delete_openwhisk_action(openwhisk_action)
 
     install_openwhisk_action(
@@ -310,8 +337,8 @@ def install_openwhisk_alarm_triggers():
             alarm_trigger,
             schedule,
         )
-        
-        subprocess.check_call(command, shell=True)
+
+    subprocess.check_call(command, shell=True)
 
 def install_openwhisk_rules(available_sequences, available_actions):
     """
@@ -395,6 +422,9 @@ def install_openwhisk_action(packaging_params, openwhisk_action, params_to_env):
         )
 
     print("Installing OpenWhisk action via {}".format(command))
+    if packaging_params.dryRun is True:
+        return
+
     subprocess.check_call(command, shell=True)
 
 def expand_params(params_to_env):
@@ -425,6 +455,9 @@ def expand_params(params_to_env):
         if paramName == "TargetAwsAccounts":
             # This needs special handling since it's an array
             continue
+        if paramName == "InitiatingAwsAccountAssumeRole":
+            # This needs special handling since it's a dictionary
+            continue
         if paramName == "WebAction":
             # This needs special handling since the format is "--web true" rather than "--param name value"
             continue
@@ -448,6 +481,12 @@ def expand_params(params_to_env):
         envVarName = params_to_env["TargetAwsAccounts"]
         envVarVal = os.environ.get(envVarName)
         result += " --param TargetAwsAccounts "
+        result += "\'{}\'".format(envVarVal)
+
+    if "InitiatingAwsAccountAssumeRole" in params_to_env:
+        envVarName = params_to_env["InitiatingAwsAccountAssumeRole"]
+        envVarVal = os.environ.get(envVarName)
+        result += " --param InitiatingAwsAccountAssumeRole "
         result += "\'{}\'".format(envVarVal)
 
     if "WebAction" in params_to_env:
@@ -539,7 +578,7 @@ def discover_dockerhub_repo():
 def get_default_packaging_params():
 
     # Parameters to specify how the openwhisk actions are packaged
-    packaging_params = collections.namedtuple('PackagingParams', 'useDockerSkeleton', 'path')
+    packaging_params = collections.namedtuple('PackagingParams', 'useDockerSkeleton', 'path', 'dryRun')
 
     # useDockerSkeleton: true or false.  True to use https://hub.docker.com/r/tleyden5iwx/openwhisk-dockerskeleton/
     #                                    False to directly build an image and push to dockerhub
@@ -550,6 +589,9 @@ def get_default_packaging_params():
     # variables set.  You will also need to go into the cmd entrypoints and call "ow.RegisterAction(OpenWhiskCallback)"
     # rather than "keynuker_go_common.InvokeActionStdIo(OpenWhiskCallback)".
     packaging_params.useDockerSkeleton = True
+
+    # Doesn't do anything, just prints out what it would do if it did
+    packaging_params.dryRun = False
 
     return packaging_params
 
