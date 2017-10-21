@@ -66,8 +66,7 @@ $ aws cloudformation describe-stacks --stack-name KeyNukerIAMAccess --query 'Sta
 
 === AssumeRole: Add a role/policy with cross-account STS AssumeRole ability
 
-See setup_assume_role.adoc
-
+This is in a separate document: link:setup_assume_role.adoc[Add a role/policy with cross-account STS AssumeRole ability]
 
 == Generate a github access token
 
@@ -121,12 +120,16 @@ This is the full list of environment variables you should have set from the abov
 |DB name
 
 |TARGET_AWS_ACCOUNTS
-|'[{"AwsAccessKeyId": "******", "AwsSecretAccessKey": "******"}]'
+|'[{"AwsAccessKeyId": "******", "AwsSecretAccessKey": "******"}]' or '[{"TargetAwsAccountId": "01234", "TargetRoleName": "KeynukerAccess", "AssumeRoleExternalId": "yourexternalid"}]'
 |AWS Access Key ID and secret of AWS account(s) being monitored, only needs limited IAM permissions
+
+|KEYNUKER_INITIATING_AWS_ACCOUNT
+|'{"AwsAccessKeyId": "******", "AwsSecretAccessKey": "******"}'
+|This is specifically needed when using STS AssumeRole for Cross Account access, otherwise set it to a blank string.  AWS Access Key ID and secret of AWS account(s) created in the link:setup_assume_role.adoc[Add a role/policy with cross-account STS AssumeRole ability] instructions under "Initiating AWS Account"
 
 |GITHUB_ACCESS_TOKEN
 |902dcb6f5386e9f3ba
-|Github access token which has the :org read permission
+|Github access token which has the `:org read` permission
 
 |GITHUB_ORGS
 |'["acme", "acme-labs"]'
