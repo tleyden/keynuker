@@ -78,10 +78,10 @@ To run integration tests, you need to set the `KEYNUKER_INTEGRATION_TESTS_ENABLE
 
 You will also need the following environment variables, some of which are described in <<Environment variables>> :
 
-- `TARGET_AWS_ACCOUNTS` (NOTE: it only uses the 1st aws account listed when running integration tests)
+- `KEYNUKER_TARGET_AWS_ACCOUNTS` (NOTE: it only uses the 1st aws account listed when running integration tests)
 - `KEYNUKER_GITHUB_LEAK_TARGET_REPO`
-- `GITHUB_ACCESS_TOKEN` (NOTE: requires more permissions than the one listed in the <<Environment variables>>, since it needs to create repos.  TODO: document the exact permissions needed)
-- `GITHUB_ORGS` (NOTE: the user that owns the `GITHUB_ACCESS_TOKEN` must be a member of one of at least one of the github orgs listed here)
+- `KEYNUKER_GITHUB_ACCESS_TOKEN` (NOTE: requires more permissions than the one listed in the <<Environment variables>>, since it needs to create repos.  TODO: document the exact permissions needed)
+- `KEYNUKER_GITHUB_ORGS` (NOTE: the user that owns the `KEYNUKER_GITHUB_ACCESS_TOKEN` must be a member of one of at least one of the github orgs listed here)
 - `KEYNUKER_DB_HOST`
 - `KEYNUKER_DB_NAME`
 - `KEYNUKER_DB_KEY`

@@ -53,7 +53,7 @@ In the AWS web admin UI, create a new IAM user called `KeyNuker` with only **Pro
 
 NOTE: the most up-to-date version of this policy is in `docs/keynuker-iam-user-policy.yml`
 
-Then under **Security credentials**, click the **Create access key** button to create a new AWS Access Key and Secret, which you should use to set the environment variable `TARGET_AWS_ACCOUNTS` as described below
+Then under **Security credentials**, click the **Create access key** button to create a new AWS Access Key and Secret, which you should use to set the environment variable `KEYNUKER_TARGET_AWS_ACCOUNTS` as described below
 
 Or to do the same steps via the CLI:
 
@@ -72,9 +72,9 @@ This is in a separate document: link:setup_assume_role.adoc[Add a role/policy wi
 
 Login to github and go to https://github.com/settings/tokens/new[generate an access token].  The only permission needed is the `read:org` (Read org and team membership) permission.  You should be logged in as a user that is a **member** of the Github organization(s) that you want to monitor user activity for.
 
-You should set this in an environment variable called `GITHUB_ACCESS_TOKEN`
+You should set this in an environment variable called `KEYNUKER_GITHUB_ACCESS_TOKEN`
 
-Decide which github orgs you want to monitor, and set the `GITHUB_ORGS` environment variable accordingly.  If you want to monitor non-public users on those orgs (highly recommended), your `GITHUB_ACCESS_TOKEN` will need to be owned by a user that is a member of those github orgs.
+Decide which github orgs you want to monitor, and set the `KEYNUKER_GITHUB_ORGS` environment variable accordingly.  If you want to monitor non-public users on those orgs (highly recommended), your `KEYNUKER_GITHUB_ACCESS_TOKEN` will need to be owned by a user that is a member of those github orgs.
 
 == Create a CouchDB compatible database
 
@@ -119,7 +119,7 @@ This is the full list of environment variables you should have set from the abov
 |keynuker
 |DB name
 
-|TARGET_AWS_ACCOUNTS
+|KEYNUKER_TARGET_AWS_ACCOUNTS
 |'[{"AwsAccessKeyId": "******", "AwsSecretAccessKey": "******"}]' or '[{"TargetAwsAccountId": "01234", "TargetRoleName": "KeynukerAccess", "AssumeRoleExternalId": "yourexternalid"}]'
 |AWS Access Key ID and secret of AWS account(s) being monitored, only needs limited IAM permissions
 
@@ -127,11 +127,11 @@ This is the full list of environment variables you should have set from the abov
 |'{"AwsAccessKeyId": "******", "AwsSecretAccessKey": "******"}'
 |This is specifically needed when using STS AssumeRole for Cross Account access, otherwise set it to a blank string.  AWS Access Key ID and secret of AWS account(s) created in the link:setup_assume_role.adoc[Add a role/policy with cross-account STS AssumeRole ability] instructions under "Initiating AWS Account"
 
-|GITHUB_ACCESS_TOKEN
+|KEYNUKER_GITHUB_ACCESS_TOKEN
 |902dcb6f5386e9f3ba
 |Github access token which has the `:org read` permission
 
-|GITHUB_ORGS
+|KEYNUKER_GITHUB_ORGS
 |'["acme", "acme-labs"]'
 |The list of github orgs you would like to monitor.  The quoting is important: outer quotes as single quotes, inner quotes as double quotes
 

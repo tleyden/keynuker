@@ -21,7 +21,7 @@ const (
 
 // Environment Variable Names
 const (
-	EnvVarKeyNukerTestGithubAccessToken = "GITHUB_ACCESS_TOKEN"
+	EnvVarKeyNukerTestGithubAccessToken = "KEYNUKER_GITHUB_ACCESS_TOKEN"
 
 	EnvVarKeyNukerTestDbHost = "KEYNUKER_DB_HOST"
 
@@ -31,9 +31,7 @@ const (
 
 	EnvVarKeyNukerTestDbPassword = "KEYNUKER_DB_SECRET_KEY"
 
-	EnvVarKeyNukerTestTargetAwsAccounts = "TARGET_AWS_ACCOUNTS"
-
-	EnvVarKeyNukerTestTargetAccountAwsAccessKeyId = "TARGET_ACCOUNT_AWS_ACCESS_KEY_ID"
+	EnvVarKeyNukerTestTargetAwsAccounts = "KEYNUKER_TARGET_AWS_ACCOUNTS"
 
 	EnvVarKeyNukerTestIntegrationTestsEnabled = "KEYNUKER_INTEGRATION_TESTS_ENABLED"
 

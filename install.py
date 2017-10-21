@@ -101,17 +101,17 @@ def get_action_params_to_env():
     # the value from
     action_params_to_env = {
         "fetch-aws-keys":{
-            "TargetAwsAccounts": "TARGET_AWS_ACCOUNTS",
+            "TargetAwsAccounts": "KEYNUKER_TARGET_AWS_ACCOUNTS",
             "KeyNukerOrg": "KEYNUKER_ORG",
             "InitiatingAwsAccountAssumeRole": "KEYNUKER_INITIATING_AWS_ACCOUNT",
         },
         "github-user-aggregator": {
-            "GithubAccessToken": "GITHUB_ACCESS_TOKEN",
-            "GithubOrgs": "GITHUB_ORGS",
+            "GithubAccessToken": "KEYNUKER_GITHUB_ACCESS_TOKEN",
+            "GithubOrgs": "KEYNUKER_GITHUB_ORGS",
             "KeyNukerOrg": "KEYNUKER_ORG",
         },
         "github-user-events-scanner": {
-            "GithubAccessToken": "GITHUB_ACCESS_TOKEN",
+            "GithubAccessToken": "KEYNUKER_GITHUB_ACCESS_TOKEN",
         },
         "lookup-github-users-aws-keys": {
             "username": "KEYNUKER_DB_KEY",
@@ -120,7 +120,7 @@ def get_action_params_to_env():
             "dbname": "KEYNUKER_DB_NAME",
         },
         "nuke-leaked-aws-keys": {
-            "TargetAwsAccounts": "TARGET_AWS_ACCOUNTS",
+            "TargetAwsAccounts": "KEYNUKER_TARGET_AWS_ACCOUNTS",
         },
         "post-nuke-notifier": {
             "KeyNukerOrg": "KEYNUKER_ORG",
