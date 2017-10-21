@@ -101,17 +101,18 @@ def get_action_params_to_env():
     # the value from
     action_params_to_env = {
         "fetch-aws-keys":{
-            "TargetAwsAccounts": "TARGET_AWS_ACCOUNTS",
+            "TargetAwsAccounts": "KEYNUKER_TARGET_AWS_ACCOUNTS",
             "KeyNukerOrg": "KEYNUKER_ORG",
             "InitiatingAwsAccountAssumeRole": "KEYNUKER_INITIATING_AWS_ACCOUNT",
         },
         "github-user-aggregator": {
-            "GithubAccessToken": "GITHUB_ACCESS_TOKEN",
-            "GithubOrgs": "GITHUB_ORGS",
+            "GithubAccessToken": "KEYNUKER_GITHUB_ACCESS_TOKEN",
+            "GithubOrgs": "KEYNUKER_GITHUB_ORGS",
+            "GithubUsers": "KEYNUKER_GITHUB_USERS",
             "KeyNukerOrg": "KEYNUKER_ORG",
         },
         "github-user-events-scanner": {
-            "GithubAccessToken": "GITHUB_ACCESS_TOKEN",
+            "GithubAccessToken": "KEYNUKER_GITHUB_ACCESS_TOKEN",
         },
         "lookup-github-users-aws-keys": {
             "username": "KEYNUKER_DB_KEY",
@@ -120,7 +121,7 @@ def get_action_params_to_env():
             "dbname": "KEYNUKER_DB_NAME",
         },
         "nuke-leaked-aws-keys": {
-            "TargetAwsAccounts": "TARGET_AWS_ACCOUNTS",
+            "TargetAwsAccounts": "KEYNUKER_TARGET_AWS_ACCOUNTS",
         },
         "post-nuke-notifier": {
             "KeyNukerOrg": "KEYNUKER_ORG",
@@ -452,6 +453,9 @@ def expand_params(params_to_env):
         if paramName == "GithubOrgs":
             # This needs special handling since it's an array
             continue
+        if paramName == "GithubUsers":
+            # This needs special handling since it's an array
+            continue
         if paramName == "TargetAwsAccounts":
             # This needs special handling since it's an array
             continue
@@ -475,6 +479,12 @@ def expand_params(params_to_env):
         envVarName = params_to_env["GithubOrgs"]
         envVarVal = os.environ.get(envVarName)
         result += " --param GithubOrgs "
+        result += "\'{}\'".format(envVarVal)
+
+    if "GithubUsers" in params_to_env:
+        envVarName = params_to_env["GithubUsers"]
+        envVarVal = os.environ.get(envVarName)
+        result += " --param GithubUsers "
         result += "\'{}\'".format(envVarVal)
 
     if "TargetAwsAccounts" in params_to_env:

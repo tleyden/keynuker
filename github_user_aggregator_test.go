@@ -1,15 +1,13 @@
-// Licensed to the Apache Software Foundation (ASF) under one or more contributor license agreements;
-// and to You under the Apache License, Version 2.0.  See LICENSE in project root for full license + copyright.
-
 package keynuker
 
 import (
 	"context"
-	"github.com/couchbaselabs/go.assert"
-	"github.com/tleyden/keynuker/keynuker-go-common"
 	"log"
 	"os"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/tleyden/keynuker/keynuker-go-common"
 )
 
 // Not much of a unit test, just allows running ghUserAggregator.ListMembers() by hand in isolation
