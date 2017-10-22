@@ -7,8 +7,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"os"
 	"log"
+	"os"
 )
 
 // Same function signature as github.com/jthomas/ow callback, but that's not exposed so redefine it here

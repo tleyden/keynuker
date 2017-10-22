@@ -135,7 +135,6 @@ type DocumentWrapperLookupGithubUsersAwsKeys struct {
 
 	// Github event checkpoint which represent the last scanned github event for each known github user
 	GithubEventCheckpoints *json.RawMessage
-
 }
 
 type DocumentWithGithubUsers struct {

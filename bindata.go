@@ -224,10 +224,10 @@ func AssetNames() []string {
 
 // _bindata is a table, holding each asset generator, mapped to its name.
 var _bindata = map[string]func() (*asset, error){
-	"testdata/ProblematicText.txt": testdataProblematictextTxt,
-	"testdata/commit_with_large_content.json": testdataCommit_with_large_contentJson,
-	"testdata/large_push_event.json": testdataLarge_push_eventJson,
-	"testdata/largefile.txt": testdataLargefileTxt,
+	"testdata/ProblematicText.txt":                     testdataProblematictextTxt,
+	"testdata/commit_with_large_content.json":          testdataCommit_with_large_contentJson,
+	"testdata/large_push_event.json":                   testdataLarge_push_eventJson,
+	"testdata/largefile.txt":                           testdataLargefileTxt,
 	"testdata/push_event_containing_large_commit.json": testdataPush_event_containing_large_commitJson,
 }
 
@@ -270,12 +270,13 @@ type bintree struct {
 	Func     func() (*asset, error)
 	Children map[string]*bintree
 }
+
 var _bintree = &bintree{nil, map[string]*bintree{
 	"testdata": &bintree{nil, map[string]*bintree{
-		"ProblematicText.txt": &bintree{testdataProblematictextTxt, map[string]*bintree{}},
-		"commit_with_large_content.json": &bintree{testdataCommit_with_large_contentJson, map[string]*bintree{}},
-		"large_push_event.json": &bintree{testdataLarge_push_eventJson, map[string]*bintree{}},
-		"largefile.txt": &bintree{testdataLargefileTxt, map[string]*bintree{}},
+		"ProblematicText.txt":                     &bintree{testdataProblematictextTxt, map[string]*bintree{}},
+		"commit_with_large_content.json":          &bintree{testdataCommit_with_large_contentJson, map[string]*bintree{}},
+		"large_push_event.json":                   &bintree{testdataLarge_push_eventJson, map[string]*bintree{}},
+		"largefile.txt":                           &bintree{testdataLargefileTxt, map[string]*bintree{}},
 		"push_event_containing_large_commit.json": &bintree{testdataPush_event_containing_large_commitJson, map[string]*bintree{}},
 	}},
 }}
@@ -326,4 +327,3 @@ func _filePath(dir, name string) string {
 	cannonicalName := strings.Replace(name, "\\", "/", -1)
 	return filepath.Join(append([]string{dir}, strings.Split(cannonicalName, "/")...)...)
 }
-

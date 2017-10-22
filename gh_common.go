@@ -5,10 +5,10 @@ package keynuker
 
 import (
 	"context"
+	"fmt"
 	"github.com/google/go-github/github"
 	"golang.org/x/oauth2"
 	"net/url"
-	"fmt"
 )
 
 type GithubClientWrapper struct {
@@ -27,7 +27,6 @@ type GithubConnectionParams struct {
 	// The github access token, which needs "read:org" permissions in order to read the concealed "non-public"
 	// members of the orgs
 	GithubAccessToken string
-
 }
 
 // If you want to use the default github API (as opposed to github enterprise), pass
@@ -40,7 +39,7 @@ func NewGithubClientWrapper(accessToken, githubApiBaseUrl string) *GithubClientW
 		&oauth2.Token{AccessToken: accessToken},
 	)
 	tc := oauth2.NewClient(ctx, ts)
-	
+
 	client := github.NewClient(tc)
 
 	// If an alternative github API base url was given, use that

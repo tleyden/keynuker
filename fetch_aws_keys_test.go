@@ -31,8 +31,8 @@ func TestFetchAwsKeysViaSTSAssumeRole(t *testing.T) {
 	}
 
 	params := ParamsFetchAwsKeys{
-		KeyNukerOrg:       "default",
-		TargetAwsAccounts: targetAwsAccounts,
+		KeyNukerOrg:                    "default",
+		TargetAwsAccounts:              targetAwsAccounts,
 		InitiatingAwsAccountAssumeRole: initiatingAwsAcctCreds,
 	}
 

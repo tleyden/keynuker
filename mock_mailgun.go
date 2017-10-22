@@ -1,9 +1,9 @@
 package keynuker
 
 import (
+	"fmt"
 	"gopkg.in/mailgun/mailgun-go.v1"
 	"time"
-	"fmt"
 )
 
 type MockMailGun struct {

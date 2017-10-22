@@ -121,7 +121,7 @@ func ScanViaTrie(accessKeysToScan []FetchedAwsAccessKey, content []byte) (leaks 
 			// Keep consuming runes by expanding the scanning window to be one rune larger
 			scanEndPointer += 1
 
-		case false:  // trie.HasKeysWithPrefix(string(currentRunes)) == false
+		case false: // trie.HasKeysWithPrefix(string(currentRunes)) == false
 
 			switch currentScannerState {
 			case ScannerStateInToken:

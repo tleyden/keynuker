@@ -34,4 +34,3 @@ func OpenWhiskCallback(value json.RawMessage) (interface{}, error) {
 	return activationsStatus, nil
 
 }
-
