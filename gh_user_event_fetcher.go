@@ -16,10 +16,10 @@ import (
 	"io"
 	"strings"
 
+	"encoding/base64"
 	"fmt"
 	"github.com/google/go-github/github"
 	"github.com/tleyden/keynuker/keynuker-go-common"
-	"encoding/base64"
 )
 
 //go:generate goautomock -template=testify -o "github_user_event_fetcher_mock.go" GithubUserEventFetcher
@@ -32,7 +32,6 @@ type GithubUserEventFetcher interface {
 
 	// Given a specific github event (eg, a commit), get the actual content for that event to be scanned for aws keys
 	FetchDownstreamContent(ctx context.Context, userEvent *github.Event) (content []byte, err error)
-
 }
 
 type GoGithubUserEventFetcher struct {
@@ -61,9 +60,12 @@ func (f FetchUserEventsInput) MatchesCheckpointID(event *github.Event) bool {
 	return *event.ID == f.CheckpointID
 }
 
-func NewGoGithubUserEventFetcher(accessToken string) *GoGithubUserEventFetcher {
+// If you want to use the default github API (as opposed to github enterprise), pass
+// in an empty string for the githubApiBaseUrl
+func NewGoGithubUserEventFetcher(accessToken, githubApiBaseUrl string) *GoGithubUserEventFetcher {
+
 	return &GoGithubUserEventFetcher{
-		GithubClientWrapper: NewGithubClientWrapper(accessToken),
+		GithubClientWrapper: NewGithubClientWrapper(accessToken, githubApiBaseUrl),
 	}
 }
 
@@ -201,7 +203,6 @@ func (guef GoGithubUserEventFetcher) FetchDownstreamContent(ctx context.Context,
 
 			}
 
-
 			buffer.Write(content)
 		}
 
@@ -229,8 +230,6 @@ func (guef GoGithubUserEventFetcher) FetchDownstreamContent(ctx context.Context,
 
 	return nil, nil
 }
-
-
 
 // Since PushEvents only contain 20 commits max, this fetches the remaining commits and writes the content to the
 // writer passed in.  For example, pushEvent.Size might indicate that there were 100 commits in the push events,

@@ -2,8 +2,8 @@ package main
 
 import (
 	"encoding/json"
-	"testing"
 	"log"
+	"testing"
 )
 
 func TestOpenWhiskCallback(t *testing.T) {

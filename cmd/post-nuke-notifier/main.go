@@ -34,9 +34,9 @@ func OpenWhiskCallback(value json.RawMessage) (interface{}, error) {
 		params.KeyNukerOrg,
 	)
 
-	docWrapper := keynuker.DocumentWrapperPostNukeNotifier {
+	docWrapper := keynuker.DocumentWrapperPostNukeNotifier{
 		DocId: docId,
-		Doc: resultDoc,
+		Doc:   resultDoc,
 	}
 
 	return docWrapper, nil

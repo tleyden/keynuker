@@ -209,15 +209,17 @@ func TestScanGithubUserEventsForAwsKeys(t *testing.T) {
 			t.Skip("You must define environment variable keynuker_test_gh_access_token to run this test")
 		}
 
-		liveGithubFetcher = NewGoGithubUserEventFetcher(accessToken)
+		liveGithubFetcher = NewGoGithubUserEventFetcher(accessToken, GetIntegrationGithubApiBaseUrl())
 
 		fetcher = liveGithubFetcher
 	}
 
 	params := ParamsScanGithubUserEventsForAwsKeys{
-		AccessKeyMetadata:      accessKeyMetadata,
-		GithubUsers:            githubUsers,
-		GithubAccessToken:      accessToken,
+		AccessKeyMetadata: accessKeyMetadata,
+		GithubUsers:       githubUsers,
+		GithubConnectionParams: GithubConnectionParams{
+			GithubAccessToken: accessToken,
+		},
 		KeyNukerOrg:            "test",
 		GithubEventCheckpoints: githubEventCheckpoints,
 	}
@@ -283,7 +285,7 @@ func TestScanGithubLargePushEvents(t *testing.T) {
 	}
 
 	// Create user event fetcher
-	fetcher := NewGoGithubUserEventFetcher(accessToken)
+	fetcher := NewGoGithubUserEventFetcher(accessToken, "")
 
 	githubUser := &github.User{
 		Login: aws.String("tleyden"),
@@ -292,7 +294,7 @@ func TestScanGithubLargePushEvents(t *testing.T) {
 	// Make a fake checkpoint event that has the current timestamp
 	githubCheckpointEvent := &github.Event{
 		CreatedAt: aws.Time(time.Now().Add(time.Hour * -24)),
-		ID: aws.String("FakeEventID"),
+		ID:        aws.String("FakeEventID"),
 	}
 	githubEventCheckpoints := GithubEventCheckpoints{}
 	githubEventCheckpoints[*githubUser.Login] = githubCheckpointEvent
@@ -355,7 +357,9 @@ func TestScanGithubLargePushEvents(t *testing.T) {
 		GithubUsers: []*github.User{
 			githubUser,
 		},
-		GithubAccessToken:      "github_access_token",
+		GithubConnectionParams: GithubConnectionParams{
+			GithubAccessToken: "github_access_token",
+		},
 		KeyNukerOrg:            "test",
 		GithubEventCheckpoints: githubEventCheckpoints,
 	}
@@ -397,7 +401,7 @@ func TestCreateFetchUserEventsInputNormalCheckpoint(t *testing.T) {
 		GithubEventCheckpoints: GithubEventCheckpoints{
 			testUsername: &github.Event{
 				CreatedAt: aws.Time(now),
-				ID: aws.String("FakeEventID"),
+				ID:        aws.String("FakeEventID"),
 			},
 		},
 	}
@@ -428,8 +432,3 @@ func TestSetDefaultCheckpointsForMissing(t *testing.T) {
 	assert.True(t, checkpointForTestUser.CreatedAt.Before(time.Now()))
 
 }
-
-
-
-
-

@@ -36,7 +36,7 @@ func OpenWhiskCallback(value json.RawMessage) (interface{}, error) {
 	// prevent excessive unwanted historical scanning
 	params = params.SetDefaultCheckpointsForMissing(keynuker_go_common.DefaultCheckpointEventTimeWindow)
 
-	fetcher := keynuker.NewGoGithubUserEventFetcher(params.GithubAccessToken)
+	fetcher := keynuker.NewGoGithubUserEventFetcher(params.GithubAccessToken, params.GithubApiUrl)
 
 	scanner := keynuker.NewGithubUserEventsScanner(fetcher)
 

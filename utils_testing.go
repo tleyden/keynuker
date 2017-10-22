@@ -96,6 +96,13 @@ func GetIntegrationTestAwsCredentials() (accessKey, secretAccessKey string, err 
 
 }
 
+func GetIntegrationGithubApiBaseUrl() string {
+	githubApiBaseUrl, ok := os.LookupEnv(keynuker_go_common.EnvVarKeyNukerTestIntegrationGithubApiBaseUrl)
+	if !ok {
+		return ""
+	}
+	return githubApiBaseUrl
+}
 
 func GetIntegrationTestTargetAwsAccountsFromEnv() (targetAwsAccounts []TargetAwsAccount, err error) {
 
@@ -104,7 +111,7 @@ func GetIntegrationTestTargetAwsAccountsFromEnv() (targetAwsAccounts []TargetAws
 	targetAwsAccounts = []TargetAwsAccount{
 		TargetAwsAccount{
 			AwsCredentials{
-				AwsAccessKeyId: accessKey,
+				AwsAccessKeyId:     accessKey,
 				AwsSecretAccessKey: secretAccessKey,
 			},
 			TargetAwsAccountAssumeRole{},
@@ -114,7 +121,6 @@ func GetIntegrationTestTargetAwsAccountsFromEnv() (targetAwsAccounts []TargetAws
 	return targetAwsAccounts, nil
 
 }
-
 
 func GetGithubOrgsFromEnv() (githubOrgs []string, err error) {
 

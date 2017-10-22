@@ -34,15 +34,15 @@ type ScanResult struct {
 
 func (s *ScanResult) SetCheckpointIfMostRecent(latestEventScanned *github.Event) {
 
-	 if latestEventScanned == nil {
-	 	// Ignore nil events
-	 	return
-	 }
+	if latestEventScanned == nil {
+		// Ignore nil events
+		return
+	}
 
-	 // If there is no checkpoint event yet whatsoever, set as current event no matter what it is
-	 if s.CheckpointEvent == nil {
-	 	s.CheckpointEvent = latestEventScanned
-	 }
+	// If there is no checkpoint event yet whatsoever, set as current event no matter what it is
+	if s.CheckpointEvent == nil {
+		s.CheckpointEvent = latestEventScanned
+	}
 
 	// Otherwise only set the checkpoint if current event happened after checkpoint
 	if (*latestEventScanned.CreatedAt).After(*s.CheckpointEvent.CreatedAt) {
@@ -67,7 +67,6 @@ func (s ScanResult) CompactCheckpointEvent() *github.Event {
 	return resultEvent
 
 }
-
 
 func NewGithubUserEventsScanner(fetcher GithubUserEventFetcher) *GithubUserEventsScanner {
 
@@ -315,12 +314,11 @@ func (gues GithubUserEventsScanner) discoverLeakerEmail(userEvent *github.Event)
 
 type ParamsScanGithubUserEventsForAwsKeys struct {
 
+	// Github API URL and access token
+	GithubConnectionParams
+
 	// This is the name of the KeyNuker "org/tenant".  Defaults to "default", but allows to be extended multi-tenant.
 	KeyNukerOrg string
-
-	// The github access token, which needs "read:org" permissions in order to read the concealed "non-public"
-	// members of the orgs
-	GithubAccessToken string
 
 	// A list of github users
 	GithubUsers []*github.User
@@ -399,7 +397,7 @@ func (p ParamsScanGithubUserEventsForAwsKeys) SetDefaultCheckpointsForMissing(re
 		if !ok || checkpoint == nil {
 			githubCheckpointEvent := &github.Event{
 				CreatedAt: aws.Time(time.Now().Add(recentTimeWindow)), // eg, time.Hour * -12
-				ID: aws.String("ArtificialCheckpointId"),
+				ID:        aws.String("ArtificialCheckpointId"),
 			}
 			returnParams.GithubEventCheckpoints[*githubUser.Login] = githubCheckpointEvent
 		}

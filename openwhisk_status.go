@@ -13,7 +13,6 @@ import (
 	"gopkg.in/mailgun/mailgun-go.v1"
 )
 
-
 type ParamsMonitorActivations struct {
 
 	// MailerParams
@@ -27,7 +26,6 @@ type ParamsMonitorActivations struct {
 
 	// Optionally specify the Keynuker admin email to be CC'd about any leaked/nuked keys
 	KeynukerAdminEmailCCAddress string `json:"admin_email_cc_address"`
-
 }
 
 func SendMonitorNotifications(params ParamsMonitorActivations, activationStatus map[string]interface{}) (deliveryId string, err error) {
@@ -58,7 +56,6 @@ func SendMonitorNotifications(params ParamsMonitorActivations, activationStatus 
 	return id, nil
 
 }
-
 
 // Connect to OpenWhisk API and scan the list of recent activations and look for any failures.
 // If any failures found, return {"status": "failure"}.  Otherwise return {"status": "success"}.

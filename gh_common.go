@@ -5,8 +5,10 @@ package keynuker
 
 import (
 	"context"
+	"fmt"
 	"github.com/google/go-github/github"
 	"golang.org/x/oauth2"
+	"net/url"
 )
 
 type GithubClientWrapper struct {
@@ -14,7 +16,22 @@ type GithubClientWrapper struct {
 	ApiClient   *github.Client
 }
 
-func NewGithubClientWrapper(accessToken string) *GithubClientWrapper {
+// The connection parameters requires to connect to the Github API on github.com or
+// hosted on Github Enterprise.
+type GithubConnectionParams struct {
+
+	// The URL of the github API to connect to.  If blank, will connect to https://api.github.com.
+	// Github Enterprise users will need to set this to point to their Github Enterprise server
+	GithubApiUrl string
+
+	// The github access token, which needs "read:org" permissions in order to read the concealed "non-public"
+	// members of the orgs
+	GithubAccessToken string
+}
+
+// If you want to use the default github API (as opposed to github enterprise), pass
+// in an empty string for the githubApiBaseUrl
+func NewGithubClientWrapper(accessToken, githubApiBaseUrl string) *GithubClientWrapper {
 
 	ctx := context.Background()
 
@@ -24,6 +41,15 @@ func NewGithubClientWrapper(accessToken string) *GithubClientWrapper {
 	tc := oauth2.NewClient(ctx, ts)
 
 	client := github.NewClient(tc)
+
+	// If an alternative github API base url was given, use that
+	if githubApiBaseUrl != "" {
+		baseUrl, err := url.Parse(githubApiBaseUrl)
+		if err != nil {
+			panic(fmt.Sprintf("Invalid Github API url given: %v", githubApiBaseUrl))
+		}
+		client.BaseURL = baseUrl
+	}
 
 	return &GithubClientWrapper{
 		AccessToken: accessToken,

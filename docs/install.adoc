@@ -139,6 +139,10 @@ This is the full list of environment variables you should have set from the abov
 |'["defunkt", "torvalds"]'
 |The list of individual github user logins you would like to monitor, which is appended to the users found from the KEYNUKER_GITHUB_ORGS lookup (if any).  The quoting is important: outer quotes as single quotes, inner quotes as double quotes
 
+|KEYNUKER_GITHUB_ENTERPRISE_API_URL
+|https://github.your.co
+|Github Enterprise users will need to set this to point to your custom URL.  Defaults to "", which will connect to https://api.github.com.
+
 |KEYNUKER_MAILER_API_KEY
 |key-82ea6cfe7dc69f6c
 |The Mailgun API key for notifications.  At the moment, mailgun is the only option for outgoing mail.  Please open an issue if you need a different option.  You can find the mailer (Mailgun) API keys in the link:https://mailgun.com/app/account/security[Maigun Web Admin]  For `MAILERAPIKEY` use the value in `Active API Key` and for `MAILERPUBLICAPIKEY` use `Email Validation Key`

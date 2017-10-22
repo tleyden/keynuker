@@ -16,12 +16,11 @@ const (
 	DocIdPrefixAwsKeys = "aws_keys"
 
 	DocIdPrefixGithubEventCheckpoints = "github_event_checkpoints"
-
 )
 
 // Environment Variable Names
 const (
-	EnvVarKeyNukerTestGithubAccessToken = "KEYNUKER_GITHUB_ACCESS_TOKEN"
+	EnvVarKeyNukerTestGithubAccessToken = "KEYNUKER_INTEGRATION_TEST_GITHUB_ACCESS_TOKEN"
 
 	EnvVarKeyNukerTestDbHost = "KEYNUKER_DB_HOST"
 
@@ -35,10 +34,12 @@ const (
 
 	EnvVarKeyNukerTestIntegrationTestsEnabled = "KEYNUKER_INTEGRATION_TESTS_ENABLED"
 
-	EnvVarKeyNukerTestIntegrationAccessKey = "KEYNUKER_INTEGRATION_TEST_ACCESS_KEY"
+	EnvVarKeyNukerTestIntegrationAccessKey       = "KEYNUKER_INTEGRATION_TEST_ACCESS_KEY"
 	EnvVarKeyNukerTestIntegrationSecretAccessKey = "KEYNUKER_INTEGRATION_TEST_SECRET_ACCESS_KEY"
 
 	EnvVarKeyNukerInitiatingAwsAccountCreds = "KEYNUKER_INITIATING_AWS_ACCOUNT"
+
+	EnvVarKeyNukerTestIntegrationGithubApiBaseUrl = "KEYNUKER_INTEGRATION_TEST_GITHUB_BASE_API_URL"
 
 	EnvVarKeyNukerTestGithubOrgs = "KEYNUKER_INTEGRATION_TEST_GITHUB_ORGS"
 
@@ -53,9 +54,6 @@ const (
 	EnvVarKeyNukerMailerApiKey = "KEYNUKER_MAILER_API_KEY"
 
 	EnvVarKeyNukerMailerPublicApiKey = "KEYNUKER_MAILER_PUBLIC_API_KEY"
-
-
-
 )
 
 // Misc
@@ -71,7 +69,7 @@ const (
 
 	// The max size in bytes of blob content that will be scanned.
 	// This should be raised to 100 MB once the stream based scanning is implemented.
-	MaxSizeBytesBlobContent = 10000000  // 10 MB
+	MaxSizeBytesBlobContent = 10000000 // 10 MB
 
 )
 
@@ -79,7 +77,6 @@ var (
 
 	// If there is no recorded checkpoint for a user, how far back should the scanning go in the github user event history?
 	DefaultCheckpointEventTimeWindow time.Duration
-
 )
 
 func init() {
