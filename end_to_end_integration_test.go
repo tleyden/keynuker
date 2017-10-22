@@ -23,8 +23,8 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/iam"
 	"github.com/google/go-github/github"
-	"github.com/tleyden/keynuker/keynuker-go-common"
 	"github.com/satori/go.uuid"
+	"github.com/tleyden/keynuker/keynuker-go-common"
 )
 
 // INSTRUCTIONS to run integration tests are in the Developer Guide (developers.adoc)
@@ -150,7 +150,6 @@ func (e *EndToEndIntegrationTest) InitGithubAccess() error {
 }
 
 func (e *EndToEndIntegrationTest) InitAwsIamSession() error {
-
 
 	targetAwsAccounts, err := GetIntegrationTestTargetAwsAccountsFromEnv()
 	if err != nil {
@@ -330,9 +329,11 @@ func (e EndToEndIntegrationTest) RunKeyNuker(accessKeyToNuke *iam.AccessKey) (er
 	// ------------------------ Github User Aggregator -------------------------
 
 	paramsAggregateGithubUsers := ParamsGithubUserAggregator{
-		KeyNukerOrg:       keyNukerOrg,
-		GithubAccessToken: e.GithubAccessToken,
-		GithubOrgs:        e.GithubOrgs,
+		KeyNukerOrg: keyNukerOrg,
+		GithubConnectionParams: GithubConnectionParams{
+			GithubAccessToken: e.GithubAccessToken,
+		},
+		GithubOrgs: e.GithubOrgs,
 	}
 
 	resultAggregateGithubUsers, err := AggregateGithubUsers(paramsAggregateGithubUsers)
@@ -343,9 +344,10 @@ func (e EndToEndIntegrationTest) RunKeyNuker(accessKeyToNuke *iam.AccessKey) (er
 	// ------------------------ Github User Events Scanner -------------------------
 
 	paramsScanGithubUserEventsForAwsKeys := ParamsScanGithubUserEventsForAwsKeys{
-		KeyNukerOrg:       keyNukerOrg,
-		GithubAccessToken: e.GithubAccessToken,
-		GithubUsers:       resultAggregateGithubUsers.Doc.GithubUsers,
+		KeyNukerOrg: keyNukerOrg,
+		GithubConnectionParams: GithubConnectionParams{
+			GithubAccessToken: e.GithubAccessToken,
+		}, GithubUsers: resultAggregateGithubUsers.Doc.GithubUsers,
 		AccessKeyMetadata: fetchedAwsKeys.Doc.AccessKeyMetadata,
 	}
 
@@ -552,7 +554,6 @@ func (lkvoc *LeakKeyViaOlderCommit) Leak(accessKey *iam.AccessKey) error {
 func (lkvoc LeakKeyViaOlderCommit) WaitForPushEvent(ctx context.Context, branch, headSHA string) error {
 
 	log.Printf("WaitForPushEvent called with branch: %s headSHA: %s", branch, headSHA)
-
 
 	// Wait until we see a PushEvent on events feed that is on the master branch and has a head commit
 	// of mergeCommit.SHA

@@ -106,12 +106,14 @@ def get_action_params_to_env():
             "InitiatingAwsAccountAssumeRole": "KEYNUKER_INITIATING_AWS_ACCOUNT",
         },
         "github-user-aggregator": {
+            "GithubApiUrl": "KEYNUKER_GITHUB_ENTERPRISE_API_URL",
             "GithubAccessToken": "KEYNUKER_GITHUB_ACCESS_TOKEN",
             "GithubOrgs": "KEYNUKER_GITHUB_ORGS",
             "GithubUsers": "KEYNUKER_GITHUB_USERS",
             "KeyNukerOrg": "KEYNUKER_ORG",
         },
         "github-user-events-scanner": {
+            "GithubApiUrl": "KEYNUKER_GITHUB_ENTERPRISE_API_URL",
             "GithubAccessToken": "KEYNUKER_GITHUB_ACCESS_TOKEN",
         },
         "lookup-github-users-aws-keys": {
@@ -449,6 +451,10 @@ def expand_params(params_to_env):
 
     result_list = []
 
+    # Some parameters can be empty -- eg, if the corresponding env variable doesn't exist,
+    # just ignore it and don't add the param
+    allowed_empty = ["GithubApiUrl"]
+
     for paramName, envVarName in params_to_env.iteritems():
         if paramName == "GithubOrgs":
             # This needs special handling since it's an array
@@ -468,7 +474,11 @@ def expand_params(params_to_env):
 
         envVarVal = os.environ.get(envVarName)
         if envVarVal is None:
+            if paramName in allowed_empty:
+                continue  # Skip this param
+
             raise Exception("You must set the {} environment variable".format(envVarName))
+
         result_list.append("--param")
         result_list.append(paramName)
         result_list.append('{}'.format(envVarVal))

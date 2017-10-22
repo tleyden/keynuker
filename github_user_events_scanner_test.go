@@ -217,7 +217,9 @@ func TestScanGithubUserEventsForAwsKeys(t *testing.T) {
 	params := ParamsScanGithubUserEventsForAwsKeys{
 		AccessKeyMetadata:      accessKeyMetadata,
 		GithubUsers:            githubUsers,
-		GithubAccessToken:      accessToken,
+		GithubConnectionParams: GithubConnectionParams{
+			GithubAccessToken: accessToken,
+		},
 		KeyNukerOrg:            "test",
 		GithubEventCheckpoints: githubEventCheckpoints,
 	}
@@ -355,7 +357,9 @@ func TestScanGithubLargePushEvents(t *testing.T) {
 		GithubUsers: []*github.User{
 			githubUser,
 		},
-		GithubAccessToken:      "github_access_token",
+		GithubConnectionParams: GithubConnectionParams{
+			GithubAccessToken: "github_access_token",
+		},
 		KeyNukerOrg:            "test",
 		GithubEventCheckpoints: githubEventCheckpoints,
 	}

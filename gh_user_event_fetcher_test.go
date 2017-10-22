@@ -84,7 +84,7 @@ func TestGithubGetContents(t *testing.T) {
 		t.Skip("You must define environment variable keynuker_test_gh_access_token to run this test")
 	}
 
-	githubClientWrapper := NewGithubClientWrapper(accessToken)
+	githubClientWrapper := NewGithubClientWrapper(accessToken, GetIntegrationGithubApiBaseUrl())
 	opt := &github.RepositoryContentGetOptions{
 		Ref: "master",
 	}
@@ -115,7 +115,7 @@ func TestGithubGetBlob(t *testing.T) {
 	}
 
 	sha := "cc9d0ebcaff7e33b0d08535b0393483bf70ea804"
-	githubClientWrapper := NewGithubClientWrapper(accessToken)
+	githubClientWrapper := NewGithubClientWrapper(accessToken, GetIntegrationGithubApiBaseUrl())
 	blob, response, err := githubClientWrapper.ApiClient.Git.GetBlob(
 		context.Background(),
 		"tleyden",

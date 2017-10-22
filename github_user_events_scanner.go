@@ -313,14 +313,14 @@ func (gues GithubUserEventsScanner) discoverLeakerEmail(userEvent *github.Event)
 
 }
 
+
 type ParamsScanGithubUserEventsForAwsKeys struct {
+
+	// Github API URL and access token
+	GithubConnectionParams
 
 	// This is the name of the KeyNuker "org/tenant".  Defaults to "default", but allows to be extended multi-tenant.
 	KeyNukerOrg string
-
-	// The github access token, which needs "read:org" permissions in order to read the concealed "non-public"
-	// members of the orgs
-	GithubAccessToken string
 
 	// A list of github users
 	GithubUsers []*github.User

@@ -67,7 +67,7 @@ func (f FetchUserEventsInput) MatchesCheckpointID(event *github.Event) bool {
 func NewGoGithubUserEventFetcher(accessToken, githubApiBaseUrl string) *GoGithubUserEventFetcher {
 
 	return &GoGithubUserEventFetcher{
-		GithubClientWrapper: NewGithubClientWrapper(accessToken, ""),  // TODO: get api base uri env variable
+		GithubClientWrapper: NewGithubClientWrapper(accessToken, githubApiBaseUrl),  // TODO: get api base uri env variable
 	}
 }
 
