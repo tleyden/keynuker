@@ -71,6 +71,19 @@ const (
 	// This should be raised to 100 MB once the stream based scanning is implemented.
 	MaxSizeBytesBlobContent = 10000000 // 10 MB
 
+	// UseDockerSkeleton: true or false.
+	//
+	// - True to use https://hub.docker.com/r/tleyden5iwx/openwhisk-dockerskeleton/ (default)
+	// - False to directly build an image and push to dockerhub
+	//
+	// There are two reasons you might want to set this to False:
+	//   1. Want full control of all the code, as opposed to trusting the code in https://hub.docker.com/r/tleyden5iwx/openwhisk-dockerskeleton/
+	//   2. Suspect there is an issue with the actionproxy.py wrapper code in openwhisk-dockerskeleton, and want to compare behavior.
+	//
+	// If you set to False, you will need to have docker locally installed and a few extra environment
+	// variables set.  This needs to match the value in install.py.
+	UseDockerSkeleton = true
+
 )
 
 var (
