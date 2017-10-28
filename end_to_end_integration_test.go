@@ -234,8 +234,9 @@ func (e EndToEndIntegrationTest) DiscoverIAMUsernameForKey(AwsAccessKeyId string
 
 func (e EndToEndIntegrationTest) GetEndToEndKeyLeakScenarios() []KeyLeakScenario {
 	return []KeyLeakScenario{
-		NewLeakKeyViaNewGithubIssue(e.GithubAccessToken, e.GithubRepoLeakTargetRepo),
-		NewLeakKeyViaOlderCommit(e.GithubAccessToken, e.GithubRepoLeakTargetRepo),
+		// NewLeakKeyViaNewGithubIssue(e.GithubAccessToken, e.GithubRepoLeakTargetRepo),
+		// NewLeakKeyViaOlderCommit(e.GithubAccessToken, e.GithubRepoLeakTargetRepo),
+		NewLeakKeyViaCreateEvent(e.GithubAccessToken, e.GithubRepoLeakTargetRepo),
 	}
 }
 
@@ -475,7 +476,7 @@ func (lkvoc *LeakKeyViaOlderCommit) Leak(accessKey *iam.AccessKey) error {
 		body := fmt.Sprintf("LeakKeyViaOlderCommit commit %d", i)
 		path := fmt.Sprintf("KeyNukerEndToEndIntegrationHarmlessFile-%d.txt", i)
 
-		if _, err := lkvoc.PushCommit(path, body); err != nil {
+		if _, err := lkvoc.PushCommit(path, body, true); err != nil {
 			return err
 		}
 	}
@@ -493,7 +494,7 @@ func (lkvoc *LeakKeyViaOlderCommit) Leak(accessKey *iam.AccessKey) error {
 		// Make filename unique, otherwise will end up with a small diff from previous test rather than entire file content
 		path := fmt.Sprintf("KeyNukerEndToEndIntegrationTestLeakedKeyLargefile-%s.txt", uuid.NewV4())
 		log.Printf("Large commit filename: %v", path)
-		commit, errPushCommit := lkvoc.PushCommit(path, body)
+		commit, errPushCommit := lkvoc.PushCommit(path, body, true)
 		if errPushCommit != nil {
 			return errPushCommit
 		}
@@ -502,7 +503,7 @@ func (lkvoc *LeakKeyViaOlderCommit) Leak(accessKey *iam.AccessKey) error {
 		// Push a single commit with a leaked key
 		body := fmt.Sprintf("LeakKeyViaOlderCommit access key id: %v", *accessKey.AccessKeyId)
 		path := "KeyNukerEndToEndIntegrationTestLeakedKeyFile.txt"
-		commit, errPushCommit := lkvoc.PushCommit(path, body)
+		commit, errPushCommit := lkvoc.PushCommit(path, body, true)
 		if errPushCommit != nil {
 			return errPushCommit
 		}
@@ -661,13 +662,14 @@ func (lkvoc LeakKeyViaOlderCommit) CreateBranchIfNotExist(branch string) error {
 // Based on:
 //   https://gist.github.com/harlantwood/2935203
 //   http://www.levibotelho.com/development/commit-a-file-with-the-github-api/
-func (lkvoc LeakKeyViaOlderCommit) PushCommit(path, body string) (commit *github.Commit, err error) {
+// If targetBranchExists, it will try to update the branch.  Otherwise, create the branch
+func (lkvoc LeakKeyViaOlderCommit) PushCommit(path, body string, targetBranchExists bool) (commit *github.Commit, err error) {
 
 	ctx := context.Background()
 
 	latestCommitSha, err := lkvoc.GetLatestCommitSha(lkvoc.GitBranch)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("Error GetLatestCommitSha: %v", err)
 	}
 
 	// Create a tree
@@ -682,11 +684,12 @@ func (lkvoc LeakKeyViaOlderCommit) PushCommit(path, body string) (commit *github
 				Path:    aws.String(path),
 				Content: aws.String(body),
 				Mode:    aws.String("100644"),
+				// TODO: should this be Type: blob?
 			},
 		},
 	)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("Error doing CreateTree: %v", err)
 	}
 
 	// Create a commit
@@ -706,30 +709,59 @@ func (lkvoc LeakKeyViaOlderCommit) PushCommit(path, body string) (commit *github
 		},
 	)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("Error doing CreateCommit: %v", err)
 	}
 
 	log.Printf("Created commit: %v", *commitResult.SHA)
 
-	// Update a reference
-	// https://developer.github.com/v3/git/refs/#update-a-reference
-	refResult, _, err := lkvoc.GithubClientWrapper.ApiClient.Git.UpdateRef(
-		ctx,
-		*lkvoc.GithubUser.Login,
-		lkvoc.GithubRepoLeakTargetRepo,
-		&github.Reference{
-			Ref: aws.String(lkvoc.GitBranch),
-			Object: &github.GitObject{
-				SHA: commitResult.SHA,
+	switch targetBranchExists {
+	case true:
+		// Update a reference
+		// https://developer.github.com/v3/git/refs/#update-a-reference
+		refResult, _, err := lkvoc.GithubClientWrapper.ApiClient.Git.UpdateRef(
+			ctx,
+			*lkvoc.GithubUser.Login,
+			lkvoc.GithubRepoLeakTargetRepo,
+			&github.Reference{
+				Ref: aws.String(lkvoc.GitBranch),
+				Object: &github.GitObject{
+					SHA: commitResult.SHA,
+				},
 			},
-		},
-		true,
-	)
-	if err != nil {
-		return commitResult, err
+			true,
+		)
+		if err != nil {
+			return commitResult, fmt.Errorf("Error doing UpdateRef: %v", err)
+		}
+		log.Printf("Updated branch to point to commit: %v", *refResult.Object.SHA)
+	case false:
+		// Create a reference
+		// https://developer.github.com/v3/git/refs/#create-a-reference
+
+		// For the branch name, add a "2" at the end
+		branchName := fmt.Sprintf("%v-3", lkvoc.GitBranch)
+
+		refResult, _, err := lkvoc.GithubClientWrapper.ApiClient.Git.CreateRef(
+			ctx,
+			*lkvoc.GithubUser.Login,
+			lkvoc.GithubRepoLeakTargetRepo,
+			&github.Reference{
+				Ref: aws.String(branchName),
+				Object: &github.GitObject{
+					SHA: commitResult.SHA,
+					// SHA: &latestCommitSha,  // TEMP: try to create a branch from existing commit
+				},
+			},
+		)
+		if err != nil {
+			return commitResult, fmt.Errorf("Error doing CreateRef: %v", err)
+		}
+		log.Printf("Created branch to point to commit: %v", *refResult.Object.SHA)
+
 	}
 
-	log.Printf("Updated branch to point to commit: %v", *refResult.Object.SHA)
+
+
 
 	return commitResult, nil
 
@@ -1047,3 +1079,59 @@ func (lkvc LeakKeyViaNewGithubIssue) Cleanup() error {
 
 	return nil
 }
+
+
+// ----------------------------------------------- Key Leak Scenarios --------------------------------------------------
+
+//type KeyLeakScenario interface {
+//	Leak(accessKey *iam.AccessKey) error
+//	Cleanup() error
+//	RecordLatestEventFeedID() error
+//	WaitForLeakOnEventFeed() error
+//}
+
+// --------------------------------------------- LeakKeyViaCreateEvent Scenario ----------------------------------------
+
+type LeakKeyViaCreateEvent struct {
+	LeakKeyViaOlderCommit
+}
+
+func NewLeakKeyViaCreateEvent(githubAccessToken, targetGithubRepo string) *LeakKeyViaCreateEvent {
+
+	leakKeyViaOlderCommit := NewLeakKeyViaOlderCommit(githubAccessToken, targetGithubRepo)
+	leakKeyViaOlderCommit.GitBranch = fmt.Sprintf("%v/%v", keynuker_go_common.GithubRefsHeadsPrefix, keynuker_go_common.KeyNukerIntegrationTestBranch)
+	return &LeakKeyViaCreateEvent{
+		LeakKeyViaOlderCommit: *leakKeyViaOlderCommit,
+	}
+
+}
+
+
+func (lkvce *LeakKeyViaCreateEvent) Leak(accessKey *iam.AccessKey) error {
+
+	log.Printf("LeakKeyViaCreateEvent.Leak() called")
+
+	ctx := context.Background()
+
+	var err error
+
+	// Find out the github username (aka user login)
+	lkvce.GithubUser, _, err = lkvce.GithubClientWrapper.ApiClient.Users.Get(ctx, "")
+	if err != nil {
+		return err
+	}
+
+	// Create the integration test branch if it doesn't already exist
+	// lkvce.CreateBranchIfNotExist(lkvce.GitBranch)
+
+	body := fmt.Sprintf("LeakKeyViaCreateEvent")
+	path := fmt.Sprintf("KeyNukerEndToEndIntegrationHarmlessFile.txt")
+	if _, err := lkvce.PushCommit(path, body, false); err != nil {
+		return err
+	}
+
+
+	return nil
+
+}
+
