@@ -218,6 +218,13 @@ func (guef GoGithubUserEventFetcher) FetchDownstreamContent(ctx context.Context,
 			username := repoNameComponents[0]
 			repoName := repoNameComponents[1]
 
+			// If it's not running in the context of an integration test, then ignore test branches
+			if !IntegrationTestsEnabled() && strings.Contains(*v.Ref, keynuker_go_common.KeyNukerIntegrationTestBranch) {
+				// skip this since as an experiment
+				log.Printf("Skipping CreateEvent %v since it's on %v testing branch", *userEvent.ID, keynuker_go_common.KeyNukerIntegrationTestBranch)
+				return []byte(""), nil
+			}
+
 			// This will list the last 100 commits on the branch or tag and scan them
 			// TODO: detect if there are more than 100 commits that haven't been scanned yet (currently no way to do that)
 			// TODO: and if there are, trigger a deep scan on this repo, which will git clone the repo scan local content
@@ -261,8 +268,11 @@ func (guef GoGithubUserEventFetcher) FetchDownstreamContent(ctx context.Context,
 
 		buffer := bytes.Buffer{}
 
+		// The github API only returns a maximum of 20 commits per push event
 		maxCommitsPerPushEvent := 20
 
+		// Ignore test branches.  These can always be ignored, even in integration tests, because in
+		// the current integration tests it ends up merging to master and scanning the commits on master.
 		if strings.Contains(*v.Ref, keynuker_go_common.KeyNukerIntegrationTestBranch) {
 			// skip this since as an experiment
 			log.Printf("Skipping push event %v since it's on %v testing branch", *v.PushID, keynuker_go_common.KeyNukerIntegrationTestBranch)
