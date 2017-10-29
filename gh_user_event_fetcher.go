@@ -259,9 +259,9 @@ func (guef GoGithubUserEventFetcher) FetchDownstreamContent(ctx context.Context,
 			return content, nil
 
 		case "repo":
-			log.Printf("CreateEvent.  New repo: %v.  Not scanning any commits.", *v.Ref)
+			log.Printf("CreateEvent.  New repo.  Not scanning any commits.")
 		default:
-			log.Printf("Unknown CreateEvent reftype: %v", *v.Ref)
+			log.Printf("Unknown CreateEvent reftype: %v", *v.RefType)
 		}
 
 	case *github.PushEvent:
