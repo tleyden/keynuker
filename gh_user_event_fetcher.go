@@ -206,17 +206,18 @@ func (guef GoGithubUserEventFetcher) FetchDownstreamContent(ctx context.Context,
 
 	case *github.CreateEvent:
 
-		log.Printf("CreateEvent: %+v", *v)
+		log.Printf("CreateEvent id: %v", *userEvent.ID)
 
 		switch *v.RefType {
 		case "tag":
 			log.Printf("CreateEvent.  New tag: %v", *v.Ref)
 			fallthrough
 		case "branch":
-			log.Printf("CreateEvent.  New branch/tag: %v.  Scanning recent commits on that branch/tag.", *v.Ref)
 			repoNameComponents := strings.Split(*userEvent.Repo.Name, "/")
 			username := repoNameComponents[0]
 			repoName := repoNameComponents[1]
+
+			log.Printf("CreateEvent.  New branch/tag: %v in repo %v.  Scanning recent commits.", *v.Ref, *userEvent.Repo.Name)
 
 			// If it's not running in the context of an integration test, then ignore test branches
 			if !IntegrationTestsEnabled() && strings.Contains(*v.Ref, keynuker_go_common.KeyNukerIntegrationTestBranch) {
@@ -225,13 +226,13 @@ func (guef GoGithubUserEventFetcher) FetchDownstreamContent(ctx context.Context,
 				return []byte(""), nil
 			}
 
-			// This will list the last 100 commits on the branch or tag and scan them
-			// TODO: detect if there are more than 100 commits that haven't been scanned yet (currently no way to do that)
+			// This will list the last 20 commits on the branch or tag and scan them
+			// TODO: detect if there are more than 20 commits that haven't been scanned yet (currently no way to do that)
 			// TODO: and if there are, trigger a deep scan on this repo, which will git clone the repo scan local content
 			commitListOptions := &github.CommitsListOptions{
 				SHA: *v.Ref,
 				ListOptions: github.ListOptions{
-					PerPage: MaxPerPage,
+					PerPage: 20,
 					Page:    0,
 				},
 			}
@@ -242,6 +243,11 @@ func (guef GoGithubUserEventFetcher) FetchDownstreamContent(ctx context.Context,
 				commitListOptions,
 			)
 			if err != nil {
+				// Ignore 404 not found errors, since the branch may no longer exist
+				if strings.Contains(err.Error(), "404 Not Found") {
+					log.Printf("Warning: Skipping branch/tag since it apparently no longer exists.  Err: %v Err Type: %T", err, err)
+					return []byte(""), nil
+				}
 				return []byte(""), fmt.Errorf("Error calling ListCommits: %v", err)
 			}
 

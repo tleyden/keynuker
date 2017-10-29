@@ -43,6 +43,8 @@ import (
 // - Cleanup other residue (gists, etc)
 func TestEndToEndIntegration(t *testing.T) {
 
+	keynuker_go_common.LogMemoryUsage()
+
 	SkipIfIntegrationsTestsNotEnabled(t)
 
 	endToEndIntegrationTest := NewEndToEndIntegrationTest()
@@ -234,8 +236,8 @@ func (e EndToEndIntegrationTest) DiscoverIAMUsernameForKey(AwsAccessKeyId string
 
 func (e EndToEndIntegrationTest) GetEndToEndKeyLeakScenarios() []KeyLeakScenario {
 	return []KeyLeakScenario{
-		NewLeakKeyViaNewGithubIssue(e.GithubAccessToken, e.GithubRepoLeakTargetRepo),
-		NewLeakKeyViaOlderCommit(e.GithubAccessToken, e.GithubRepoLeakTargetRepo),
+		// NewLeakKeyViaNewGithubIssue(e.GithubAccessToken, e.GithubRepoLeakTargetRepo),
+		// NewLeakKeyViaOlderCommit(e.GithubAccessToken, e.GithubRepoLeakTargetRepo),
 		NewLeakKeyViaCreateEvent(e.GithubAccessToken, e.GithubRepoLeakTargetRepo),
 	}
 }

@@ -144,7 +144,7 @@ func (gues GithubUserEventsScanner) ScanAwsKeys(params ParamsScanGithubUserEvent
 
 			// TODO: partial errors are being absorbed/ignored here.  They should somehow be propagated back to the caller
 			if scanResult.Error != nil {
-				log.Printf("Warning: Got error trying to scan github user events: %+v", scanResult)
+				log.Printf("Warning: Got error trying to scan github user events: %v", scanResult.Error)
 				continue
 			}
 

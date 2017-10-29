@@ -11,6 +11,8 @@ import (
 	"os"
 
 	"github.com/tleyden/ow"
+	"runtime"
+	"time"
 )
 
 var UseDockerSkeleton bool
@@ -28,6 +30,17 @@ func RegistorOrInvokeActionStdIo(callback ow.OpenWhiskCallback) {
 	} else {
 		ow.RegisterAction(WrapCallbackWithLogSentinel("CustomDocker", callback))
 	}
+}
+
+func LogMemoryUsage() {
+	go func() {
+		for {
+			var m runtime.MemStats
+			runtime.ReadMemStats(&m)
+			log.Printf("\nAlloc = %v KB\nStackSys = %v KB\nSys = %v KB \nNumGC = %v\n\n", m.Alloc / 1024, m.StackSys / 1024, m.Sys / 1024, m.NumGC)
+			time.Sleep(1 * time.Second)
+		}
+	}()
 }
 
 func WrapCallbackWithLogSentinel(invocationMethod string, callback ow.OpenWhiskCallback) ow.OpenWhiskCallback {
