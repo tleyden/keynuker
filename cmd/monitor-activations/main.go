@@ -8,7 +8,8 @@ import (
 )
 
 func main() {
-	keynuker_go_common.LogMemoryUsage()
+	defer keynuker_go_common.LogMemoryUsage()
+	keynuker_go_common.LogMemoryUsageLoop()
 	keynuker_go_common.RegistorOrInvokeActionStdIo(OpenWhiskCallback)
 }
 

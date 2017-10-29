@@ -43,7 +43,7 @@ import (
 // - Cleanup other residue (gists, etc)
 func TestEndToEndIntegration(t *testing.T) {
 
-	keynuker_go_common.LogMemoryUsage()
+	keynuker_go_common.LogMemoryUsageLoop()
 
 	SkipIfIntegrationsTestsNotEnabled(t)
 

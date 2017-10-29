@@ -6,12 +6,16 @@ package main
 import (
 	"encoding/json"
 
+	"log"
+
 	"github.com/tleyden/keynuker"
 	"github.com/tleyden/keynuker/keynuker-go-common"
 )
 
 func main() {
-	keynuker_go_common.LogMemoryUsage()
+	defer keynuker_go_common.LogMemoryUsage()
+	defer log.Printf("main() finished")
+	keynuker_go_common.LogMemoryUsageLoop()
 	keynuker_go_common.RegistorOrInvokeActionStdIo(OpenWhiskCallback)
 }
 

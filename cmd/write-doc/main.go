@@ -15,7 +15,8 @@ import (
 // it will "clobber" it and create a new revision based on the updated content.
 
 func main() {
-	keynuker_go_common.LogMemoryUsage()
+	defer keynuker_go_common.LogMemoryUsage()
+	keynuker_go_common.LogMemoryUsageLoop()
 	keynuker_go_common.RegistorOrInvokeActionStdIo(OpenWhiskCallback)
 }
 

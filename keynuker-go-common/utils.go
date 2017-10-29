@@ -4,15 +4,14 @@
 package keynuker_go_common
 
 import (
-	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"log"
-	"os"
-
-	"github.com/tleyden/ow"
-	"runtime"
 	"time"
+	"runtime"
+	"encoding/json"
+	"io/ioutil"
+	"os"
+	"github.com/tleyden/ow"
 )
 
 var UseDockerSkeleton bool
@@ -32,15 +31,22 @@ func RegistorOrInvokeActionStdIo(callback ow.OpenWhiskCallback) {
 	}
 }
 
-func LogMemoryUsage() {
+func LogMemoryUsageLoop() {
 	go func() {
 		for {
-			var m runtime.MemStats
-			runtime.ReadMemStats(&m)
-			log.Printf("\nAlloc = %v KB\nStackSys = %v KB\nSys = %v KB \nNumGC = %v\n\n", m.Alloc / 1024, m.StackSys / 1024, m.Sys / 1024, m.NumGC)
+			LogMemoryUsage()
 			time.Sleep(1 * time.Second)
 		}
 	}()
+}
+
+
+func LogMemoryUsage() {
+
+	var m runtime.MemStats
+	runtime.ReadMemStats(&m)
+	log.Printf("\nAlloc = %v KB\nStackSys = %v KB\nSys = %v KB \nNumGC = %v\n\n", m.Alloc/1024, m.StackSys/1024, m.Sys/1024, m.NumGC)
+
 }
 
 func WrapCallbackWithLogSentinel(invocationMethod string, callback ow.OpenWhiskCallback) ow.OpenWhiskCallback {

@@ -260,7 +260,7 @@ func (gues GithubUserEventsScanner) scanAwsKeysForUser(ctx context.Context, user
 				log.Printf("WARNING: Failed to fetch user event content due to unexpected error.  Skipping Event: %+v Error: %v", userEvent, err)
 				continue
 			}
-
+		
 		}
 
 		// Logging
@@ -272,7 +272,7 @@ func (gues GithubUserEventsScanner) scanAwsKeysForUser(ctx context.Context, user
 		// Scan for leaked keys
 		leakedKeys, nearbyContent, err := Scan(params.AccessKeyMetadata, downstreamEventContent)
 		if err != nil {
-			scanResult.Error = fmt.Errorf("Failed to scan event content.  Event: %+v Error: %v", userEvent, err)
+			scanResult.Error = fmt.Errorf("Failed to scan event content.  Event: %s Error: %v", userEvent, err)
 			return scanResult, scanResult.Error
 		}
 
