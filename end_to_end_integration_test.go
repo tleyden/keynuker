@@ -675,16 +675,13 @@ func (lkvoc LeakKeyViaOlderCommit) PushCommitToNewBranch(path, body string) (com
 	// Create a unique branch name (or this could be changed to first delete the branch)
 	branchName := fmt.Sprintf("%v-newbranch", lkvoc.GitBranch)  // TODO: change "4" to uuid
 
-	// Delete the branch
-	_, err = lkvoc.GithubClientWrapper.ApiClient.Git.DeleteRef(
+	// Try to delete the branch.  Ignore errors -- if branch already exists it will give an error
+	_, _ = lkvoc.GithubClientWrapper.ApiClient.Git.DeleteRef(
 		ctx,
 		*lkvoc.GithubUser.Login,
 		lkvoc.GithubRepoLeakTargetRepo,
 		branchName,
 	)
-	if err != nil {
-		return commitResult, fmt.Errorf("Error doing CreateRef: %v", err)
-	}
 
 	// Create a reference
 	// https://developer.github.com/v3/git/refs/#create-a-reference

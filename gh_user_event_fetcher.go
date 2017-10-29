@@ -18,6 +18,7 @@ import (
 
 	"encoding/base64"
 	"fmt"
+
 	"github.com/google/go-github/github"
 	"github.com/tleyden/keynuker/keynuker-go-common"
 )
@@ -122,6 +123,65 @@ func (guef GoGithubUserEventFetcher) FetchUserEvents(ctx context.Context, fetchU
 
 }
 
+
+func (guef GoGithubUserEventFetcher) FetchContentForCommits(ctx context.Context, username, repoName, sha string, commits []*github.RepositoryCommit) (content []byte, err error) {
+
+	buffer := bytes.Buffer{}
+
+	for _, commit := range commits {
+		log.Printf("Getting content for commit: %v url: %v", *commit.SHA, commit.GetURL())
+
+		repoCommit, _, err := guef.ApiClient.Repositories.GetCommit(
+			ctx,
+			username,
+			repoName,
+			*commit.SHA,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("Error getting content for commit: %v url: %v.  Error: %v", *commit.SHA, commit.GetURL(), err)
+		}
+
+		for _, repoCommitFile := range repoCommit.Files {
+			buffer.WriteString(repoCommitFile.GetPatch())
+			if repoCommitFile.Patch == nil {
+
+				// This means its binary data or larger than 1 MB, call separate API to fetch
+				log.Printf("Warning: commit %+v has empty patch data.  Either binary data, or greater than 1MB", repoCommitFile)
+
+				blob, _, err := guef.ApiClient.Git.GetBlob(
+					ctx,
+					username,
+					repoName,
+					*repoCommitFile.SHA,
+				)
+				if err != nil {
+					return nil, fmt.Errorf("Error getting content for commit file: %+v via blob api.  Error: %v", repoCommitFile, err)
+				}
+				if *blob.Encoding != "base64" {
+					return nil, fmt.Errorf("Unexpected encoding for blob commit file: %+v via blob api.  Encoding: %v", repoCommitFile, *blob.Encoding)
+				}
+				if *blob.Size > keynuker_go_common.MaxSizeBytesBlobContent {
+					log.Printf("Warning: skipping blob from commit file %+v, since size > max size (%d)", repoCommitFile, keynuker_go_common.MaxSizeBytesBlobContent)
+					continue
+				}
+
+				decodedBlobContent, err := base64.StdEncoding.DecodeString(blob.GetContent())
+				if err != nil {
+					return nil, fmt.Errorf("Unexpected decoding base64 for blob commit file: %+v via blob api.  Err: %v", repoCommitFile, err)
+				}
+				buffer.Write(decodedBlobContent)
+
+			}
+
+		}
+
+		buffer.Write(content)
+	}
+
+	return buffer.Bytes(), nil
+
+}
+
 func (guef GoGithubUserEventFetcher) FetchDownstreamContent(ctx context.Context, userEvent *github.Event) (content []byte, err error) {
 
 	payload, err := userEvent.ParsePayload()
@@ -138,6 +198,58 @@ func (guef GoGithubUserEventFetcher) FetchDownstreamContent(ctx context.Context,
 		}
 		return content, nil
 
+	case *github.CreateEvent:
+
+		log.Printf("CreateEvent: %+v", *v)
+
+		switch *v.RefType {
+		case "branch":
+			log.Printf("CreateEvent.  New branch: %v", *v.Ref)
+
+			repoNameComponents := strings.Split(*userEvent.Repo.Name, "/")
+			username := repoNameComponents[0]
+			repoName := repoNameComponents[1]
+
+			commitListOptions := &github.CommitsListOptions{
+				SHA: *v.Ref,
+				ListOptions: github.ListOptions{
+					PerPage: MaxPerPage,
+					Page:    0,
+				},
+			}
+
+			commits, _, err := guef.ApiClient.Repositories.ListCommits(
+				ctx,
+				username,
+				repoName,
+				commitListOptions,
+			)
+			if err != nil {
+				return []byte(""), fmt.Errorf("Error calling ListCommits: %v", err)
+			}
+
+			content, err := guef.FetchContentForCommits(
+				ctx,
+				username,
+				repoName,
+				*v.Ref,
+				commits,
+			)
+
+			if err != nil {
+				return []byte(""), fmt.Errorf("Error calling FetchContentForCommits: %v", err)
+			}
+
+			return content, nil
+
+		case "tag":
+			log.Printf("CreateEvent.  New tag: %v", *v.Ref)
+		case "repo":
+			log.Printf("CreateEvent.  New repo: %v", *v.Ref)
+		default:
+			log.Printf("Unknown CreateEvent reftype: %v", *v.Ref)
+		}
+
 	case *github.PushEvent:
 
 		buffer := bytes.Buffer{}
@@ -150,14 +262,14 @@ func (guef GoGithubUserEventFetcher) FetchDownstreamContent(ctx context.Context,
 			return []byte(""), nil
 		}
 
+		// split "org/reponame" into separate strings (["org", "reponame"])
+		repoNameComponents := strings.Split(*userEvent.Repo.Name, "/")
+		username := repoNameComponents[0]
+		repoName := repoNameComponents[1]
+
 		commits := v.Commits
 		for _, commit := range commits {
 			log.Printf("Getting content for commit: %v url: %v", *commit.SHA, commit.GetURL())
-
-			// split "org/reponame" into separate strings (["org", "reponame"])
-			repoNameComponents := strings.Split(*userEvent.Repo.Name, "/")
-			username := repoNameComponents[0]
-			repoName := repoNameComponents[1]
 
 			repoCommit, _, err := guef.ApiClient.Repositories.GetCommit(
 				ctx,
