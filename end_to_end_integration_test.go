@@ -235,7 +235,7 @@ func (e EndToEndIntegrationTest) DiscoverIAMUsernameForKey(AwsAccessKeyId string
 func (e EndToEndIntegrationTest) GetEndToEndKeyLeakScenarios() []KeyLeakScenario {
 	return []KeyLeakScenario{
 		// NewLeakKeyViaNewGithubIssue(e.GithubAccessToken, e.GithubRepoLeakTargetRepo),
-		// NewLeakKeyViaOlderCommit(e.GithubAccessToken, e.GithubRepoLeakTargetRepo),
+		NewLeakKeyViaOlderCommit(e.GithubAccessToken, e.GithubRepoLeakTargetRepo),
 		NewLeakKeyViaCreateEvent(e.GithubAccessToken, e.GithubRepoLeakTargetRepo),
 	}
 }
@@ -352,7 +352,7 @@ func (e EndToEndIntegrationTest) RunKeyNuker(accessKeyToNuke *iam.AccessKey) (er
 		AccessKeyMetadata: fetchedAwsKeys.Doc.AccessKeyMetadata,
 	}
 
-	recentEventTimeWindow := time.Minute * -10 // Last 5 seconds would probably work too, but give it some margin of error
+	recentEventTimeWindow := time.Minute * -1 // Last 5 seconds would probably work too, but give it some margin of error
 
 	paramsScanGithubUserEventsForAwsKeys = paramsScanGithubUserEventsForAwsKeys.SetDefaultCheckpointsForMissing(recentEventTimeWindow)
 

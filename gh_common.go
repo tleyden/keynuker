@@ -11,6 +11,53 @@ import (
 	"net/url"
 )
 
+
+// Wrap the github.RepositoryCommit and github.PushEventCommit into a single common interface
+type WrappedCommit interface {
+	Sha() string
+	Url() string
+}
+
+type RepositoryCommit github.RepositoryCommit
+type PushEventCommit github.PushEventCommit
+
+func (r *RepositoryCommit) Sha() string {
+	return *r.SHA
+}
+
+func (p *PushEventCommit) Sha() string {
+	return *p.SHA
+}
+
+func (r *RepositoryCommit) Url() string {
+	return *r.URL
+}
+
+func (p *PushEventCommit) Url() string {
+	return *p.URL
+}
+
+func ConvertRepositoryCommits(repositoryCommits []*github.RepositoryCommit) []WrappedCommit {
+	result := make([]WrappedCommit, len(repositoryCommits))
+	for i, repositoryCommitPtr := range repositoryCommits {
+		repositoryCommit := *repositoryCommitPtr
+		resultCommit := RepositoryCommit(repositoryCommit)
+		result[i] = &resultCommit
+	}
+	return result
+}
+
+func ConvertPushEventCommits(pushEventCommits []github.PushEventCommit) []WrappedCommit {
+	result := make([]WrappedCommit, len(pushEventCommits))
+	for i, pushEventCommit := range pushEventCommits {
+		resultCommit := PushEventCommit(pushEventCommit)
+		result[i] = &resultCommit
+	}
+	return result
+}
+
+
+
 type GithubClientWrapper struct {
 	AccessToken string
 	ApiClient   *github.Client
