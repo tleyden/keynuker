@@ -123,7 +123,6 @@ func (guef GoGithubUserEventFetcher) FetchUserEvents(ctx context.Context, fetchU
 
 }
 
-
 func (guef GoGithubUserEventFetcher) FetchContentForCommits(ctx context.Context, username, repoName, sha string, commits []*github.RepositoryCommit) (content []byte, err error) {
 
 	buffer := bytes.Buffer{}
@@ -142,10 +141,15 @@ func (guef GoGithubUserEventFetcher) FetchContentForCommits(ctx context.Context,
 		}
 
 		for _, repoCommitFile := range repoCommit.Files {
-			buffer.WriteString(repoCommitFile.GetPatch())
-			if repoCommitFile.Patch == nil {
+			if repoCommitFile.Patch != nil {
+				// This commit file has an inline "patch" that has the delta of the content
+				buffer.WriteString(repoCommitFile.GetPatch())
 
-				// This means its binary data or larger than 1 MB, call separate API to fetch
+			} else {
+
+				// This commit file doesn't have an inline "patch", which means its binary data or larger than 1 MB
+				// so it's necessary to call a separate API to fetch
+
 				log.Printf("Warning: commit %+v has empty patch data.  Either binary data, or greater than 1MB", repoCommitFile)
 
 				blob, _, err := guef.ApiClient.Git.GetBlob(
@@ -203,13 +207,18 @@ func (guef GoGithubUserEventFetcher) FetchDownstreamContent(ctx context.Context,
 		log.Printf("CreateEvent: %+v", *v)
 
 		switch *v.RefType {
+		case "tag":
+			log.Printf("CreateEvent.  New tag: %v", *v.Ref)
+			fallthrough
 		case "branch":
-			log.Printf("CreateEvent.  New branch: %v", *v.Ref)
-
+			log.Printf("CreateEvent.  New branch/tag: %v.  Scanning recent commits on that branch/tag.", *v.Ref)
 			repoNameComponents := strings.Split(*userEvent.Repo.Name, "/")
 			username := repoNameComponents[0]
 			repoName := repoNameComponents[1]
 
+			// This will list the last 100 commits on the branch or tag and scan them
+			// TODO: detect if there are more than 100 commits that haven't been scanned yet (currently no way to do that)
+			// TODO: and if there are, trigger a deep scan on this repo, which will git clone the repo scan local content
 			commitListOptions := &github.CommitsListOptions{
 				SHA: *v.Ref,
 				ListOptions: github.ListOptions{
@@ -217,7 +226,6 @@ func (guef GoGithubUserEventFetcher) FetchDownstreamContent(ctx context.Context,
 					Page:    0,
 				},
 			}
-
 			commits, _, err := guef.ApiClient.Repositories.ListCommits(
 				ctx,
 				username,
@@ -235,17 +243,14 @@ func (guef GoGithubUserEventFetcher) FetchDownstreamContent(ctx context.Context,
 				*v.Ref,
 				commits,
 			)
-
 			if err != nil {
 				return []byte(""), fmt.Errorf("Error calling FetchContentForCommits: %v", err)
 			}
 
 			return content, nil
 
-		case "tag":
-			log.Printf("CreateEvent.  New tag: %v", *v.Ref)
 		case "repo":
-			log.Printf("CreateEvent.  New repo: %v", *v.Ref)
+			log.Printf("CreateEvent.  New repo: %v.  Not scanning any commits.", *v.Ref)
 		default:
 			log.Printf("Unknown CreateEvent reftype: %v", *v.Ref)
 		}
