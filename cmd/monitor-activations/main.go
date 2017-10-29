@@ -9,7 +9,7 @@ import (
 
 func main() {
 
-	keynuker_go_common.InvokeActionStdIo(OpenWhiskCallback)
+	keynuker_go_common.RegistorOrInvokeActionStdIo(OpenWhiskCallback)
 
 }
 

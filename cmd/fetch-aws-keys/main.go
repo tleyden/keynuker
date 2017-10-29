@@ -11,8 +11,7 @@ import (
 )
 
 func main() {
-
-	keynuker_go_common.InvokeActionStdIo(OpenWhiskCallback)
+	keynuker_go_common.RegistorOrInvokeActionStdIo(OpenWhiskCallback)
 }
 
 func OpenWhiskCallback(value json.RawMessage) (interface{}, error) {

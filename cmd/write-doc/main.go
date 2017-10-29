@@ -15,8 +15,7 @@ import (
 // it will "clobber" it and create a new revision based on the updated content.
 
 func main() {
-
-	keynuker_go_common.InvokeActionStdIo(OpenWhiskCallback)
+	keynuker_go_common.RegistorOrInvokeActionStdIo(OpenWhiskCallback)
 }
 
 func OpenWhiskCallback(value json.RawMessage) (interface{}, error) {

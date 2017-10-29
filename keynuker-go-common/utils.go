@@ -9,16 +9,31 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
+	"github.com/tleyden/ow"
 )
-
-// Same function signature as github.com/jthomas/ow callback, but that's not exposed so redefine it here
-type OpenWhiskCallback func(json.RawMessage) (interface{}, error)
 
 func GenerateDocId(docIdPrefix, keyNukerOrg string) string {
 	return fmt.Sprintf("%s_%s", docIdPrefix, keyNukerOrg)
 }
 
-func InvokeActionStdIo(callback OpenWhiskCallback) {
+func RegistorOrInvokeActionStdIo(callback ow.OpenWhiskCallback) {
+	if UseDockerSkeleton {
+		InvokeActionStdIo(callback)
+	} else {
+		ow.RegisterAction(WrapCallbackWithLogSentinel(callback))
+	}
+}
+
+func WrapCallbackWithLogSentinel(callback ow.OpenWhiskCallback) ow.OpenWhiskCallback {
+
+	return func(input json.RawMessage) (interface{}, error) {
+		log.Printf("-- OpenWhiskCallback Started --")
+		defer log.Printf("-- OpenWhiskCallback Finished --")
+		return callback(input)
+	}
+}
+
+func InvokeActionStdIo(callback ow.OpenWhiskCallback) {
 
 	// read everything available on stdin
 	bytes, err := ioutil.ReadAll(os.Stdin)

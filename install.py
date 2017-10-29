@@ -414,13 +414,14 @@ def install_openwhisk_action(packaging_params, openwhisk_action, params_to_env):
         )
     else:
 
-        build_docker_in_path(packaging_params.path)
+        build_docker_in_path(packaging_params)
 
         # Default the action timeout to 5 minutes, which is the max value on the hosted IBM bluemix platform
-        command = "wsk action create {} --memory 512 --timeout 300000 --docker {}/{} {}".format(
+        command = "wsk action create {} --memory 512 --timeout 300000 --docker {}/{}:{} {}".format(
             openwhisk_action,
             discover_dockerhub_user(),
             openwhisk_action,
+            packaging_params.dockerTag,
             expanded_params,
         )
 
@@ -536,13 +537,13 @@ def openwhisk_rule_exists(openwhisk_rule):
     )
     return subprocess.call(command, shell=True) == 0
 
-def build_docker_in_path(path):
+def build_docker_in_path(packaging_params):
 
-    docker_build()
-    docker_push()
+    docker_build(packaging_params)
+    docker_push(packaging_params)
 
 
-def docker_build():
+def docker_build(packaging_params):
     """
     Generate and run a command like:
     docker build -t youruser/fetch-aws-keys .
@@ -563,12 +564,12 @@ def docker_build():
     shutil.copyfile(src_dockerfile, dest_dockerfile)
 
     # Build docker image
-    subprocess.check_call("docker build -t {}/{} .".format(dockerhub_user, dockerhub_repo), shell=True)
+    subprocess.check_call("docker build -t {}/{}:{} .".format(dockerhub_user, dockerhub_repo, packaging_params.dockerTag), shell=True)
 
     # Delete the Dockerfile copy that is no longer needed
     os.remove(dest_dockerfile)
 
-def docker_push():
+def docker_push(packaging_params):
     """
     Generate and run a command like:
     docker push youruser/fetch-aws-keys
@@ -580,7 +581,7 @@ def docker_push():
     dockerhub_user = discover_dockerhub_user()
     dockerhub_repo = discover_dockerhub_repo()
 
-    subprocess.check_call("docker push {}/{}".format(dockerhub_user, dockerhub_repo), shell=True)
+    subprocess.check_call("docker push {}/{}:{}".format(dockerhub_user, dockerhub_repo, packaging_params.dockerTag), shell=True)
 
 
 def discover_dockerhub_user():
@@ -598,17 +599,20 @@ def discover_dockerhub_repo():
 def get_default_packaging_params():
 
     # Parameters to specify how the openwhisk actions are packaged
-    packaging_params = collections.namedtuple('PackagingParams', 'useDockerSkeleton', 'path', 'dryRun')
+    packaging_params = collections.namedtuple('PackagingParams', 'useDockerSkeleton path dryRun dockerTag')
 
-    # useDockerSkeleton: true or false.  True to use https://hub.docker.com/r/tleyden5iwx/openwhisk-dockerskeleton/
-    #                                    False to directly build an image and push to dockerhub
-    # There are two reasons you might want to set this to False:
-    #   1. Want full control of all the code, as opposed to trusting the code in https://hub.docker.com/r/tleyden5iwx/openwhisk-dockerskeleton/
-    #   2. Suspect there is an issue with the actionproxy.py wrapper code in openwhisk-dockerskeleton, and want to compare behavior.
-    # If you set to False, you will need to have docker locally installed and a few extra environment
-    # variables set.  You will also need to go into the cmd entrypoints and call "ow.RegisterAction(OpenWhiskCallback)"
-    # rather than "keynuker_go_common.InvokeActionStdIo(OpenWhiskCallback)".
+    # See comments in constants.go#UseDockerSkeleton
+    # True to use https://hub.docker.com/r/tleyden5iwx/openwhisk-dockerskeleton/ (default)
+    # False to directly build an image and push to dockerhub
+    # Important: this must match the value in constants.go#UseDockerSkeleton, or else the install will fail.
     packaging_params.useDockerSkeleton = True
+
+    # Workaround for this issue:
+    # When I use the `--docker` param to `action create`, it seems to be pulling stale images from dockerhub.
+    # The only way I can force it to get the latest image is by using a different tag.
+    # TODO: apparently just doing a no-op update on the action might have the same effect
+    # TODO: eg, wsk action update action-name.  Haven't test yet.
+    packaging_params.dockerTag = "0.1.3"
 
     # Doesn't do anything, just prints out what it would do if it did
     packaging_params.dryRun = False
