@@ -9,16 +9,21 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
+
 	"github.com/tleyden/ow"
-	"strings"
 )
+
+var UseDockerSkeleton bool
 
 func GenerateDocId(docIdPrefix, keyNukerOrg string) string {
 	return fmt.Sprintf("%s_%s", docIdPrefix, keyNukerOrg)
 }
 
 func RegistorOrInvokeActionStdIo(callback ow.OpenWhiskCallback) {
-	if UseDockerSkeleton() {
+
+	log.Printf("UseDockerSkeleton: %v", UseDockerSkeleton)
+
+	if UseDockerSkeleton {
 		InvokeActionStdIo(WrapCallbackWithLogSentinel("ActionProxy", callback))
 	} else {
 		ow.RegisterAction(WrapCallbackWithLogSentinel("CustomDocker", callback))
@@ -91,16 +96,16 @@ func CreateBoundedLogger(maxInvocations int) Logger {
 //
 // If you set to False, you will need to have docker locally installed and a few extra environment
 // variables set.  This needs to match the value in install.py.
-func UseDockerSkeleton() bool {
-
-	val, ok := os.LookupEnv(EnvVarKeyNukerInstallUseDockerSkeleton)
-	if !ok {
-		return true
-	}
-	if strings.ToLower(val) == "false" {
-		return false
-	}
-	return true
-
-
-}
+//func UseDockerSkeleton() bool {
+//
+//	val, ok := os.LookupEnv(EnvVarKeyNukerInstallUseDockerSkeleton)
+//	if !ok {
+//		return true
+//	}
+//	if strings.ToLower(val) == "false" {
+//		return false
+//	}
+//	return true
+//
+//
+//}
