@@ -1133,14 +1133,6 @@ func (lkvc LeakKeyViaNewGithubIssue) Cleanup() error {
 	return nil
 }
 
-// ----------------------------------------------- Key Leak Scenarios --------------------------------------------------
-
-//type KeyLeakScenario interface {
-//	Leak(accessKey *iam.AccessKey) error
-//	Cleanup() error
-//	RecordLatestEventFeedID() error
-//	WaitForLeakOnEventFeed() error
-//}
 
 // --------------------------------------------- LeakKeyViaCreateEvent Scenario ----------------------------------------
 
