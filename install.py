@@ -602,9 +602,17 @@ def discover_dockerhub_repo():
     return os.path.basename(os.getcwd())
 
 
-# See comments in utils.go#UseDockerSkeleton() for details
-# True to use https://hub.docker.com/r/tleyden5iwx/openwhisk-dockerskeleton/ (default)
-# False to directly build an image and push to dockerhub
+# UseDockerSkeleton: "true" or "false".
+#
+# - True to use https://hub.docker.com/r/tleyden5iwx/openwhisk-dockerskeleton/ (default)
+# - False to directly build an image and push to dockerhub
+#
+# There are two reasons you might want to set this to False:
+#   1. Want full control of all the code, as opposed to trusting the code in https://hub.docker.com/r/tleyden5iwx/openwhisk-dockerskeleton/
+#   2. Suspect there is an issue with the actionproxy.py wrapper code in openwhisk-dockerskeleton, and want to compare behavior.
+#
+# If you set to False, you will need to have docker locally installed and a few extra environment
+# variables set.
 def useDockerSkeleton():
     envVarVal = os.environ.get("KEYNUKER_INSTALL_USE_DOCKER_SKELETON")
     if envVarVal is None:

@@ -55,11 +55,6 @@ const (
 
 	EnvVarKeyNukerMailerPublicApiKey = "KEYNUKER_MAILER_PUBLIC_API_KEY"
 
-	// When installing KeyNuker, build an action.zip to be used via DockerSkeleton, which means
-	// no new docker images will need to be built.  Otherwise, you will need docker locally and
-	// some extra docker related env variables configured.  See UseDockerSkeleton()
-	EnvVarKeyNukerInstallUseDockerSkeleton = "KEYNUKER_INSTALL_USE_DOCKER_SKELETON"
-
 )
 
 // Misc
