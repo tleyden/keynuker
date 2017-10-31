@@ -1,4 +1,4 @@
-// +build bar,!foo
+// +build DontUseDockerSkeleton
 
 package keynuker_go_common
 

@@ -1,4 +1,4 @@
-// +build foo,!bar
+// +build UseDockerSkeleton
 
 package keynuker_go_common
 

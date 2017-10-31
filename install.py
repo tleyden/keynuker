@@ -36,9 +36,9 @@ def build_binaries(packaging_params):
 
     for path in dirs_with_main():
         print("Building action binary in path: {}".format(path))
-        build_binary_in_path(path)
+        build_binary_in_path(path, packaging_params)
 
-def build_binary_in_path(path):
+def build_binary_in_path(path, packaging_params):
     
     # Save the current working directory
     cwd = os.getcwd()
@@ -51,20 +51,25 @@ def build_binary_in_path(path):
         os.chdir(cwd)
         return
 
-    go_build_main()
+    go_build_main(packaging_params)
     zip_binary_main()
 
     # Restore the original current working directory
     os.chdir(cwd) 
     
-def go_build_main():
+def go_build_main(packaging_params):
     """
     Build the main.go file into an "exec" binary 
     """
     assert_go_version()
 
-    # Build the action binary 
-    subprocess.check_call("env GOOS=linux GOARCH=amd64 go build -o exec main.go", shell=True)
+    # Get the build tag: either UseDockerSkeleton or DontUseDockerSkeleton
+    tag = dockerSkeletonBuildParam(packaging_params.useDockerSkeleton)
+
+    # Build the action binary
+    build_cmd = "env GOOS=linux GOARCH=amd64 go build -tags={} -o exec main.go".format(tag)
+    print("{}".format(build_cmd))
+    subprocess.check_call(build_cmd, shell=True)
  
 def zip_binary_main():
     """
@@ -607,6 +612,13 @@ def useDockerSkeleton():
     if envVarVal == "false" or envVarVal == "False":
         return False
     return True
+
+# Must match build tags in go code
+def dockerSkeletonBuildParam(useDockerSkeleton):
+    if useDockerSkeleton:
+        return "UseDockerSkeleton"
+    else:
+        return "DontUseDockerSkeleton"
 
 
 def get_default_packaging_params():
