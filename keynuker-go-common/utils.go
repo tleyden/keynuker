@@ -10,6 +10,7 @@ import (
 	"log"
 	"os"
 	"github.com/tleyden/ow"
+	"strings"
 )
 
 func GenerateDocId(docIdPrefix, keyNukerOrg string) string {
@@ -17,18 +18,18 @@ func GenerateDocId(docIdPrefix, keyNukerOrg string) string {
 }
 
 func RegistorOrInvokeActionStdIo(callback ow.OpenWhiskCallback) {
-	if UseDockerSkeleton {
-		InvokeActionStdIo(callback)
+	if UseDockerSkeleton() {
+		InvokeActionStdIo(WrapCallbackWithLogSentinel("ActionProxy", callback))
 	} else {
-		ow.RegisterAction(WrapCallbackWithLogSentinel(callback))
+		ow.RegisterAction(WrapCallbackWithLogSentinel("CustomDocker", callback))
 	}
 }
 
-func WrapCallbackWithLogSentinel(callback ow.OpenWhiskCallback) ow.OpenWhiskCallback {
+func WrapCallbackWithLogSentinel(invocationMethod string, callback ow.OpenWhiskCallback) ow.OpenWhiskCallback {
 
 	return func(input json.RawMessage) (interface{}, error) {
-		log.Printf("-- OpenWhiskCallback Started --")
-		defer log.Printf("-- OpenWhiskCallback Finished --")
+		log.Printf("-- OpenWhiskCallback via %s Started --", invocationMethod)
+		defer log.Printf("-- OpenWhiskCallback via %s Finished --", invocationMethod)
 		return callback(input)
 	}
 }
@@ -76,5 +77,30 @@ func CreateBoundedLogger(maxInvocations int) Logger {
 		numInvocations: 0,
 		maxInvocations: maxInvocations,
 	}
+
+}
+
+// UseDockerSkeleton: true or false.
+//
+// - True to use https://hub.docker.com/r/tleyden5iwx/openwhisk-dockerskeleton/ (default)
+// - False to directly build an image and push to dockerhub
+//
+// There are two reasons you might want to set this to False:
+//   1. Want full control of all the code, as opposed to trusting the code in https://hub.docker.com/r/tleyden5iwx/openwhisk-dockerskeleton/
+//   2. Suspect there is an issue with the actionproxy.py wrapper code in openwhisk-dockerskeleton, and want to compare behavior.
+//
+// If you set to False, you will need to have docker locally installed and a few extra environment
+// variables set.  This needs to match the value in install.py.
+func UseDockerSkeleton() bool {
+
+	val, ok := os.LookupEnv(EnvVarKeyNukerInstallUseDockerSkeleton)
+	if !ok {
+		return true
+	}
+	if strings.ToLower(val) == "false" {
+		return false
+	}
+	return true
+
 
 }

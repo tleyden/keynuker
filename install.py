@@ -596,16 +596,26 @@ def discover_dockerhub_repo():
     # dockerhub repo to push to
     return os.path.basename(os.getcwd())
 
+
+# See comments in utils.go#UseDockerSkeleton() for details
+# True to use https://hub.docker.com/r/tleyden5iwx/openwhisk-dockerskeleton/ (default)
+# False to directly build an image and push to dockerhub
+def useDockerSkeleton():
+    envVarVal = os.environ.get("KEYNUKER_INSTALL_USE_DOCKER_SKELETON")
+    if envVarVal is None:
+        return True
+    if envVarVal == "false" or envVarVal == "False":
+        return False
+    return True
+
+
 def get_default_packaging_params():
 
     # Parameters to specify how the openwhisk actions are packaged
     packaging_params = collections.namedtuple('PackagingParams', 'useDockerSkeleton path dryRun dockerTag')
 
-    # See comments in constants.go#UseDockerSkeleton
-    # True to use https://hub.docker.com/r/tleyden5iwx/openwhisk-dockerskeleton/ (default)
-    # False to directly build an image and push to dockerhub
-    # Important: this must match the value in constants.go#UseDockerSkeleton, or else the install will fail.
-    packaging_params.useDockerSkeleton = True
+    # Whether or not to build zip for generic DockerSkeleton, or build a custom docker image for this action.
+    packaging_params.useDockerSkeleton = useDockerSkeleton()
 
     # Workaround for this issue:
     # When I use the `--docker` param to `action create`, it seems to be pulling stale images from dockerhub.

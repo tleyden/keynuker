@@ -54,6 +54,12 @@ const (
 	EnvVarKeyNukerMailerApiKey = "KEYNUKER_MAILER_API_KEY"
 
 	EnvVarKeyNukerMailerPublicApiKey = "KEYNUKER_MAILER_PUBLIC_API_KEY"
+
+	// When installing KeyNuker, build an action.zip to be used via DockerSkeleton, which means
+	// no new docker images will need to be built.  Otherwise, you will need docker locally and
+	// some extra docker related env variables configured.  See UseDockerSkeleton()
+	EnvVarKeyNukerInstallUseDockerSkeleton = "KEYNUKER_INSTALL_USE_DOCKER_SKELETON"
+
 )
 
 // Misc
@@ -71,19 +77,6 @@ const (
 	// This should be raised to 100 MB once the stream based scanning is implemented.
 	MaxSizeBytesBlobContent = 10000000 // 10 MB
 
-	// UseDockerSkeleton: true or false.
-	//
-	// - True to use https://hub.docker.com/r/tleyden5iwx/openwhisk-dockerskeleton/ (default)
-	// - False to directly build an image and push to dockerhub
-	//
-	// There are two reasons you might want to set this to False:
-	//   1. Want full control of all the code, as opposed to trusting the code in https://hub.docker.com/r/tleyden5iwx/openwhisk-dockerskeleton/
-	//   2. Suspect there is an issue with the actionproxy.py wrapper code in openwhisk-dockerskeleton, and want to compare behavior.
-	//
-	// If you set to False, you will need to have docker locally installed and a few extra environment
-	// variables set.  This needs to match the value in install.py.
-	UseDockerSkeleton = true
-
 )
 
 var (
@@ -94,4 +87,6 @@ var (
 
 func init() {
 	DefaultCheckpointEventTimeWindow = time.Hour * -12
+
+
 }
