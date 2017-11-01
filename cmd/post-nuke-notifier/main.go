@@ -14,7 +14,6 @@ import (
 
 func main() {
 	defer keynuker_go_common.LogMemoryUsage()
-	defer log.Printf("main() finished")
 	keynuker_go_common.LogMemoryUsageLoop()
 	keynuker_go_common.RegistorOrInvokeActionStdIo(OpenWhiskCallback)
 }
