@@ -241,8 +241,9 @@ func TestScanGithubUserEventsForAwsKeys(t *testing.T) {
 		// The user with actual events should have a non-nil checkpoint
 		assert.NotNil(t, docWrapper.GithubEventCheckpoints[*githubUser.Login])
 
-		// The user with no events should have a nil checkpoint
-		assert.Nil(t, docWrapper.GithubEventCheckpoints[*githubUserNoEvents.Login])
+		// The user with no events should get it's original checkpoint back
+		assert.NotNil(t, docWrapper.GithubEventCheckpoints[*githubUserNoEvents.Login])
+		assert.Equal(t, *docWrapper.GithubEventCheckpoints[*githubUserNoEvents.Login].ID, *githubCheckpointEvent.ID)
 
 		// The user with only events older than the checkpoint should also have a non-nil checkpoint
 		// corresponding to the most recent event that was scanned and skipped

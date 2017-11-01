@@ -13,6 +13,8 @@ import (
 // Scan Github user events for AWS keys
 
 func main() {
+	defer keynuker_go_common.LogMemoryUsage()
+	keynuker_go_common.LogMemoryUsageLoop()
 	keynuker_go_common.RegistorOrInvokeActionStdIo(OpenWhiskCallback)
 }
 

@@ -18,6 +18,7 @@ import (
 
 	"encoding/base64"
 	"fmt"
+
 	"github.com/google/go-github/github"
 	"github.com/tleyden/keynuker/keynuker-go-common"
 )
@@ -122,6 +123,71 @@ func (guef GoGithubUserEventFetcher) FetchUserEvents(ctx context.Context, fetchU
 
 }
 
+
+
+func (guef GoGithubUserEventFetcher) FetchContentForCommits(ctx context.Context, username, repoName, sha string, commits []WrappedCommit) (content []byte, err error) {
+
+	buffer := bytes.Buffer{}
+
+	for _, commit := range commits {
+		log.Printf("Getting content for commit: %v url: %v", commit.Sha(), commit.Url())
+
+		repoCommit, _, err := guef.ApiClient.Repositories.GetCommit(
+			ctx,
+			username,
+			repoName,
+			commit.Sha(),
+		)
+		if err != nil {
+			return nil, fmt.Errorf("Error getting content for commit: %v url: %v.  Error: %v", commit.Sha(), commit.Url(), err)
+		}
+
+		for _, repoCommitFile := range repoCommit.Files {
+			if repoCommitFile.Patch != nil {
+				// This commit file has an inline "patch" that has the delta of the content
+				buffer.WriteString(repoCommitFile.GetPatch())
+
+			} else {
+
+				// This commit file doesn't have an inline "patch", which means its binary data or larger than 1 MB
+				// so it's necessary to call a separate API to fetch
+
+				log.Printf("Warning: commit %+v has empty patch data.  Either binary data, or greater than 1MB", repoCommitFile)
+
+				blob, _, err := guef.ApiClient.Git.GetBlob(
+					ctx,
+					username,
+					repoName,
+					*repoCommitFile.SHA,
+				)
+				if err != nil {
+					return nil, fmt.Errorf("Error getting content for commit file: %+v via blob api.  Error: %v", repoCommitFile, err)
+				}
+				if *blob.Encoding != "base64" {
+					return nil, fmt.Errorf("Unexpected encoding for blob commit file: %+v via blob api.  Encoding: %v", repoCommitFile, *blob.Encoding)
+				}
+				if *blob.Size > keynuker_go_common.MaxSizeBytesBlobContent {
+					log.Printf("Warning: skipping blob from commit file %+v, since size > max size (%d)", repoCommitFile, keynuker_go_common.MaxSizeBytesBlobContent)
+					continue
+				}
+
+				decodedBlobContent, err := base64.StdEncoding.DecodeString(blob.GetContent())
+				if err != nil {
+					return nil, fmt.Errorf("Unexpected decoding base64 for blob commit file: %+v via blob api.  Err: %v", repoCommitFile, err)
+				}
+				buffer.Write(decodedBlobContent)
+
+			}
+
+		}
+
+		buffer.Write(content)
+	}
+
+	return buffer.Bytes(), nil
+
+}
+
 func (guef GoGithubUserEventFetcher) FetchDownstreamContent(ctx context.Context, userEvent *github.Event) (content []byte, err error) {
 
 	payload, err := userEvent.ParsePayload()
@@ -138,73 +204,104 @@ func (guef GoGithubUserEventFetcher) FetchDownstreamContent(ctx context.Context,
 		}
 		return content, nil
 
+	case *github.CreateEvent:
+
+		log.Printf("CreateEvent id: %v", *userEvent.ID)
+
+		switch *v.RefType {
+		case "tag":
+			log.Printf("CreateEvent.  New tag: %v", *v.Ref)
+			fallthrough
+		case "branch":
+			repoNameComponents := strings.Split(*userEvent.Repo.Name, "/")
+			username := repoNameComponents[0]
+			repoName := repoNameComponents[1]
+
+			log.Printf("CreateEvent.  New branch/tag: %v in repo %v.  Scanning recent commits.", *v.Ref, *userEvent.Repo.Name)
+
+			// If it's not running in the context of an integration test, then ignore test branches
+			if !IntegrationTestsEnabled() && strings.Contains(*v.Ref, keynuker_go_common.KeyNukerIntegrationTestBranch) {
+				// skip this since as an experiment
+				log.Printf("Skipping CreateEvent %v since it's on %v testing branch", *userEvent.ID, keynuker_go_common.KeyNukerIntegrationTestBranch)
+				return []byte(""), nil
+			}
+
+			// This will list the last 20 commits on the branch or tag and scan them
+			// TODO: detect if there are more than 20 commits that haven't been scanned yet (currently no way to do that)
+			// TODO: and if there are, trigger a deep scan on this repo, which will git clone the repo scan local content
+			commitListOptions := &github.CommitsListOptions{
+				SHA: *v.Ref,
+				ListOptions: github.ListOptions{
+					PerPage: 20,
+					Page:    0,
+				},
+			}
+			commits, _, err := guef.ApiClient.Repositories.ListCommits(
+				ctx,
+				username,
+				repoName,
+				commitListOptions,
+			)
+			if err != nil {
+				// Ignore 404 not found errors, since the branch may no longer exist
+				if strings.Contains(err.Error(), "404 Not Found") {
+					log.Printf("Warning: Skipping branch/tag since it apparently no longer exists.  Err: %v Err Type: %T", err, err)
+					return []byte(""), nil
+				}
+				return []byte(""), fmt.Errorf("Error calling ListCommits: %v", err)
+			}
+
+			content, err := guef.FetchContentForCommits(
+				ctx,
+				username,
+				repoName,
+				*v.Ref,
+				ConvertRepositoryCommits(commits),
+			)
+			if err != nil {
+				return []byte(""), fmt.Errorf("Error calling FetchContentForCommits: %v", err)
+			}
+
+			return content, nil
+
+		case "repo":
+			log.Printf("CreateEvent.  New repo.  Not scanning any commits.")
+		default:
+			log.Printf("Unknown CreateEvent reftype: %v", *v.RefType)
+		}
+
 	case *github.PushEvent:
 
 		buffer := bytes.Buffer{}
 
+		// The github API only returns a maximum of 20 commits per push event
 		maxCommitsPerPushEvent := 20
 
+		// Ignore test branches.  These can always be ignored, even in integration tests, because in
+		// the current integration tests it ends up merging to master and scanning the commits on master.
 		if strings.Contains(*v.Ref, keynuker_go_common.KeyNukerIntegrationTestBranch) {
 			// skip this since as an experiment
 			log.Printf("Skipping push event %v since it's on %v testing branch", *v.PushID, keynuker_go_common.KeyNukerIntegrationTestBranch)
 			return []byte(""), nil
 		}
 
-		commits := v.Commits
-		for _, commit := range commits {
-			log.Printf("Getting content for commit: %v url: %v", *commit.SHA, commit.GetURL())
+		// split "org/reponame" into separate strings (["org", "reponame"])
+		repoNameComponents := strings.Split(*userEvent.Repo.Name, "/")
+		username := repoNameComponents[0]
+		repoName := repoNameComponents[1]
 
-			// split "org/reponame" into separate strings (["org", "reponame"])
-			repoNameComponents := strings.Split(*userEvent.Repo.Name, "/")
-			username := repoNameComponents[0]
-			repoName := repoNameComponents[1]
-
-			repoCommit, _, err := guef.ApiClient.Repositories.GetCommit(
-				ctx,
-				username,
-				repoName,
-				*commit.SHA,
-			)
-			if err != nil {
-				return nil, fmt.Errorf("Error getting content for commit: %v url: %v.  Error: %v", *commit.SHA, commit.GetURL(), err)
-			}
-
-			for _, repoCommitFile := range repoCommit.Files {
-				buffer.WriteString(repoCommitFile.GetPatch())
-				if repoCommitFile.Patch == nil {
-
-					// This means its binary data or larger than 1 MB, call separate API to fetch
-					log.Printf("Warning: commit %+v has empty patch data.  Either binary data, or greater than 1MB", repoCommitFile)
-
-					blob, _, err := guef.ApiClient.Git.GetBlob(
-						ctx,
-						username,
-						repoName,
-						*repoCommitFile.SHA,
-					)
-					if err != nil {
-						return nil, fmt.Errorf("Error getting content for commit file: %+v via blob api.  Error: %v", repoCommitFile, err)
-					}
-					if *blob.Encoding != "base64" {
-						return nil, fmt.Errorf("Unexpected encoding for blob commit file: %+v via blob api.  Encoding: %v", repoCommitFile, *blob.Encoding)
-					}
-					if *blob.Size > keynuker_go_common.MaxSizeBytesBlobContent {
-						log.Printf("Warning: skipping blob from commit file %+v, since size > max size (%d)", repoCommitFile, keynuker_go_common.MaxSizeBytesBlobContent)
-						continue
-					}
-
-					decodedBlobContent, err := base64.StdEncoding.DecodeString(blob.GetContent())
-					if err != nil {
-						return nil, fmt.Errorf("Unexpected decoding base64 for blob commit file: %+v via blob api.  Err: %v", repoCommitFile, err)
-					}
-					buffer.Write(decodedBlobContent)
-
-				}
-
-			}
-
-			buffer.Write(content)
+		content, err := guef.FetchContentForCommits(
+			ctx,
+			username,
+			repoName,
+			*v.Ref,
+			ConvertPushEventCommits(v.Commits),
+		)
+		if err != nil {
+			return []byte(""), fmt.Errorf("Error calling FetchContentForCommits: %v", err)
 		}
+
+		buffer.Write(content)
 
 		// If more than 20 commits for this PushEvent, fetch content for the remaining commits.
 		// Example PushEvent w/ more than 20 commits: https://gist.github.com/tleyden/68d972b02b2b9306fa6e2eb26310b751
