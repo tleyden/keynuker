@@ -141,7 +141,7 @@ This is the full list of environment variables you should have set from the abov
 
 |KEYNUKER_GITHUB_ENTERPRISE_API_URL
 |https://github.your.co
-|Github Enterprise users will need to set this to point to your custom URL.  Defaults to "", which will connect to https://api.github.com.
+|Only needed for Github Enterprise users. Set this to point to your custom Github URL.  Defaults to "", which will connect to https://api.github.com.
 
 |KEYNUKER_MAILER_API_KEY
 |key-82ea6cfe7dc69f6c
@@ -162,6 +162,10 @@ This is the full list of environment variables you should have set from the abov
 |KEYNUKER_ADMIN_EMAIL_CC_ADDRESS
 |admin@your.org
 |The email address of the Sys. Admin to CC on all email notifications about nuked keys.  If the "leaker" cannot be idenitifed via the github commit, this will be the only recipient of notifications.
+
+|KEYNUKER_INSTALL_USE_DOCKER_SKELETON
+|false
+|Whether to build action.zip for use with re-usable DockerSkeleton docker image, or to build a custom docker image per-action, which requires more environment variables to be set (search for "docker" in install.py).  Defaults to true.
 
 |===
 

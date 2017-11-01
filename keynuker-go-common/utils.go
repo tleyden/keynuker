@@ -9,26 +9,32 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
+
 	"github.com/tleyden/ow"
 )
+
+var UseDockerSkeleton bool
 
 func GenerateDocId(docIdPrefix, keyNukerOrg string) string {
 	return fmt.Sprintf("%s_%s", docIdPrefix, keyNukerOrg)
 }
 
 func RegistorOrInvokeActionStdIo(callback ow.OpenWhiskCallback) {
+
+	log.Printf("UseDockerSkeleton: %v", UseDockerSkeleton)
+
 	if UseDockerSkeleton {
-		InvokeActionStdIo(callback)
+		InvokeActionStdIo(WrapCallbackWithLogSentinel("ActionProxy", callback))
 	} else {
-		ow.RegisterAction(WrapCallbackWithLogSentinel(callback))
+		ow.RegisterAction(WrapCallbackWithLogSentinel("CustomDocker", callback))
 	}
 }
 
-func WrapCallbackWithLogSentinel(callback ow.OpenWhiskCallback) ow.OpenWhiskCallback {
+func WrapCallbackWithLogSentinel(invocationMethod string, callback ow.OpenWhiskCallback) ow.OpenWhiskCallback {
 
 	return func(input json.RawMessage) (interface{}, error) {
-		log.Printf("-- OpenWhiskCallback Started --")
-		defer log.Printf("-- OpenWhiskCallback Finished --")
+		log.Printf("-- OpenWhiskCallback via %s Started --", invocationMethod)
+		defer log.Printf("-- OpenWhiskCallback via %s Finished --", invocationMethod)
 		return callback(input)
 	}
 }
@@ -78,3 +84,5 @@ func CreateBoundedLogger(maxInvocations int) Logger {
 	}
 
 }
+
+

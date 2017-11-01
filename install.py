@@ -36,9 +36,9 @@ def build_binaries(packaging_params):
 
     for path in dirs_with_main():
         print("Building action binary in path: {}".format(path))
-        build_binary_in_path(path)
+        build_binary_in_path(path, packaging_params)
 
-def build_binary_in_path(path):
+def build_binary_in_path(path, packaging_params):
     
     # Save the current working directory
     cwd = os.getcwd()
@@ -51,20 +51,25 @@ def build_binary_in_path(path):
         os.chdir(cwd)
         return
 
-    go_build_main()
+    go_build_main(packaging_params)
     zip_binary_main()
 
     # Restore the original current working directory
     os.chdir(cwd) 
     
-def go_build_main():
+def go_build_main(packaging_params):
     """
     Build the main.go file into an "exec" binary 
     """
     assert_go_version()
 
-    # Build the action binary 
-    subprocess.check_call("env GOOS=linux GOARCH=amd64 go build -o exec main.go", shell=True)
+    # Get the build tag: either UseDockerSkeleton or DontUseDockerSkeleton
+    tag = dockerSkeletonBuildParam(packaging_params.useDockerSkeleton)
+
+    # Build the action binary
+    build_cmd = "env GOOS=linux GOARCH=amd64 go build -tags={} -o exec main.go".format(tag)
+    print("{}".format(build_cmd))
+    subprocess.check_call(build_cmd, shell=True)
  
 def zip_binary_main():
     """
@@ -596,23 +601,49 @@ def discover_dockerhub_repo():
     # dockerhub repo to push to
     return os.path.basename(os.getcwd())
 
+
+# UseDockerSkeleton: "true" or "false".
+#
+# - True to use https://hub.docker.com/r/tleyden5iwx/openwhisk-dockerskeleton/ (default)
+# - False to directly build an image and push to dockerhub
+#
+# There are two reasons you might want to set this to False:
+#   1. Want full control of all the code, as opposed to trusting the code in https://hub.docker.com/r/tleyden5iwx/openwhisk-dockerskeleton/
+#   2. Suspect there is an issue with the actionproxy.py wrapper code in openwhisk-dockerskeleton, and want to compare behavior.
+#
+# If you set to False, you will need to have docker locally installed and a few extra environment
+# variables set.
+def useDockerSkeleton():
+    envVarVal = os.environ.get("KEYNUKER_INSTALL_USE_DOCKER_SKELETON")
+    if envVarVal is None:
+        return True
+    if envVarVal == "false" or envVarVal == "False":
+        return False
+    return True
+
+# Must match build tags in go code
+def dockerSkeletonBuildParam(useDockerSkeleton):
+    if useDockerSkeleton:
+        return "UseDockerSkeleton"
+    else:
+        return "DontUseDockerSkeleton"
+
+
 def get_default_packaging_params():
 
     # Parameters to specify how the openwhisk actions are packaged
     packaging_params = collections.namedtuple('PackagingParams', 'useDockerSkeleton path dryRun dockerTag')
 
-    # See comments in constants.go#UseDockerSkeleton
-    # True to use https://hub.docker.com/r/tleyden5iwx/openwhisk-dockerskeleton/ (default)
-    # False to directly build an image and push to dockerhub
-    # Important: this must match the value in constants.go#UseDockerSkeleton, or else the install will fail.
-    packaging_params.useDockerSkeleton = True
+    # Whether or not to build zip for generic DockerSkeleton, or build a custom docker image for this action.
+    packaging_params.useDockerSkeleton = useDockerSkeleton()
+    print("Using docker skeleton {}".format(packaging_params.useDockerSkeleton))
 
     # Workaround for this issue:
     # When I use the `--docker` param to `action create`, it seems to be pulling stale images from dockerhub.
     # The only way I can force it to get the latest image is by using a different tag.
     # TODO: apparently just doing a no-op update on the action might have the same effect
     # TODO: eg, wsk action update action-name.  Haven't test yet.
-    packaging_params.dockerTag = "0.1.3"
+    packaging_params.dockerTag = "0.1.5"
 
     # Doesn't do anything, just prints out what it would do if it did
     packaging_params.dryRun = False
