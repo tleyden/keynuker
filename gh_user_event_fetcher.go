@@ -282,17 +282,18 @@ func (guef GoGithubUserEventFetcher) FetchCommitsForPushEvent(
 			},
 		}
 		log.Printf("Listing additional commits: %+v", commitListOptions)
+		log.Printf("userEvent.Repo: %+v", userEvent.Repo)
 
 		// "tleyden/keynuker" -> ["tleyden", "keynuker"] -> "keynuker"
 		repoNameAndUsername := *userEvent.Repo.Name
 		repoNameAndUsernameComponents := strings.Split(repoNameAndUsername, "/")
-		oldusername := repoNameAndUsernameComponents[0]
-		oldRepoName := repoNameAndUsernameComponents[1]
-		log.Printf("oldusername: %v, oldRepoName: %v", oldusername, oldRepoName)
-		log.Printf("pushEvent.Repo: %+v", pushEvent.Repo)
+		owner := repoNameAndUsernameComponents[0]
+		repoName := repoNameAndUsernameComponents[1]
+		//log.Printf("oldusername: %v, oldRepoName: %v", oldusername, oldRepoName)
+		//log.Printf("pushEvent.Repo: %+v", pushEvent.Repo)
 
-		owner := *pushEvent.Repo.Owner.Name
-		repoName := *pushEvent.Repo.Name
+		//owner := *userEvent.Repo.Owner.Name
+		//repoName := *userEvent.Repo.Name
 		log.Printf("owner: %v, repoName: %v", owner, repoName)
 
 		additionalCommits, resp, err := guef.ApiClient.Repositories.ListCommits(
