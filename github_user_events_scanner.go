@@ -227,6 +227,8 @@ func (gues GithubUserEventsScanner) scanAwsKeysForUser(ctx context.Context, user
 		}
 
 		// If the event has the exact same ID as the checkpoint event ID, then skip it since it's already been scanned.
+		// Warning: before doing any numerical comparison on checkpoint event ID's, will have to address the fact
+		// that it's currently storing checkpoints with ArtificialCheckPointID
 		if fetchUserEventsInput.MatchesCheckpointID(userEvent) {
 			msg := "Skipping event since it has the same event ID as the checkpoint. " +
 				"User: %v. Event id: %v  Event created at: %v  Checkpoint timestamp: %v Checkpoint ID: %v"

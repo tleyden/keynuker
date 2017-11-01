@@ -54,6 +54,7 @@ func WrapCallbackWithLogSentinel(invocationMethod string, callback ow.OpenWhiskC
 	return func(input json.RawMessage) (interface{}, error) {
 		log.Printf("-- OpenWhiskCallback via %s Started --", invocationMethod)
 		defer log.Printf("-- OpenWhiskCallback via %s Finished --", invocationMethod)
+		defer LogMemoryUsage()
 		return callback(input)
 	}
 }
