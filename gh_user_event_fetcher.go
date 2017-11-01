@@ -286,12 +286,18 @@ func (guef GoGithubUserEventFetcher) FetchCommitsForPushEvent(
 		// "tleyden/keynuker" -> ["tleyden", "keynuker"] -> "keynuker"
 		repoNameAndUsername := *userEvent.Repo.Name
 		repoNameAndUsernameComponents := strings.Split(repoNameAndUsername, "/")
-		username := repoNameAndUsernameComponents[0]
-		repoName := repoNameAndUsernameComponents[1]
+		oldusername := repoNameAndUsernameComponents[0]
+		oldRepoName := repoNameAndUsernameComponents[1]
+		log.Printf("oldusername: %v, oldRepoName: %v", oldusername, oldRepoName)
+		log.Printf("pushEvent.Repo: %+v", pushEvent.Repo)
+
+		owner := *pushEvent.Repo.Owner.Name
+		repoName := *pushEvent.Repo.Name
+		log.Printf("owner: %v, repoName: %v", owner, repoName)
 
 		additionalCommits, resp, err := guef.ApiClient.Repositories.ListCommits(
 			ctx,
-			*userEvent.Actor.Login,
+			owner,
 			repoName,
 			commitListOptions,
 		)
@@ -311,7 +317,7 @@ func (guef GoGithubUserEventFetcher) FetchCommitsForPushEvent(
 			// Call GetCommit() to get the patch content of the commit, as long as it's < 1 MB.
 			repoCommit, _, err := guef.ApiClient.Repositories.GetCommit(
 				ctx,
-				username,
+				owner,
 				repoName,
 				*additionalCommit.SHA,
 			)
@@ -329,7 +335,7 @@ func (guef GoGithubUserEventFetcher) FetchCommitsForPushEvent(
 
 					blob, _, err := guef.ApiClient.Git.GetBlob(
 						ctx,
-						username,
+						owner,
 						repoName,
 						*repoCommitFile.SHA,
 					)
