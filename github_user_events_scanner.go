@@ -140,13 +140,13 @@ func (gues GithubUserEventsScanner) ScanAwsKeys(params ParamsScanGithubUserEvent
 		defer collectedResultsWaitGroup.Done()
 		for scanResult := range chScanResults {
 
+			githubEventCheckpoints[*scanResult.User.Login] = scanResult.CompactCheckpointEvent()
+
 			// TODO: partial errors are being absorbed/ignored here.  They should somehow be propagated back to the caller
 			if scanResult.Error != nil {
 				log.Printf("Warning: Got error trying to scan github user events: %+v", scanResult)
 				continue
 			}
-
-			githubEventCheckpoints[*scanResult.User.Login] = scanResult.CompactCheckpointEvent()
 
 			leakedKeyEvents = append(leakedKeyEvents, scanResult.LeakedKeyEvents...)
 		}
