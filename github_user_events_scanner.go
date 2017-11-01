@@ -231,9 +231,21 @@ func (gues GithubUserEventsScanner) scanAwsKeysForUser(ctx context.Context, user
 
 		downstreamEventContent, err := gues.fetcher.FetchDownstreamContent(ctx, userEvent)
 		if err != nil {
-			msg := "Failed to fetch user event content.  Event: %+v Error: %v"
-			scanResult.Error = fmt.Errorf(msg, userEvent, err)
-			return scanResult, scanResult.Error
+
+			// If it's a rate limit error, treat this as temporary / retryable.  Abort the current
+			// operation and return an error, which will prevent the checkpoint from advancing, which will cause a retry later.
+			if _, ok := err.(*github.RateLimitError); ok {
+				msg := "Failed to fetch user event content due to RateLimitError.  Event: %+v Error: %v"
+				scanResult.Error = fmt.Errorf(msg, userEvent, err)
+				return scanResult, scanResult.Error
+			} else {
+				// Otherwise, treat this as a permanent error and log a warning and skip this event (which is bad, since now
+				// that event's content will not be scanned)
+				scanResult.SetCheckpointIfMostRecent(userEvent)
+				log.Printf("WARNING: Failed to fetch user event content due to unexpected error.  Skipping Event: %+v Error: %v", userEvent, err)
+				continue
+			}
+
 		}
 
 		// Logging
