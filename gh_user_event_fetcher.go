@@ -215,7 +215,8 @@ func (guef GoGithubUserEventFetcher) FetchDownstreamContent(ctx context.Context,
 			// Fetch the rest of the commits for this push event and append downstream content to buffer
 			_, err := guef.FetchCommitsForPushEvent(ctx, userEvent, v, &buffer)
 			if err != nil {
-				return nil, fmt.Errorf("Error fetching additional commits for push event: %v.  Error: %v", *v.PushID, err)
+				log.Printf("Warning: Error fetching additional commits for push event: %v.  Error: %v", *v.PushID, err)
+				return nil, err
 			}
 
 		}
