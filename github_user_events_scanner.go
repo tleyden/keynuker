@@ -51,6 +51,15 @@ func (s *ScanResult) SetCheckpointIfMostRecent(latestEventScanned *github.Event)
 
 }
 
+func (s *ScanResult) SetDefaultResultCheckpoint(user *github.User, checkpoints GithubEventCheckpoints) {
+
+	checkpoint, ok := checkpoints.CheckpointForUser(user)
+	if ok {
+		s.SetCheckpointIfMostRecent(checkpoint)
+	}
+
+}
+
 // Return a compact (stripped) version of the checkpoint event that has the minimal
 // fields to still be useful
 func (s ScanResult) CompactCheckpointEvent() *github.Event {
@@ -131,13 +140,13 @@ func (gues GithubUserEventsScanner) ScanAwsKeys(params ParamsScanGithubUserEvent
 		defer collectedResultsWaitGroup.Done()
 		for scanResult := range chScanResults {
 
+			githubEventCheckpoints[*scanResult.User.Login] = scanResult.CompactCheckpointEvent()
+
 			// TODO: partial errors are being absorbed/ignored here.  They should somehow be propagated back to the caller
 			if scanResult.Error != nil {
 				log.Printf("Warning: Got error trying to scan github user events: %+v", scanResult)
 				continue
 			}
-
-			githubEventCheckpoints[*scanResult.User.Login] = scanResult.CompactCheckpointEvent()
 
 			leakedKeyEvents = append(leakedKeyEvents, scanResult.LeakedKeyEvents...)
 		}
@@ -174,6 +183,12 @@ func (gues GithubUserEventsScanner) scanAwsKeysForUser(ctx context.Context, user
 	log.Printf("ScanGithubUserEventsForAwsKeys for user: %v", *user.Login)
 
 	scanResult.User = user
+
+	// It's better to return the existing checkpoint rather than an empty checkpoint,
+	// since an empty checkpoint will clobber what's in the database and cause it to revert to
+	// a time-based checkpoint 24 hours ago.  So set the scanResult checkpoint to the current
+	// checkpoint for that user.
+	scanResult.SetDefaultResultCheckpoint(user, params.GithubEventCheckpoints)
 
 	fetchUserEventsInput := params.CreateFetchUserEventsInput(user)
 
@@ -231,9 +246,21 @@ func (gues GithubUserEventsScanner) scanAwsKeysForUser(ctx context.Context, user
 
 		downstreamEventContent, err := gues.fetcher.FetchDownstreamContent(ctx, userEvent)
 		if err != nil {
-			msg := "Failed to fetch user event content.  Event: %+v Error: %v"
-			scanResult.Error = fmt.Errorf(msg, userEvent, err)
-			return scanResult, scanResult.Error
+
+			// If it's a rate limit error, treat this as temporary / retryable.  Abort the current
+			// operation and return an error, which will prevent the checkpoint from advancing, which will cause a retry later.
+			if _, ok := err.(*github.RateLimitError); ok {
+				msg := "Failed to fetch user event content due to RateLimitError.  Event: %+v Error: %v"
+				scanResult.Error = fmt.Errorf(msg, userEvent, err)
+				return scanResult, scanResult.Error
+			} else {
+				// Otherwise, treat this as a permanent error and log a warning and skip this event (which is bad, since now
+				// that event's content will not be scanned)
+				scanResult.SetCheckpointIfMostRecent(userEvent)
+				log.Printf("WARNING: Failed to fetch user event content due to unexpected error.  Skipping Event: %+v Error: %v", userEvent, err)
+				continue
+			}
+
 		}
 
 		// Logging

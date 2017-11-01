@@ -215,7 +215,8 @@ func (guef GoGithubUserEventFetcher) FetchDownstreamContent(ctx context.Context,
 			// Fetch the rest of the commits for this push event and append downstream content to buffer
 			_, err := guef.FetchCommitsForPushEvent(ctx, userEvent, v, &buffer)
 			if err != nil {
-				return nil, fmt.Errorf("Error fetching additional commits for push event: %v.  Error: %v", *v.PushID, err)
+				log.Printf("Warning: Error fetching additional commits for push event: %v.  Error: %v", *v.PushID, err)
+				return nil, err
 			}
 
 		}
@@ -280,17 +281,17 @@ func (guef GoGithubUserEventFetcher) FetchCommitsForPushEvent(
 				Page:    resultPage,
 			},
 		}
-		log.Printf("Listing additional commits: %+v", commitListOptions)
+		log.Printf("Listing additional commits: %+v for repo: %s", commitListOptions, *userEvent.Repo.Name)
 
 		// "tleyden/keynuker" -> ["tleyden", "keynuker"] -> "keynuker"
 		repoNameAndUsername := *userEvent.Repo.Name
 		repoNameAndUsernameComponents := strings.Split(repoNameAndUsername, "/")
-		username := repoNameAndUsernameComponents[0]
+		owner := repoNameAndUsernameComponents[0]
 		repoName := repoNameAndUsernameComponents[1]
 
 		additionalCommits, resp, err := guef.ApiClient.Repositories.ListCommits(
 			ctx,
-			*userEvent.Actor.Login,
+			owner,
 			repoName,
 			commitListOptions,
 		)
@@ -310,7 +311,7 @@ func (guef GoGithubUserEventFetcher) FetchCommitsForPushEvent(
 			// Call GetCommit() to get the patch content of the commit, as long as it's < 1 MB.
 			repoCommit, _, err := guef.ApiClient.Repositories.GetCommit(
 				ctx,
-				username,
+				owner,
 				repoName,
 				*additionalCommit.SHA,
 			)
@@ -328,7 +329,7 @@ func (guef GoGithubUserEventFetcher) FetchCommitsForPushEvent(
 
 					blob, _, err := guef.ApiClient.Git.GetBlob(
 						ctx,
-						username,
+						owner,
 						repoName,
 						*repoCommitFile.SHA,
 					)
