@@ -130,6 +130,7 @@ func (guef GoGithubUserEventFetcher) FetchContentForCommits(ctx context.Context,
 	buffer := bytes.Buffer{}
 
 	for _, commit := range commits {
+
 		log.Printf("Getting content for commit: %v url: %v", commit.Sha(), commit.Url())
 
 		repoCommit, _, err := guef.ApiClient.Repositories.GetCommit(
@@ -153,6 +154,14 @@ func (guef GoGithubUserEventFetcher) FetchContentForCommits(ctx context.Context,
 				// so it's necessary to call a separate API to fetch
 
 				log.Printf("Warning: commit %+v has empty patch data.  Either binary data, or greater than 1MB", repoCommitFile)
+
+				if repoCommitFile.SHA == nil {
+					// TODO: move this code into a function called GetContentForCommit(commit) which will use GetBlob() if there
+					// TODO: is a SHA, otherwise it will fallback to directly getting content in repoCommitFile.RawURL
+					// TODO: see logs in "Panic bug scanning commits for CreateEvent" note
+					log.Printf("Warning: commit %+v has empty patch data, but cannot fetch blob since repoCommitFile.SHA is nil.  Skipping..", repoCommitFile)
+					continue
+				}
 
 				blob, _, err := guef.ApiClient.Git.GetBlob(
 					ctx,
@@ -423,6 +432,14 @@ func (guef GoGithubUserEventFetcher) FetchCommitsForPushEvent(
 
 					// This means its binary data or larger than 1 MB, call separate API to fetch
 					log.Printf("Warning: additional commit %+v has empty patch data.  Either binary data, or greater than 1MB", repoCommitFile)
+
+					if repoCommitFile.SHA == nil {
+						// TODO: move this code into a function called GetContentForCommit(commit) which will use GetBlob() if there
+						// TODO: is a SHA, otherwise it will fallback to directly getting content in repoCommitFile.RawURL
+						// TODO: see logs in "Panic bug scanning commits for CreateEvent" note
+						log.Printf("Warning: additional commit %+v has empty patch data, but repoCommitFile.SHA is nil.  Skipping", repoCommitFile)
+						continue
+					}
 
 					blob, _, err := guef.ApiClient.Git.GetBlob(
 						ctx,
