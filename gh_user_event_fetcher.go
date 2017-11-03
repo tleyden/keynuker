@@ -226,13 +226,13 @@ func (guef GoGithubUserEventFetcher) FetchDownstreamContent(ctx context.Context,
 				return []byte(""), nil
 			}
 
-			// This will list the last 20 commits on the branch or tag and scan them
-			// TODO: detect if there are more than 20 commits that haven't been scanned yet (currently no way to do that)
+			// This will list the last MaxPerPage commits on the branch or tag and scan them
+			// TODO: detect if there are more than MaxPerPage commits that haven't been scanned yet (currently no way to do that)
 			// TODO: and if there are, trigger a deep scan on this repo, which will git clone the repo scan local content
 			commitListOptions := &github.CommitsListOptions{
 				SHA: *v.Ref,
 				ListOptions: github.ListOptions{
-					PerPage: 20,
+					PerPage: MaxPerPage,
 					Page:    0,
 				},
 			}
