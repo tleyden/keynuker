@@ -109,20 +109,14 @@ func CreateBoundedLogger(maxInvocations int) Logger {
 
 func IsTemporaryGithubError(err error) bool {
 
-	log.Printf("IsTemporaryGithubError called with error: %+v with type: %T", err, err)
-
 	// Get the underlying error, if this is a Wrapped error by the github.com/pkg/errors package.
 	// If not, this will just return the error itself.
 	underlyingErr := errors.Cause(err)
 
-	log.Printf("underlyingErr: %v with type: %T", underlyingErr, underlyingErr)
-
 	switch underlyingErr.(type) {
 	case *github.RateLimitError:
-		log.Printf("It's a *github.RateLimitError")
 		return true
 	case *github.AbuseRateLimitError:
-		log.Printf("It's a *github.AbuseRateLimitError")
 		return true
 	default:
 		if strings.Contains(err.Error(), "abuse detection") {

@@ -248,8 +248,6 @@ func (gues GithubUserEventsScanner) scanAwsKeysForUser(ctx context.Context, user
 		downstreamEventContent, err := gues.fetcher.FetchDownstreamContent(ctx, userEvent)
 		if err != nil {
 
-			log.Printf("FetchDownstreamContent returned an error of type: %T", err)
-
 			// If it's a rate limit error, treat this as temporary / retryable.  Abort the current
 			// operation and return an error, which will prevent the checkpoint from advancing, which will cause a retry later.
 			if keynuker_go_common.IsTemporaryGithubError(err) {
@@ -259,7 +257,7 @@ func (gues GithubUserEventsScanner) scanAwsKeysForUser(ctx context.Context, user
 				// Otherwise, treat this as a permanent error and log a warning and skip this event (which is bad, since now
 				// that event's content will never be scanned)
 				scanResult.SetCheckpointIfMostRecent(userEvent)
-				log.Printf("WARNING: Failed to fetch user event content due to unexpected error.  Skipping Event: %+v Error: %v", userEvent, err)
+				log.Printf("WARNING: Failed to fetch user event content due to unexpected error.  Permanently skipping Event: %+v Error: %v", userEvent, err)
 				continue
 			}
 
