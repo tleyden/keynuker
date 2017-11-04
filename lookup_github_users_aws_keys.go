@@ -12,6 +12,7 @@ import (
 	_ "github.com/flimzy/kivik/driver/couchdb" // The CouchDB driver
 	"github.com/tleyden/keynuker/keynuker-go-common"
 	"log"
+	"github.com/pkg/errors"
 )
 
 // For a given KeyNuker org (or default org), look up:
@@ -116,10 +117,10 @@ type ParamsLookupGithubUsersAwsKeys struct {
 
 func (p ParamsLookupGithubUsersAwsKeys) Validate() error {
 	if p.Host == "" {
-		return fmt.Errorf("No DB Host specified in params")
+		return errors.Errorf("No DB Host specified in params")
 	}
 	if p.DbName == "" {
-		return fmt.Errorf("No DB name specified in params")
+		return errors.Errorf("No DB name specified in params")
 	}
 	return nil
 
