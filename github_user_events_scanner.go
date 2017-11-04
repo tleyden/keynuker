@@ -251,6 +251,8 @@ func (gues GithubUserEventsScanner) scanAwsKeysForUser(ctx context.Context, user
 
 			// If it's a rate limit error, treat this as temporary / retryable.  Abort the current
 			// operation and return an error, which will prevent the checkpoint from advancing, which will cause a retry later.
+			// TODO: look for 403 You have triggered an abuse detection mechanism. Please wait a few minutes before you try again
+			// TODO: which should also be considered a temporary error
 			if _, ok := err.(*github.RateLimitError); ok {
 				msg := "Failed to fetch user event content due to RateLimitError.  Event: %+v Error: %v"
 				scanResult.Error = fmt.Errorf(msg, userEvent, err)
