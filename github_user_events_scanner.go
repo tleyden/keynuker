@@ -180,7 +180,7 @@ func (gues GithubUserEventsScanner) ScanAwsKeys(params ParamsScanGithubUserEvent
 func (gues GithubUserEventsScanner) scanAwsKeysForUser(ctx context.Context, user *github.User,
 	params ParamsScanGithubUserEventsForAwsKeys) (scanResult ScanResult, err error) {
 
-	log.Printf("ScanGithubUserEventsForAwsKeys for user: %v", *user.Login)
+	log.Printf("scanAwsKeysForUser for user: %v", *user.Login)
 
 	scanResult.User = user
 
