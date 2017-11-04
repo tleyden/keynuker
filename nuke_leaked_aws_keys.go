@@ -4,7 +4,6 @@
 package keynuker
 
 import (
-	"fmt"
 	"strings"
 
 	"log"
@@ -14,6 +13,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/iam"
+	"github.com/pkg/errors"
 )
 
 // . Connect to AWS
@@ -26,7 +26,7 @@ func NukeLeakedAwsKeys(params ParamsNukeLeakedAwsKeys) (doc DocumentNukeLeakedAw
 
 		// Don't nuke the key that keynuker itself is using!
 		if leakedKeyEvent.LeakedKeyIsMonitorKey() {
-			return doc, fmt.Errorf("Cannot nuke the key being used to monitor.  LeakedKeyEvent: %+v", leakedKeyEvent)
+			return doc, errors.Errorf("Cannot nuke the key being used to monitor.  LeakedKeyEvent: %+v", leakedKeyEvent)
 		}
 
 		// Find which target AWS account this leaked key is associated with
@@ -136,6 +136,6 @@ func FindAwsAccount(targetAwsAccounts []TargetAwsAccount, monitorAwsAccessKeyId 
 			return targetAwsAccount, nil
 		}
 	}
-	return TargetAwsAccount{}, fmt.Errorf("Could not find TargetAwsAccount with monitorAwsAccessKeyId: |%v| in %+v", monitorAwsAccessKeyId, targetAwsAccounts)
+	return TargetAwsAccount{}, errors.Errorf("Could not find TargetAwsAccount with monitorAwsAccessKeyId: |%v| in %+v", monitorAwsAccessKeyId, targetAwsAccounts)
 
 }

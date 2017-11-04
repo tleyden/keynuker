@@ -5,7 +5,6 @@ package keynuker
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"log"
@@ -15,6 +14,7 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/google/go-github/github"
+	"github.com/pkg/errors"
 	"github.com/tleyden/keynuker/keynuker-go-common"
 )
 
@@ -144,7 +144,7 @@ func (gues GithubUserEventsScanner) ScanAwsKeys(params ParamsScanGithubUserEvent
 
 			// TODO: partial errors are being absorbed/ignored here.  They should somehow be propagated back to the caller
 			if scanResult.Error != nil {
-				log.Printf("Warning: Got error trying to scan github user events: %v", scanResult.Error)
+				log.Printf("Warning: Got error trying to scan github user events: %+v", scanResult.Error)
 				continue
 			}
 
@@ -180,7 +180,7 @@ func (gues GithubUserEventsScanner) ScanAwsKeys(params ParamsScanGithubUserEvent
 func (gues GithubUserEventsScanner) scanAwsKeysForUser(ctx context.Context, user *github.User,
 	params ParamsScanGithubUserEventsForAwsKeys) (scanResult ScanResult, err error) {
 
-	log.Printf("ScanGithubUserEventsForAwsKeys for user: %v", *user.Login)
+	log.Printf("scanAwsKeysForUser for user: %v", *user.Login)
 
 	scanResult.User = user
 
@@ -194,8 +194,7 @@ func (gues GithubUserEventsScanner) scanAwsKeysForUser(ctx context.Context, user
 
 	userEvents, err := gues.fetcher.FetchUserEvents(ctx, fetchUserEventsInput)
 	if err != nil {
-		msg := "Failed to fetch user events.  ParamsScanGithubUserEventsForAwsKeys: %+v Error: %v"
-		scanResult.Error = fmt.Errorf(msg, fetchUserEventsInput, err)
+		scanResult.Error = errors.Wrapf(err, "Failed to fetch user events.  ParamsScanGithubUserEventsForAwsKeys: %+v", fetchUserEventsInput)
 		return scanResult, scanResult.Error
 	}
 
@@ -251,20 +250,17 @@ func (gues GithubUserEventsScanner) scanAwsKeysForUser(ctx context.Context, user
 
 			// If it's a rate limit error, treat this as temporary / retryable.  Abort the current
 			// operation and return an error, which will prevent the checkpoint from advancing, which will cause a retry later.
-			// TODO: look for 403 You have triggered an abuse detection mechanism. Please wait a few minutes before you try again
-			// TODO: which should also be considered a temporary error
-			if _, ok := err.(*github.RateLimitError); ok {
-				msg := "Failed to fetch user event content due to RateLimitError.  Event: %+v Error: %v"
-				scanResult.Error = fmt.Errorf(msg, userEvent, err)
+			if keynuker_go_common.IsTemporaryGithubError(err) {
+				scanResult.Error = errors.Wrapf(err, "WARNING: Failed to fetch user event content due to temporary error.  Event: %+v", userEvent)
 				return scanResult, scanResult.Error
 			} else {
 				// Otherwise, treat this as a permanent error and log a warning and skip this event (which is bad, since now
-				// that event's content will not be scanned)
+				// that event's content will never be scanned)
 				scanResult.SetCheckpointIfMostRecent(userEvent)
-				log.Printf("WARNING: Failed to fetch user event content due to unexpected error.  Skipping Event: %+v Error: %v", userEvent, err)
+				log.Printf("WARNING: Failed to fetch user event content due to unexpected error.  Permanently skipping Event: %+v Error: %v", userEvent, err)
 				continue
 			}
-		
+
 		}
 
 		// Logging
@@ -276,7 +272,7 @@ func (gues GithubUserEventsScanner) scanAwsKeysForUser(ctx context.Context, user
 		// Scan for leaked keys
 		leakedKeys, nearbyContent, err := Scan(params.AccessKeyMetadata, downstreamEventContent)
 		if err != nil {
-			scanResult.Error = fmt.Errorf("Failed to scan event content.  Event: %s Error: %v", userEvent, err)
+			scanResult.Error = errors.Wrapf(err, "Failed to scan event content.  Event: %s", userEvent)
 			return scanResult, scanResult.Error
 		}
 
@@ -364,7 +360,7 @@ type ParamsScanGithubUserEventsForAwsKeys struct {
 func (p ParamsScanGithubUserEventsForAwsKeys) Validate() error {
 	// Must have a github access token
 	if p.GithubAccessToken == "" {
-		return fmt.Errorf("You must supply the GithubAccessToken")
+		return errors.Errorf("You must supply the GithubAccessToken")
 	}
 	return nil
 }

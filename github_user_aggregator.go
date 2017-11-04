@@ -5,9 +5,9 @@ package keynuker
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/google/go-github/github"
+	"github.com/pkg/errors"
 	"github.com/tleyden/keynuker/keynuker-go-common"
 	"golang.org/x/oauth2"
 )
@@ -189,7 +189,7 @@ func AggregateGithubUsers(params ParamsGithubUserAggregator) (DocumentWrapperGit
 	// Call out to Github API to get aggregated members of orgs
 	users, err := ghUserAggregator.ListMembers(context.Background())
 	if err != nil {
-		return DocumentWrapperGithubUserAggregator{}, fmt.Errorf("Error listing members for orgs: %v.  Error: %v", params.GithubOrgs, err)
+		return DocumentWrapperGithubUserAggregator{}, errors.Wrapf(err, "Error listing members for orgs: %v.", params.GithubOrgs)
 	}
 
 	// Add all the individual github users from the GithubUsers param

@@ -17,9 +17,9 @@ import (
 	"strings"
 
 	"encoding/base64"
-	"fmt"
 
 	"github.com/google/go-github/github"
+	"github.com/pkg/errors"
 	"github.com/tleyden/keynuker/keynuker-go-common"
 )
 
@@ -123,8 +123,6 @@ func (guef GoGithubUserEventFetcher) FetchUserEvents(ctx context.Context, fetchU
 
 }
 
-
-
 func (guef GoGithubUserEventFetcher) FetchContentForCommits(ctx context.Context, username, repoName, sha string, commits []WrappedCommit) (content []byte, err error) {
 
 	buffer := bytes.Buffer{}
@@ -140,7 +138,7 @@ func (guef GoGithubUserEventFetcher) FetchContentForCommits(ctx context.Context,
 			commit.Sha(),
 		)
 		if err != nil {
-			return nil, fmt.Errorf("Error getting content for commit: %v url: %v.  Error: %v", commit.Sha(), commit.Url(), err)
+			return nil, errors.Wrapf(err, "Error getting content for commit: %v url: %v", commit.Sha(), commit.Url())
 		}
 
 		for _, repoCommitFile := range repoCommit.Files {
@@ -153,7 +151,7 @@ func (guef GoGithubUserEventFetcher) FetchContentForCommits(ctx context.Context,
 				// This commit file doesn't have an inline "patch", which means its binary data or larger than 1 MB
 				// so it's necessary to call a separate API to fetch
 
-				log.Printf("Warning: commit %+v has empty patch data.  Either binary data, or greater than 1MB", repoCommitFile)
+				log.Printf("Commit %+v has empty patch data.  Either binary data, or greater than 1MB, fetching using GetBlob API", repoCommitFile)
 
 				if repoCommitFile.SHA == nil {
 					// TODO: move this code into a function called GetContentForCommit(commit) which will use GetBlob() if there
@@ -170,10 +168,11 @@ func (guef GoGithubUserEventFetcher) FetchContentForCommits(ctx context.Context,
 					*repoCommitFile.SHA,
 				)
 				if err != nil {
-					return nil, fmt.Errorf("Error getting content for commit file: %+v via blob api.  Error: %v", repoCommitFile, err)
+					return nil, errors.Wrapf(err, "Error getting content for commit file via blob api: %+v", repoCommitFile)
 				}
 				if *blob.Encoding != "base64" {
-					return nil, fmt.Errorf("Unexpected encoding for blob commit file: %+v via blob api.  Encoding: %v", repoCommitFile, *blob.Encoding)
+					log.Printf("Warning: skipping blob from commit file %+v, since unexpected encoding (%v)", repoCommitFile, *blob.Encoding)
+					continue
 				}
 				if *blob.Size > keynuker_go_common.MaxSizeBytesBlobContent {
 					log.Printf("Warning: skipping blob from commit file %+v, since size > max size (%d)", repoCommitFile, keynuker_go_common.MaxSizeBytesBlobContent)
@@ -182,7 +181,8 @@ func (guef GoGithubUserEventFetcher) FetchContentForCommits(ctx context.Context,
 
 				decodedBlobContent, err := base64.StdEncoding.DecodeString(blob.GetContent())
 				if err != nil {
-					return nil, fmt.Errorf("Unexpected decoding base64 for blob commit file: %+v via blob api.  Err: %v", repoCommitFile, err)
+					log.Printf("Warning: error decoding base64 for blob commit file:  %+v via blob api.  Err: %v", repoCommitFile, err)
+					continue
 				}
 				buffer.Write(decodedBlobContent)
 
@@ -257,7 +257,7 @@ func (guef GoGithubUserEventFetcher) FetchDownstreamContent(ctx context.Context,
 					log.Printf("Warning: Skipping branch/tag since it apparently no longer exists.  Err: %v Err Type: %T", err, err)
 					return []byte(""), nil
 				}
-				return []byte(""), fmt.Errorf("Error calling ListCommits: %v", err)
+				return []byte(""), errors.Wrapf(err, "Error calling ListCommits on CreateEvent id: %v", *userEvent.ID)
 			}
 
 			content, err := guef.FetchContentForCommits(
@@ -268,7 +268,7 @@ func (guef GoGithubUserEventFetcher) FetchDownstreamContent(ctx context.Context,
 				ConvertRepositoryCommits(commits),
 			)
 			if err != nil {
-				return []byte(""), fmt.Errorf("Error calling FetchContentForCommits: %v", err)
+				return []byte(""), errors.Wrapf(err, "Error calling FetchContentForCommits on CreateEvent id: %v", *userEvent.ID)
 			}
 
 			return content, nil
@@ -307,7 +307,7 @@ func (guef GoGithubUserEventFetcher) FetchDownstreamContent(ctx context.Context,
 			ConvertPushEventCommits(v.Commits),
 		)
 		if err != nil {
-			return []byte(""), fmt.Errorf("Error calling FetchContentForCommits: %v", err)
+			return []byte(""), errors.Wrapf(err, "Error calling FetchContentForCommits on PushEvent: %v", *v.PushID)
 		}
 
 		buffer.Write(content)
@@ -321,8 +321,7 @@ func (guef GoGithubUserEventFetcher) FetchDownstreamContent(ctx context.Context,
 			// Fetch the rest of the commits for this push event and append downstream content to buffer
 			_, err := guef.FetchCommitsForPushEvent(ctx, userEvent, v, &buffer)
 			if err != nil {
-				log.Printf("Warning: Error fetching additional commits for push event: %v.  Error: %v", *v.PushID, err)
-				return nil, err
+				return nil, errors.Wrapf(err, "Error fetching additional commits for push event: %v", *v.PushID)
 			}
 
 		}
@@ -402,7 +401,7 @@ func (guef GoGithubUserEventFetcher) FetchCommitsForPushEvent(
 			commitListOptions,
 		)
 		if err != nil {
-			return false, fmt.Errorf("Error calling ApiClient.Repositories.ListCommits: %v", err)
+			return false, errors.Wrapf(err, "Error calling ApiClient.Repositories.ListCommits on PushEvent: %v", *pushEvent.PushID)
 		}
 
 		for _, additionalCommit := range additionalCommits {
@@ -422,12 +421,16 @@ func (guef GoGithubUserEventFetcher) FetchCommitsForPushEvent(
 				*additionalCommit.SHA,
 			)
 			if err != nil {
-				return false, fmt.Errorf("Error getting additional content for commit: %v url: %v.  Error: %v", *additionalCommit.SHA, additionalCommit.GetURL(), err)
+				return false, errors.Wrapf(err, "Error getting additional content for commit: %v url: %v", *additionalCommit.SHA, additionalCommit.GetURL())
 			}
 
 			// Loop over the files in the commit and append the content to the writer
 			for _, repoCommitFile := range repoCommit.Files {
+
+				// TODO: refactor this code.  Duplicated in GoGithubUserEventFetcher.FetchContentForCommits()
+
 				w.Write([]byte(repoCommitFile.GetPatch()))
+
 				if repoCommitFile.Patch == nil {
 
 					// This means its binary data or larger than 1 MB, call separate API to fetch
@@ -448,20 +451,24 @@ func (guef GoGithubUserEventFetcher) FetchCommitsForPushEvent(
 						*repoCommitFile.SHA,
 					)
 					if err != nil {
-						return false, fmt.Errorf("Error getting additional content for commit file: %+v via blob api.  Error: %v", repoCommitFile, err)
+						return false, errors.Wrapf(err, "Error getting additional content for commit file: %+v via blob api.", repoCommitFile)
 					}
+
 					if *blob.Encoding != "base64" {
-						return false, fmt.Errorf("Unexpected encoding for additional blob commit file: %+v via blob api.  Encoding: %v", repoCommitFile, *blob.Encoding)
+						log.Printf("Warning: skipping blob from commit file %+v, since unexpected encoding (%v)", repoCommitFile, *blob.Encoding)
+						continue
 					}
 					if *blob.Size > keynuker_go_common.MaxSizeBytesBlobContent {
-						log.Printf("Warning: skipping additional blob from commit file %+v, since size > max size (%d)", repoCommitFile, keynuker_go_common.MaxSizeBytesBlobContent)
+						log.Printf("Warning: skipping blob from commit file %+v, since size > max size (%d)", repoCommitFile, keynuker_go_common.MaxSizeBytesBlobContent)
 						continue
 					}
 
 					decodedBlobContent, err := base64.StdEncoding.DecodeString(blob.GetContent())
 					if err != nil {
-						return false, fmt.Errorf("Unexpected decoding base64 for additional blob commit file: %+v via blob api.  Err: %v", repoCommitFile, err)
+						log.Printf("Warning: error decoding base64 for blob commit file:  %+v via blob api.  Err: %v", repoCommitFile, err)
+						continue
 					}
+
 					w.Write(decodedBlobContent)
 
 				}
@@ -476,8 +483,6 @@ func (guef GoGithubUserEventFetcher) FetchCommitsForPushEvent(
 			}
 
 		}
-
-		log.Printf("resp %+v.  NextPage: %v.  LastPage: %v", resp, resp.NextPage, resp.LastPage)
 
 		resultPage = resp.NextPage
 
