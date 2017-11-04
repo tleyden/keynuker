@@ -221,6 +221,7 @@ func WhiskConfigFromEnvironment() (config *whisk.Config, err error) {
 			}
 			apiHost.Scheme = "http" // TODO: what should this be?
 			config.BaseURL = apiHost
+			config.Host = val
 		}
 
 	}
@@ -263,6 +264,8 @@ func WhiskConfigFromOwEnvVars() (config *whisk.Config, err error) {
 
 	config.AuthToken = owApiKey
 
+	config.Host = owApiHost
+	
 	return config, nil
 
 }
