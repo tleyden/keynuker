@@ -50,6 +50,7 @@ func NewGithubUserAggregator(orgs []string, accessToken string) *GithubUserAggre
 
 func (gua GithubUserAggregator) ListMembers(ctx context.Context) ([]*github.User, error) {
 
+
 	// The resulting list of users aggregated across all orgs
 	users := []*github.User{}
 
@@ -67,6 +68,9 @@ func (gua GithubUserAggregator) ListMembers(ctx context.Context) ([]*github.User
 	return users, nil
 
 }
+
+
+
 
 // Get a compacted list of the users that only contains the user data that concerns the keynuker application
 // TODO: this should convert to a keynuker.GithubUser (doesn't exist yet) to increase compile time checking
@@ -117,7 +121,7 @@ func (gua GithubUserAggregator) ListMembersForOrg(ctx context.Context, org strin
 			return nil, err
 		}
 
-		users = append(users, usersPerOrg...)
+		users = appendUsersDeDupe(users, usersPerOrg)
 
 		if response.NextPage <= curApiResultPage {
 			// Lost page, we're done
@@ -141,20 +145,18 @@ func appendUsersDeDupe(existing, incoming []*github.User) []*github.User {
 	// Start out w/ the set of existing users
 	users = append(users, existing...)
 
-	// Map of user id's for de-dupe purposes
-	existingUserIds := map[int]struct{}{}
+	// Map of user logins for de-dupe purposes
+	existingUserLogins := map[string]struct{}{}
 
 	// Build a map of user id's
 	for _, existingUser := range existing {
-		id := *existingUser.ID
-		existingUserIds[id] = struct{}{}
+		existingUserLogins[*existingUser.Login] = struct{}{}
 	}
 
 	for _, incomingUser := range incoming {
 
 		// Make sure we don't already have this user in existing
-		id := *incomingUser.ID
-		_, ok := existingUserIds[id]
+		_, ok := existingUserLogins[*incomingUser.Login]
 		if ok {
 			// Already have this user in existing, skip
 			continue
@@ -194,7 +196,7 @@ func AggregateGithubUsers(params ParamsGithubUserAggregator) (DocumentWrapperGit
 
 	// Add all the individual github users from the GithubUsers param
 	individualGithubUsers := params.GetGithubUsers()
-	users = append(users, individualGithubUsers...)
+	users = appendUsersDeDupe(users, individualGithubUsers)
 
 	// Strip out unneeded fields from users
 	compactedUsers := ghUserAggregator.CompactedUsers(users)
