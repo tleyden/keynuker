@@ -236,7 +236,7 @@ func TestScanGithubUserEventsForAwsKeys(t *testing.T) {
 		assert.Equal(t, *docWrapper.LeakedKeyEvents[0].GithubEvent.ID, *mockGithubEvent1.ID)
 		assert.Equal(t, "testuser@gmail.com", docWrapper.LeakedKeyEvents[0].LeakerEmail)
 		assert.True(t, len(docWrapper.GithubEventCheckpoints) == 3)
-		assert.Equal(t, *docWrapper.GithubEventCheckpoints[*githubUser.Login].ID, *mockGithubEvent1.ID)
+		assert.Equal(t, *mockGithubEvent1.ID, *docWrapper.GithubEventCheckpoints[*githubUser.Login].ID)
 
 		// The user with actual events should have a non-nil checkpoint
 		assert.NotNil(t, docWrapper.GithubEventCheckpoints[*githubUser.Login])

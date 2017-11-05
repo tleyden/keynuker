@@ -8,9 +8,12 @@ import (
 	"time"
 
 	"log"
-	"sync"
 
 	"strings"
+
+	"runtime"
+
+	"strconv"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/google/go-github/github"
@@ -32,7 +35,7 @@ type ScanResult struct {
 	Error           error
 }
 
-func (s *ScanResult) SetCheckpointIfMostRecent(latestEventScanned *github.Event) {
+func (s *ScanResult) SetCheckpointIfMostRecent(user *github.User, latestEventScanned *github.Event) {
 
 	if latestEventScanned == nil {
 		// Ignore nil events
@@ -41,15 +44,50 @@ func (s *ScanResult) SetCheckpointIfMostRecent(latestEventScanned *github.Event)
 
 	// If there is no checkpoint event yet whatsoever, set as current event no matter what it is
 	if s.CheckpointEvent == nil {
-		log.Printf("SetCheckpointIfMostRecent setting checkpoint from nil -> to %v", *latestEventScanned.ID)
+		log.Printf("SetCheckpointIfMostRecent setting checkpoint from nil -> to %v for user: %v", *latestEventScanned.ID, user)
 		s.CheckpointEvent = latestEventScanned
 	}
 
-	// Otherwise only set the checkpoint if current event happened after checkpoint
-	if (*latestEventScanned.CreatedAt).After(*s.CheckpointEvent.CreatedAt) {
-		log.Printf("SetCheckpointIfMostRecent setting checkpoint from %v -> to %v", *s.CheckpointEvent.ID, *latestEventScanned.ID)
+	// Otherwise only set the checkpoint if current event happened after or has a larger ID than current checkpoint
+	if EventMoreRecent(s.CheckpointEvent, latestEventScanned) {
+		log.Printf("SetCheckpointIfMostRecent setting checkpoint from %v -> to %v for user: %v", *s.CheckpointEvent.ID, *latestEventScanned.ID, user)
 		s.CheckpointEvent = latestEventScanned
 	}
+
+}
+
+// Is the incoming event more recent than the checkpoint event?
+func EventMoreRecent(checkpoint, incoming *github.Event) bool {
+
+	if checkpoint == nil || incoming == nil {
+		return false
+	}
+
+	// Compare by date, if it's after, then we're done
+	if (*incoming.CreatedAt).After(*checkpoint.CreatedAt) {
+		return true
+	}
+
+	// If the date is equal, then fallback to comparing by the checkpoint ID
+	if (*incoming.CreatedAt).Equal(*checkpoint.CreatedAt) {
+
+		incomingID, err := strconv.Atoi(*incoming.ID)
+		if err != nil {
+			log.Printf("Warning: error converting event id to int.  Event id: %v.  Err: %v", *incoming.ID, err)
+			return false
+		}
+
+		checkpointID, err := strconv.Atoi(*checkpoint.ID)
+		if err != nil {
+			log.Printf("Warning: error converting event id to int.  Event id: %v.  Err: %v", *checkpoint.ID, err)
+			return false
+		}
+
+		return incomingID > checkpointID
+
+	}
+
+	return false
 
 }
 
@@ -58,7 +96,7 @@ func (s *ScanResult) SetDefaultResultCheckpoint(user *github.User, checkpoints G
 	checkpoint, ok := checkpoints.CheckpointForUser(user)
 	if ok {
 		log.Printf("SetDefaultResultCheckpoint to %v for user %v", *checkpoint.ID, user)
-		s.SetCheckpointIfMostRecent(checkpoint)
+		s.SetCheckpointIfMostRecent(user, checkpoint)
 	}
 
 }
@@ -87,7 +125,6 @@ func NewGithubUserEventsScanner(fetcher GithubUserEventFetcher) *GithubUserEvent
 	}
 
 }
-
 
 // For each github user, scan their event feed for leaked aws keys
 // This purposely does not make concurrent requests due to: https://developer.github.com/guides/best-practices-for-integrators/#dealing-with-abuse-rate-limits
@@ -132,6 +169,15 @@ func (gues GithubUserEventsScanner) ScanAwsKeys(params ParamsScanGithubUserEvent
 			break
 		}
 
+		// ensure that the heap size is not getting too large, since if it blows up in memory it will
+		// fail to return the checkpoints, and get stuck in a death spiral
+		var m runtime.MemStats
+		runtime.ReadMemStats(&m)
+		if m.Alloc > keynuker_go_common.HighWatermarkHeapSizeBytes {
+			log.Printf("Warning: Current allocated heap (%d) over high watermark (%d) for memory usage.  Returning current results so far", m.Alloc, keynuker_go_common.HighWatermarkHeapSizeBytes)
+			break
+		}
+
 	}
 
 	// Create result doc
@@ -146,7 +192,6 @@ func (gues GithubUserEventsScanner) ScanAwsKeys(params ParamsScanGithubUserEvent
 
 func (gues GithubUserEventsScanner) scanAwsKeysForUser(ctx context.Context, user *github.User,
 	params ParamsScanGithubUserEventsForAwsKeys) (scanResult ScanResult, err error) {
-
 
 	scanResult.User = user
 
@@ -188,7 +233,7 @@ func (gues GithubUserEventsScanner) scanAwsKeysForUser(ctx context.Context, user
 			// Update the checkpoint, if it's the most recent event, despite the fact that we are skipping this event.
 			// This covers the edge case where _all_ events returned by the user are older than the checkpoint -- in
 			// that case it's still necessary to bump the checkpoint to the most recent event in that event set.
-			scanResult.SetCheckpointIfMostRecent(userEvent)
+			scanResult.SetCheckpointIfMostRecent(user, userEvent)
 
 			continue
 		}
@@ -202,7 +247,7 @@ func (gues GithubUserEventsScanner) scanAwsKeysForUser(ctx context.Context, user
 			boundedLogger.Printf(msg, *user.Login, *userEvent.ID, *userEvent.CreatedAt,
 				*fetchUserEventsInput.SinceEventTimestamp, fetchUserEventsInput.CheckpointID)
 
-			scanResult.SetCheckpointIfMostRecent(userEvent)
+			scanResult.SetCheckpointIfMostRecent(user, userEvent)
 
 			continue
 		}
@@ -224,7 +269,7 @@ func (gues GithubUserEventsScanner) scanAwsKeysForUser(ctx context.Context, user
 			} else {
 				// Otherwise, treat this as a permanent error and log a warning and skip this event (which is bad, since now
 				// that event's content will never be scanned)
-				scanResult.SetCheckpointIfMostRecent(userEvent)
+				scanResult.SetCheckpointIfMostRecent(user, userEvent)
 				log.Printf("WARNING: Failed to fetch user event content due to unexpected error.  Permanently skipping Event: %+v Error: %v", userEvent, err)
 				continue
 			}
@@ -267,7 +312,7 @@ func (gues GithubUserEventsScanner) scanAwsKeysForUser(ctx context.Context, user
 		}
 
 		// Update checkpoint.
-		scanResult.SetCheckpointIfMostRecent(userEvent)
+		scanResult.SetCheckpointIfMostRecent(user, userEvent)
 
 	}
 
