@@ -123,7 +123,7 @@ func (gua GithubUserAggregator) ListMembersForOrg(ctx context.Context, org strin
 
 		users = appendUsersDeDupe(users, usersPerOrg)
 
-		if response.NextPage >= response.LastPage {
+		if curApiResultPage >= response.LastPage {
 			// Lost page, we're done
 			break
 		}

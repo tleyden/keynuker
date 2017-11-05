@@ -82,7 +82,7 @@ func (guef GoGithubUserEventFetcher) FetchUserEvents(ctx context.Context, fetchU
 	// TODO: be duplicate content.
 	curApiResultPage := 1
 
-	events := []*github.Event{}
+	eventStack := NewEventStack()
 
 	// Loop over all pages returned by API and accumulate events
 	// TODO: #1 needs to also collect github gists
@@ -111,10 +111,10 @@ func (guef GoGithubUserEventFetcher) FetchUserEvents(ctx context.Context, fetchU
 
 		// Loop over events and append to result
 		for _, event := range eventsPerPage {
-			events = append(events, event)
+			eventStack.Push(event)
 		}
 
-		if response.NextPage >= response.LastPage {
+		if curApiResultPage >= response.LastPage {
 			// Last page, we're done
 			break
 		}
@@ -123,7 +123,7 @@ func (guef GoGithubUserEventFetcher) FetchUserEvents(ctx context.Context, fetchU
 
 	}
 
-	return events, nil
+	return eventStack.PopAll(), nil
 
 }
 

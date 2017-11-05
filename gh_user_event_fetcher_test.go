@@ -112,7 +112,8 @@ func TestGithubUserEventDownstreamContentFetcher(t *testing.T) {
 
 	githubUrl := "https://api.github.com"
 	eventsEndpoint := fmt.Sprintf("/users/%s/events", fetchUserEventsInput.Username)
-	nextPage := fmt.Sprintf("<%s/%s?page=2&per_page=100>; rel=\"next\", <%s/%s?page=2&per_page=100>; rel=\"last\"", githubUrl, eventsEndpoint)
+	nextPage := fmt.Sprintf("<%s/%s?page=2&per_page=100>; rel=\"next\", <%s/%s?page=2&per_page=100>; rel=\"last\"",
+		githubUrl, eventsEndpoint, githubUrl, eventsEndpoint)
 
 	gock.New(githubUrl).
 		Get(eventsEndpoint).
@@ -124,7 +125,7 @@ func TestGithubUserEventDownstreamContentFetcher(t *testing.T) {
 	gock.New(githubUrl).
 		Get(eventsEndpoint).
 		MatchParam("per_page", "100").
-		MatchParam("page", "1").
+		MatchParam("page", "2").
 		Reply(200).
 		JSON(eventsPage2)
 
@@ -134,6 +135,7 @@ func TestGithubUserEventDownstreamContentFetcher(t *testing.T) {
 	}
 
 	log.Printf("returned %d user events", len(userEvents))
+	assert.Equals(t, len(userEvents), 200)
 
 	for i, userEvent := range userEvents {
 		log.Printf("userEvent #%d ID: %v createdAt: %v", i, *userEvent.ID, userEvent.CreatedAt)
