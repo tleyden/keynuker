@@ -41,13 +41,13 @@ func (s *ScanResult) SetCheckpointIfMostRecent(latestEventScanned *github.Event)
 
 	// If there is no checkpoint event yet whatsoever, set as current event no matter what it is
 	if s.CheckpointEvent == nil {
-		log.Printf("SetCheckpointIfMostRecent setting checkpoint from nil -> to %+v", latestEventScanned)
+		log.Printf("SetCheckpointIfMostRecent setting checkpoint from nil -> to %v", *latestEventScanned.ID)
 		s.CheckpointEvent = latestEventScanned
 	}
 
 	// Otherwise only set the checkpoint if current event happened after checkpoint
 	if (*latestEventScanned.CreatedAt).After(*s.CheckpointEvent.CreatedAt) {
-		log.Printf("SetCheckpointIfMostRecent setting checkpoint from %+v -> to %+v", s.CheckpointEvent, latestEventScanned)
+		log.Printf("SetCheckpointIfMostRecent setting checkpoint from %v -> to %v", *s.CheckpointEvent.ID, *latestEventScanned.ID)
 		s.CheckpointEvent = latestEventScanned
 	}
 
@@ -57,7 +57,7 @@ func (s *ScanResult) SetDefaultResultCheckpoint(user *github.User, checkpoints G
 
 	checkpoint, ok := checkpoints.CheckpointForUser(user)
 	if ok {
-		log.Printf("SetDefaultResultCheckpoint to %+v for user %v", checkpoint, user)
+		log.Printf("SetDefaultResultCheckpoint to %v for user %v", *checkpoint.ID, user)
 		s.SetCheckpointIfMostRecent(checkpoint)
 	}
 
@@ -97,6 +97,10 @@ func (gues GithubUserEventsScanner) ScanAwsKeys(params ParamsScanGithubUserEvent
 	chUsersToProcess := make(chan *github.User)
 
 	chScanResults := make(chan ScanResult)
+
+	// TODO: #1 rip out code that processes users concurrently, per
+	// TODO: https://developer.github.com/guides/best-practices-for-integrators/#dealing-with-abuse-rate-limits
+	// TODO: #2 if we've gone over 250 seconds, return early and leave remaining for next polling loop
 
 	// Start goroutines for scanning github users
 	processUsersDone := sync.WaitGroup{}
