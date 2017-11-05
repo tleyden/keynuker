@@ -148,7 +148,9 @@ func (guef GoGithubUserEventFetcher) ScanContentForCommits(ctx context.Context, 
 		for _, repoCommitFile := range repoCommit.Files {
 			if repoCommitFile.Patch != nil {
 				// This commit file has an inline "patch" that has the delta of the content
-				leaksForFile, err := Scan(accessKeysToScan, []byte(repoCommitFile.GetPatch()))
+				patchContent := []byte(repoCommitFile.GetPatch())
+				log.Printf("Scanning %d bytes of content for commit: %v url: %v", len(patchContent), commit.Sha(), commit.Url())
+				leaksForFile, err := Scan(accessKeysToScan, patchContent)
 				if err != nil {
 					log.Printf("WARNING: error scanning content for commit: %v.  Err: %v  Skipping this content.", repoCommitFile, err)
 					continue
@@ -200,6 +202,8 @@ func (guef GoGithubUserEventFetcher) ScanDownstreamContent(ctx context.Context, 
 
 	switch v := payload.(type) {
 	case *github.PullRequestEvent:
+
+		// TODO: what if this Pull Request has more commits than will be returned in content from patch url?
 
 		content, err := guef.FetchUrlContent(ctx, v.PullRequest.GetPatchURL())
 		if err != nil {
@@ -511,6 +515,8 @@ func (guef GoGithubUserEventFetcher) ScanBlob(owner string, repo string, sha str
 		log.Printf("Warning: error decoding base64 for blob commit with owner: %v Repo: %v Sha: %v via blob api.  Err: %v.  Skipping commit.", owner, repo, sha, err)
 		return leaks, nil
 	}
+
+	log.Printf("Scanning %d bytes of content for blob commit with owner: %v Repo: %v Sha: %v", owner, repo, sha)
 
 	leaksForFile, err := Scan(accessKeysToScan, decodedBlobContent)
 	if err != nil {

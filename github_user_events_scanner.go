@@ -156,6 +156,7 @@ func (gues GithubUserEventsScanner) ScanAwsKeys(params ParamsScanGithubUserEvent
 		// since scanAwsKeysForUser() will only move it forward in the case there were no errors
 		githubEventCheckpoints[*scanResult.User.Login] = scanResult.CompactCheckpointEvent()
 
+		// ErrorInjection: only append leaks if no errors, then run test with temp github error on commit after finding a leak
 		if len(scanResult.LeakedKeyEvents) > 0 {
 			leakedKeyEvents = append(leakedKeyEvents, scanResult.LeakedKeyEvents...)
 		}
