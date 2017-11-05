@@ -22,15 +22,15 @@ func NewGithubUserEventFetcherMock() *GithubUserEventFetcherMock {
 	return &GithubUserEventFetcherMock{}
 }
 
-// FetchDownstreamContent mocked method
-func (m *GithubUserEventFetcherMock) FetchDownstreamContent(p0 context.Context, p1 *github.Event) ([]byte, error) {
+// FetchUserEvents mocked method
+func (m *GithubUserEventFetcherMock) FetchUserEvents(p0 context.Context, p1 FetchUserEventsInput) ([]*github.Event, error) {
 
 	ret := m.Called(p0, p1)
 
-	var r0 []byte
+	var r0 []*github.Event
 	switch res := ret.Get(0).(type) {
 	case nil:
-	case []byte:
+	case []*github.Event:
 		r0 = res
 	default:
 		panic(fmt.Sprintf("unexpected type: %v", res))
@@ -49,15 +49,15 @@ func (m *GithubUserEventFetcherMock) FetchDownstreamContent(p0 context.Context, 
 
 }
 
-// FetchUserEvents mocked method
-func (m *GithubUserEventFetcherMock) FetchUserEvents(p0 context.Context, p1 FetchUserEventsInput) ([]*github.Event, error) {
+// ScanDownstreamContent mocked method
+func (m *GithubUserEventFetcherMock) ScanDownstreamContent(p0 context.Context, p1 *github.Event, p2 []FetchedAwsAccessKey) ([]FetchedAwsAccessKey, error) {
 
-	ret := m.Called(p0, p1)
+	ret := m.Called(p0, p1, p2)
 
-	var r0 []*github.Event
+	var r0 []FetchedAwsAccessKey
 	switch res := ret.Get(0).(type) {
 	case nil:
-	case []*github.Event:
+	case []FetchedAwsAccessKey:
 		r0 = res
 	default:
 		panic(fmt.Sprintf("unexpected type: %v", res))

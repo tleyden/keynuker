@@ -661,8 +661,7 @@ def get_default_packaging_params():
     # Workaround for this issue:
     # When I use the `--docker` param to `action create`, it seems to be pulling stale images from dockerhub.
     # The only way I can force it to get the latest image is by using a different tag.
-    # TODO: apparently just doing a no-op update on the action might have the same effect
-    # TODO: eg, wsk action update action-name.  Haven't test yet.
+    # NOTE: apparently just doing a no-op update on the action might have the same effect, have not fully verified yet
     packaging_params.dockerTag = "0.1.5"
 
     # Doesn't do anything, just prints out what it would do if it did

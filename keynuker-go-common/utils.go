@@ -109,6 +109,10 @@ func CreateBoundedLogger(maxInvocations int) Logger {
 
 func IsTemporaryGithubError(err error) bool {
 
+	if err == nil {
+		return false
+	}
+
 	// Get the underlying error, if this is a Wrapped error by the github.com/pkg/errors package.
 	// If not, this will just return the error itself.
 	underlyingErr := errors.Cause(err)

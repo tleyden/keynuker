@@ -154,7 +154,7 @@ func TestGithubUserEventDownstreamContentFetcher(t *testing.T) {
 
 }
 
-// Run ghUserEventFetcher.FetchDownstreamContent() by hand in isolation
+// Run ghUserEventFetcher.ScanDownstreamContent() by hand in isolation
 func TestRunGithubUserEventDownstreamContentFetcher(t *testing.T) {
 
 	SkipIfIntegrationsTestsNotEnabled(t)
@@ -181,12 +181,12 @@ func TestRunGithubUserEventDownstreamContentFetcher(t *testing.T) {
 		log.Printf("userEvent #%d ID: %v createdAt: %v", i, *userEvent.ID, userEvent.CreatedAt)
 	}
 
-	downstreamEventContent, err := ghUserEventFetcher.FetchDownstreamContent(ctx, userEvent)
+	leakedKeys, err := ghUserEventFetcher.ScanDownstreamContent(ctx, userEvent, []FetchedAwsAccessKey{})
 	if err != nil {
 		log.Printf("error: %v", err)
 	}
 
-	log.Printf("downstreamEventContent: %+v", string(downstreamEventContent))
+	log.Printf("leakedKeys: %+v", leakedKeys)
 
 }
 

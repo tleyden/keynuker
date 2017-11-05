@@ -9,11 +9,8 @@ import (
 	"net/http"
 	"time"
 
-	"bytes"
-
 	"log"
 
-	"io"
 	"strings"
 
 	"encoding/base64"
@@ -31,8 +28,8 @@ type GithubUserEventFetcher interface {
 	// Given a github username and filtering parameters, fetch events from the user event stream
 	FetchUserEvents(ctx context.Context, fetchUserEventsInput FetchUserEventsInput) ([]*github.Event, error)
 
-	// Given a specific github event (eg, a commit), get the actual content for that event to be scanned for aws keys
-	FetchDownstreamContent(ctx context.Context, userEvent *github.Event) (content []byte, err error)
+	// Given a specific github event (eg, a commit), scan the actual content for that event for given aws keys
+	ScanDownstreamContent(ctx context.Context, userEvent *github.Event, accessKeysToScan []FetchedAwsAccessKey) (leaks []FetchedAwsAccessKey, err error)
 }
 
 type GoGithubUserEventFetcher struct {
@@ -77,7 +74,7 @@ func eventCreatedAtBefore(event *github.Event, sinceEventTimestamp *time.Time) b
 func (guef GoGithubUserEventFetcher) FetchUserEvents(ctx context.Context, fetchUserEventsInput FetchUserEventsInput) ([]*github.Event, error) {
 
 	publicOnly := false
-	
+
 	curApiResultPage := 1
 
 	eventStack := NewEventStack()
@@ -122,9 +119,9 @@ func (guef GoGithubUserEventFetcher) FetchUserEvents(ctx context.Context, fetchU
 
 }
 
-func (guef GoGithubUserEventFetcher) FetchContentForCommits(ctx context.Context, username, repoName, sha string, commits []WrappedCommit) (content []byte, err error) {
+func (guef GoGithubUserEventFetcher) ScanContentForCommits(ctx context.Context, username, repoName, sha string, commits []WrappedCommit, accessKeysToScan []FetchedAwsAccessKey) (leaks []FetchedAwsAccessKey, err error) {
 
-	buffer := bytes.Buffer{}
+	leaks = []FetchedAwsAccessKey{}
 
 	for _, commit := range commits {
 
@@ -137,13 +134,30 @@ func (guef GoGithubUserEventFetcher) FetchContentForCommits(ctx context.Context,
 			commit.Sha(),
 		)
 		if err != nil {
-			return nil, errors.Wrapf(err, "Error getting content for commit: %v url: %v", commit.Sha(), commit.Url())
+			if keynuker_go_common.IsTemporaryGithubError(err) {
+				// Abort now since this will prevent checkpoint from getting pushed, and will be retried later
+				// Nasty bug: return nil instead of leaks here
+				return leaks, errors.Wrapf(err, "Temporary error getting content for commit: %v url: %v", commit.Sha(), commit.Url())
+			} else {
+				log.Printf("Permanent error getting commit for username: %s, reponame: %s, sha: %s.  Skipping commit", username, repoName, commit.Sha())
+				continue
+			}
 		}
+
 
 		for _, repoCommitFile := range repoCommit.Files {
 			if repoCommitFile.Patch != nil {
 				// This commit file has an inline "patch" that has the delta of the content
-				buffer.WriteString(repoCommitFile.GetPatch())
+				patchContent := []byte(repoCommitFile.GetPatch())
+				log.Printf("Scanning %d bytes of content for commit: %v url: %v", len(patchContent), commit.Sha(), commit.Url())
+				leaksForFile, err := Scan(accessKeysToScan, patchContent)
+				if err != nil {
+					log.Printf("WARNING: error scanning content for commit: %v.  Err: %v  Skipping this content.", repoCommitFile, err)
+					continue
+				}
+				if len(leaksForFile) > 0 {
+					leaks = append(leaks, leaksForFile...)
+				}
 
 			} else {
 
@@ -160,43 +174,26 @@ func (guef GoGithubUserEventFetcher) FetchContentForCommits(ctx context.Context,
 					continue
 				}
 
-				blob, _, err := guef.ApiClient.Git.GetBlob(
-					ctx,
-					username,
-					repoName,
-					*repoCommitFile.SHA,
-				)
+				leaksForFile, err := guef.ScanBlob(username, repoName, *repoCommitFile.SHA, accessKeysToScan)
+				if len(leaksForFile) > 0 {
+					leaks = append(leaks, leaksForFile...)
+				}
 				if err != nil {
-					return nil, errors.Wrapf(err, "Error getting content for commit file via blob api: %+v", repoCommitFile)
+					// ScanBlob only returns temporary/recoverable errors, and so at this point might as well abort
+					return leaks, err
 				}
-				if *blob.Encoding != "base64" {
-					log.Printf("Warning: skipping blob from commit file %+v, since unexpected encoding (%v)", repoCommitFile, *blob.Encoding)
-					continue
-				}
-				if *blob.Size > keynuker_go_common.MaxSizeBytesBlobContent {
-					log.Printf("Warning: skipping blob from commit file %+v, since size > max size (%d)", repoCommitFile, keynuker_go_common.MaxSizeBytesBlobContent)
-					continue
-				}
-
-				decodedBlobContent, err := base64.StdEncoding.DecodeString(blob.GetContent())
-				if err != nil {
-					log.Printf("Warning: error decoding base64 for blob commit file:  %+v via blob api.  Err: %v", repoCommitFile, err)
-					continue
-				}
-				buffer.Write(decodedBlobContent)
 
 			}
 
 		}
 
-		buffer.Write(content)
 	}
 
-	return buffer.Bytes(), nil
+	return leaks, nil
 
 }
 
-func (guef GoGithubUserEventFetcher) FetchDownstreamContent(ctx context.Context, userEvent *github.Event) (content []byte, err error) {
+func (guef GoGithubUserEventFetcher) ScanDownstreamContent(ctx context.Context, userEvent *github.Event, accessKeysToScan []FetchedAwsAccessKey) (leaks []FetchedAwsAccessKey, err error) {
 
 	payload, err := userEvent.ParsePayload()
 	if err != nil {
@@ -206,11 +203,13 @@ func (guef GoGithubUserEventFetcher) FetchDownstreamContent(ctx context.Context,
 	switch v := payload.(type) {
 	case *github.PullRequestEvent:
 
+		// TODO: what if this Pull Request has more commits than will be returned in content from patch url?
+
 		content, err := guef.FetchUrlContent(ctx, v.PullRequest.GetPatchURL())
 		if err != nil {
 			return nil, err
 		}
-		return content, nil
+		return Scan(accessKeysToScan, content)
 
 	case *github.CreateEvent:
 
@@ -231,7 +230,7 @@ func (guef GoGithubUserEventFetcher) FetchDownstreamContent(ctx context.Context,
 			if !IntegrationTestsEnabled() && strings.Contains(*v.Ref, keynuker_go_common.KeyNukerIntegrationTestBranch) {
 				// skip this since as an experiment
 				log.Printf("Skipping CreateEvent %v since it's on %v testing branch", *userEvent.ID, keynuker_go_common.KeyNukerIntegrationTestBranch)
-				return []byte(""), nil
+				return []FetchedAwsAccessKey{}, nil
 			}
 
 			// This will list the last 20 commits on the branch or tag and scan them
@@ -254,23 +253,19 @@ func (guef GoGithubUserEventFetcher) FetchDownstreamContent(ctx context.Context,
 				// Ignore 404 not found errors, since the branch may no longer exist
 				if strings.Contains(err.Error(), "404 Not Found") {
 					log.Printf("Warning: Skipping branch/tag since it apparently no longer exists.  Err: %v Err Type: %T", err, err)
-					return []byte(""), nil
+					return []FetchedAwsAccessKey{}, nil
 				}
-				return []byte(""), errors.Wrapf(err, "Error calling ListCommits on CreateEvent id: %v", *userEvent.ID)
+				return []FetchedAwsAccessKey{}, errors.Wrapf(err, "Error calling ListCommits on CreateEvent id: %v", *userEvent.ID)
 			}
 
-			content, err := guef.FetchContentForCommits(
+			return guef.ScanContentForCommits(
 				ctx,
 				username,
 				repoName,
 				*v.Ref,
 				ConvertRepositoryCommits(commits),
+				accessKeysToScan,
 			)
-			if err != nil {
-				return []byte(""), errors.Wrapf(err, "Error calling FetchContentForCommits on CreateEvent id: %v", *userEvent.ID)
-			}
-
-			return content, nil
 
 		case "repo":
 			log.Printf("CreateEvent.  New repo.  Not scanning any commits.")
@@ -280,7 +275,7 @@ func (guef GoGithubUserEventFetcher) FetchDownstreamContent(ctx context.Context,
 
 	case *github.PushEvent:
 
-		buffer := bytes.Buffer{}
+		leaks = []FetchedAwsAccessKey{}
 
 		// The github API only returns a maximum of 20 commits per push event
 		maxCommitsPerPushEvent := 20
@@ -290,7 +285,7 @@ func (guef GoGithubUserEventFetcher) FetchDownstreamContent(ctx context.Context,
 		if strings.Contains(*v.Ref, keynuker_go_common.KeyNukerIntegrationTestBranch) {
 			// skip this since as an experiment
 			log.Printf("Skipping push event %v since it's on %v testing branch", *v.PushID, keynuker_go_common.KeyNukerIntegrationTestBranch)
-			return []byte(""), nil
+			return []FetchedAwsAccessKey{}, nil
 		}
 
 		// split "org/reponame" into separate strings (["org", "reponame"])
@@ -298,18 +293,20 @@ func (guef GoGithubUserEventFetcher) FetchDownstreamContent(ctx context.Context,
 		username := repoNameComponents[0]
 		repoName := repoNameComponents[1]
 
-		content, err := guef.FetchContentForCommits(
+		leaksForCommits, err := guef.ScanContentForCommits(
 			ctx,
 			username,
 			repoName,
 			*v.Ref,
 			ConvertPushEventCommits(v.Commits),
+			accessKeysToScan,
 		)
 		if err != nil {
-			return []byte(""), errors.Wrapf(err, "Error calling FetchContentForCommits on PushEvent: %v", *v.PushID)
+			return leaksForCommits, errors.Wrapf(err, "Error calling ScanContentForCommits on PushEvent: %v", *v.PushID)
 		}
-
-		buffer.Write(content)
+		if len(leaksForCommits) > 0 {
+			leaks = append(leaks, leaksForCommits...)
+		}
 
 		// If more than 20 commits for this PushEvent, fetch content for the remaining commits.
 		// Example PushEvent w/ more than 20 commits: https://gist.github.com/tleyden/68d972b02b2b9306fa6e2eb26310b751
@@ -318,19 +315,22 @@ func (guef GoGithubUserEventFetcher) FetchDownstreamContent(ctx context.Context,
 			log.Printf("PushEvent %v has > 20 commits but this API call only returns 20.  Making separate API call.", *v.PushID)
 
 			// Fetch the rest of the commits for this push event and append downstream content to buffer
-			_, err := guef.FetchCommitsForPushEvent(ctx, userEvent, v, &buffer)
+			// TODO: this should be changed to ScanCommitsForPushEvent
+			leaksForPushEvent, err := guef.ScanCommitsForPushEvent(ctx, userEvent, v, accessKeysToScan)
 			if err != nil {
-				return nil, errors.Wrapf(err, "Error fetching additional commits for push event: %v", *v.PushID)
+				return leaksForPushEvent, errors.Wrapf(err, "Error fetching additional commits for push event: %v", *v.PushID)
+			}
+			if len(leaksForPushEvent) > 0 {
+				leaks = append(leaks, leaksForPushEvent...)
 			}
 
 		}
-
-		return buffer.Bytes(), nil
+		return leaks, nil
+		// return Scan(accessKeysToScan, buffer.Bytes())
 
 	default:
 		// TODO: add case statements for all events that should be scanned
-		return []byte(*userEvent.RawPayload), nil
-
+		return Scan(accessKeysToScan, []byte(*userEvent.RawPayload))
 	}
 
 	return nil, nil
@@ -341,11 +341,13 @@ func (guef GoGithubUserEventFetcher) FetchDownstreamContent(ctx context.Context,
 // and so the remaining 80 commits will need to be scanned.
 //
 // Github API: https://developer.github.com/v3/repos/commits/
-func (guef GoGithubUserEventFetcher) FetchCommitsForPushEvent(
-	ctx context.Context, userEvent *github.Event, pushEvent *github.PushEvent, w io.Writer) (completed bool, err error) {
+func (guef GoGithubUserEventFetcher) ScanCommitsForPushEvent(
+	ctx context.Context, userEvent *github.Event, pushEvent *github.PushEvent, accessKeysToScan []FetchedAwsAccessKey) (leaks []FetchedAwsAccessKey, err error) {
 
-	log.Printf("FetchCommitsForPushEvent: %v.  Number of total commits in push event: %d",
+	log.Printf("ScanCommitsForPushEvent: %v.  Number of total commits in push event: %d",
 		*pushEvent.PushID, *pushEvent.Size)
+
+	leaks = []FetchedAwsAccessKey{}
 
 	numCommitsToScan := *pushEvent.Size
 	numCommitsScanned := 0
@@ -369,13 +371,13 @@ func (guef GoGithubUserEventFetcher) FetchCommitsForPushEvent(
 
 		if numCommitsScanned >= numCommitsToScan {
 			// done
-			return true, nil
+			return leaks, nil
 		}
 
 		if resultPage > maxPages {
 			notScanned := numCommitsToScan - numCommitsScanned
 			log.Printf("WARNING: not scanning %d commits, due to current limitations.  See https://github.com/tleyden/keynuker/issues/24", notScanned)
-			return false, nil
+			return leaks, nil
 		}
 
 		commitListOptions := &github.CommitsListOptions{
@@ -400,7 +402,7 @@ func (guef GoGithubUserEventFetcher) FetchCommitsForPushEvent(
 			commitListOptions,
 		)
 		if err != nil {
-			return false, errors.Wrapf(err, "Error calling ApiClient.Repositories.ListCommits on PushEvent: %v", *pushEvent.PushID)
+			return leaks, errors.Wrapf(err, "Error calling ApiClient.Repositories.ListCommits on PushEvent: %v", *pushEvent.PushID)
 		}
 
 		for _, additionalCommit := range additionalCommits {
@@ -420,15 +422,20 @@ func (guef GoGithubUserEventFetcher) FetchCommitsForPushEvent(
 				*additionalCommit.SHA,
 			)
 			if err != nil {
-				return false, errors.Wrapf(err, "Error getting additional content for commit: %v url: %v", *additionalCommit.SHA, additionalCommit.GetURL())
+				return leaks, errors.Wrapf(err, "Error getting additional content for commit: %v url: %v", *additionalCommit.SHA, additionalCommit.GetURL())
 			}
 
 			// Loop over the files in the commit and append the content to the writer
 			for _, repoCommitFile := range repoCommit.Files {
 
-				// TODO: refactor this code.  Duplicated in GoGithubUserEventFetcher.FetchContentForCommits()
-
-				w.Write([]byte(repoCommitFile.GetPatch()))
+				leaksForCommit, err := Scan(accessKeysToScan, []byte(repoCommitFile.GetPatch()))
+				if err != nil {
+					log.Printf("Warning: Error scanning commit: %v.  Error: %v.  Skipping commit", repoCommitFile, err)
+					continue
+				}
+				if len(leaksForCommit) > 0 {
+					leaks = append(leaks, leaksForCommit...)
+				}
 
 				if repoCommitFile.Patch == nil {
 
@@ -443,32 +450,14 @@ func (guef GoGithubUserEventFetcher) FetchCommitsForPushEvent(
 						continue
 					}
 
-					blob, _, err := guef.ApiClient.Git.GetBlob(
-						ctx,
-						owner,
-						repoName,
-						*repoCommitFile.SHA,
-					)
+					leaksForFile, err := guef.ScanBlob(owner, repoName, *repoCommitFile.SHA, accessKeysToScan)
+					if len(leaksForFile) > 0 {
+						leaks = append(leaks, leaksForFile...)
+					}
 					if err != nil {
-						return false, errors.Wrapf(err, "Error getting additional content for commit file: %+v via blob api.", repoCommitFile)
+						// ScanBlob only returns temporary/recoverable errors, and so at this point might as well abort
+						return leaks, err
 					}
-
-					if *blob.Encoding != "base64" {
-						log.Printf("Warning: skipping blob from commit file %+v, since unexpected encoding (%v)", repoCommitFile, *blob.Encoding)
-						continue
-					}
-					if *blob.Size > keynuker_go_common.MaxSizeBytesBlobContent {
-						log.Printf("Warning: skipping blob from commit file %+v, since size > max size (%d)", repoCommitFile, keynuker_go_common.MaxSizeBytesBlobContent)
-						continue
-					}
-
-					decodedBlobContent, err := base64.StdEncoding.DecodeString(blob.GetContent())
-					if err != nil {
-						log.Printf("Warning: error decoding base64 for blob commit file:  %+v via blob api.  Err: %v", repoCommitFile, err)
-						continue
-					}
-
-					w.Write(decodedBlobContent)
 
 				}
 
@@ -478,7 +467,7 @@ func (guef GoGithubUserEventFetcher) FetchCommitsForPushEvent(
 
 			if numCommitsScanned >= numCommitsToScan {
 				// done
-				return true, nil
+				return leaks, nil
 			}
 
 		}
@@ -487,7 +476,59 @@ func (guef GoGithubUserEventFetcher) FetchCommitsForPushEvent(
 
 	}
 
-	return true, nil
+	return leaks, nil
+}
+
+func (guef GoGithubUserEventFetcher) ScanBlob(owner string, repo string, sha string, accessKeysToScan []FetchedAwsAccessKey) (leaks []FetchedAwsAccessKey, err error) {
+
+	ctx := context.Background()
+
+	leaks = []FetchedAwsAccessKey{}
+
+	blob, _, err := guef.ApiClient.Git.GetBlob(
+		ctx,
+		owner,
+		repo,
+		sha,
+	)
+	if err != nil {
+		if keynuker_go_common.IsTemporaryGithubError(err) {
+			// Abort now since this will prevent checkpoint from getting pushed, and will be retried later
+			return leaks, errors.Wrapf(err, "Temporary error getting content for commit file via blob api.  Owner: %v Repo: %v Sha: %v", owner, repo, sha)
+		} else {
+			log.Printf("Permanent error getting content for commit file via blob api. Skipping commit.  Owner: %v Repo: %v Sha: %v", owner, repo, sha)
+			return leaks, nil
+		}
+	}
+
+	if *blob.Encoding != "base64" {
+		log.Printf("Warning: skipping blob from commit with owner: %v Repo: %v Sha: %v, since unexpected encoding (%v)", owner, repo, sha, *blob.Encoding)
+		return leaks, nil
+	}
+	if *blob.Size > keynuker_go_common.MaxSizeBytesBlobContent {
+		log.Printf("Warning: skipping blob from commit with owner: %v Repo: %v Sha: %v, since size > max size (%d).", owner, repo, sha, keynuker_go_common.MaxSizeBytesBlobContent)
+		return leaks, nil
+	}
+
+	decodedBlobContent, err := base64.StdEncoding.DecodeString(blob.GetContent())
+	if err != nil {
+		log.Printf("Warning: error decoding base64 for blob commit with owner: %v Repo: %v Sha: %v via blob api.  Err: %v.  Skipping commit.", owner, repo, sha, err)
+		return leaks, nil
+	}
+
+	log.Printf("Scanning %d bytes of content for blob commit with owner: %v Repo: %v Sha: %v", owner, repo, sha)
+
+	leaksForFile, err := Scan(accessKeysToScan, decodedBlobContent)
+	if err != nil {
+		log.Printf("WARNING: error scanning content for blob commit with owner: %v Repo: %v Sha: %v Err: %v  Skipping commit.", owner, repo, sha, err)
+		return leaks, nil
+	}
+	if len(leaksForFile) > 0 {
+		leaks = append(leaks, leaksForFile...)
+	}
+
+	return leaks, nil
+
 }
 
 func (guef GoGithubUserEventFetcher) FetchUrlContent(ctx context.Context, url string) (content []byte, err error) {
