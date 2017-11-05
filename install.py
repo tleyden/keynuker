@@ -21,6 +21,9 @@ def main():
     # Installs openwhisk actions via wsk utility to your configured OpenWhisk system
     install_openwhisk_actions(packaging_params)
 
+    # Update openwhisk actions with No-op update in order to re-trigger docker pull
+    no_op_update_openwhisk_actions(packaging_params)
+
     print("Success!")
 
 def build_binaries(packaging_params):
@@ -165,6 +168,23 @@ def verify_openwhisk_actions_env_variables(packaging_params):
         print("Verifying env variables for OpenWhisk action for path: {}".format(path))
         packaging_params.path = path
         verify_openwhisk_action_env_variables_in_path(action_params_to_env, path)
+
+
+def no_op_update_openwhisk_actions(packaging_params):
+
+    action_params_to_env = get_action_params_to_env()
+
+    for openwhisk_action, params in action_params_to_env:
+
+        command = "wsk action update {}".format(
+            openwhisk_action
+        )
+
+        print("Updating OpenWhisk action via {}".format(command))
+        if packaging_params.dryRun is True:
+            return
+
+        subprocess.check_call(command, shell=True)
 
 
 def install_openwhisk_actions(packaging_params):
