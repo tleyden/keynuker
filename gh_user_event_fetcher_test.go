@@ -9,15 +9,17 @@ import (
 	"os"
 	"testing"
 
+	"encoding/json"
+	"fmt"
+	"github.com/aws/aws-sdk-go/aws"
 	"github.com/couchbaselabs/go.assert"
 	"github.com/google/go-github/github"
 	"github.com/tleyden/keynuker/keynuker-go-common"
 	"gopkg.in/h2non/gock.v1"
-	"fmt"
 	"io/ioutil"
-	"encoding/json"
-	"time"
+	"net/http"
 	"strconv"
+	"time"
 )
 
 // Not much of a unit test, just makes it easy to run ghUserEventFetcher.FetchUserEvents() by hand in isolation
@@ -61,7 +63,7 @@ func TestGithubUserEventDownstreamContentFetcher(t *testing.T) {
 
 	checkpointTime := time.Now().Add(time.Hour * -24)
 	fetchUserEventsInput := FetchUserEventsInput{
-		Username: "mock_user",
+		Username:            "mock_user",
 		SinceEventTimestamp: &checkpointTime,
 	}
 
@@ -90,7 +92,7 @@ func TestGithubUserEventDownstreamContentFetcher(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Failed to generate event id: %v", err)
 		}
-		eventIdStr := fmt.Sprintf("%d", eventId - i)
+		eventIdStr := fmt.Sprintf("%d", eventId-i)
 		eventPage1.ID = &eventIdStr
 		eventsPage1 = append(eventsPage1, &eventPage1)
 	}
@@ -105,7 +107,7 @@ func TestGithubUserEventDownstreamContentFetcher(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Failed to generate event id: %v", err)
 		}
-		eventIdStr := fmt.Sprintf("%d", eventId - i)
+		eventIdStr := fmt.Sprintf("%d", eventId-i)
 		eventPage2.ID = &eventIdStr
 		eventsPage2 = append(eventsPage2, &eventPage2)
 	}
@@ -145,12 +147,101 @@ func TestGithubUserEventDownstreamContentFetcher(t *testing.T) {
 	// CreatedAt value than userEvents[-1] (last event).  That's because we want get the oldest event that's after
 	// the checkpoint and start scanning towards the most recent event.
 	firstEvent := userEvents[0]
-	lastEvent := userEvents[len(userEvents) - 1]
+	lastEvent := userEvents[len(userEvents)-1]
 
 	assert.True(t, (*firstEvent).CreatedAt.Before(*lastEvent.CreatedAt))
 
 	// log.Printf("userEvents: %+v, err", userEvents, err )
 
+}
+
+func TestScanContentForCommits(t *testing.T) {
+
+	defer gock.Off() // Flush pending mocks after test execution
+
+	ctx := context.Background()
+
+	leakedKey := "FakeAccessKey"
+	accessKeysToScan := []FetchedAwsAccessKey{
+		{
+			AccessKeyId: aws.String(leakedKey),
+			UserName:    aws.String("fakeuser@test.com"),
+		},
+	}
+
+	githubUrl := "https://api.github.com"
+
+	ghUserEventFetcher := NewGoGithubUserEventFetcher("mock_access_token", GetIntegrationGithubApiBaseUrl())
+
+	// Grab the fields needed from github.ErrorResponse.  Can't use whole struct since
+	// it ends up nil'ing out the Response field, which doesn't have an `omitempty` specifier
+	githubAbuseError := struct {
+		DocumentationURL string `json:"documentation_url,omitempty"`
+		Message          string `json:"message"` // error message
+	}{
+		DocumentationURL: "https://developer.github.com/v3#abuse-rate-limits",
+		Message:          "abuse detection",
+	}
+
+	commit1 := &github.RepositoryCommit{
+		SHA: aws.String("sha1"),
+		URL: aws.String("url1"),
+		Files: []github.CommitFile{
+			{
+				Filename: aws.String("file1a"),
+				Patch:    aws.String(fmt.Sprintf("leaked key: %v", leakedKey)),
+			},
+			{
+				Filename: aws.String("file1b"),
+				Patch:    aws.String(fmt.Sprintf("nothingburger")),
+			},
+		},
+	}
+
+	// This commit simulates a github temporary error
+	commit2TempError := &github.RepositoryCommit{
+		SHA: aws.String("sha2"),
+		URL: aws.String("url2"),
+		Files: []github.CommitFile{
+			{
+				Filename: aws.String("file2a"),
+				Patch:    aws.String(fmt.Sprintf("nothingburger")),
+			},
+			{
+				Filename: aws.String("file2b"),
+				Patch:    aws.String(fmt.Sprintf("nothingburger")),
+			},
+		},
+	}
+
+	commits := []*github.RepositoryCommit{
+		commit1,
+		commit2TempError,
+	}
+
+	gock.New(githubUrl).
+		Get("/repos/username/reponame/commits/sha1").
+		Reply(200).
+		JSON(commit1)
+
+	gock.New(githubUrl).
+		Get("/repos/username/reponame/commits/sha2").
+		Reply(http.StatusForbidden).
+		JSON(githubAbuseError)
+
+	leaks, err := ghUserEventFetcher.ScanContentForCommits(
+		ctx,
+		"username",
+		"reponame",
+		ConvertRepositoryCommits(commits),
+		accessKeysToScan,
+	)
+
+	assert.True(t, len(leaks) == 1)
+
+	// Expect a github temporary error
+	assert.True(t, err != nil)
+	assert.True(t, keynuker_go_common.IsTemporaryGithubError(err))
 
 }
 
@@ -158,7 +249,6 @@ func TestGithubUserEventDownstreamContentFetcher(t *testing.T) {
 func TestRunGithubUserEventDownstreamContentFetcher(t *testing.T) {
 
 	SkipIfIntegrationsTestsNotEnabled(t)
-
 
 	accessToken, ok := os.LookupEnv(keynuker_go_common.EnvVarKeyNukerTestGithubAccessToken)
 	if !ok {
