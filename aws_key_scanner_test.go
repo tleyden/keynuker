@@ -41,7 +41,7 @@ func TestAwsKeyScanner(t *testing.T) {
 	// Single leaked key
 	log.Printf("--------------------- Single leaked key")
 	eventContent := []byte(fmt.Sprintf(`"patch":"@@ -1,2 +1,2 @@\n \n-Oops I just leaked %s!`, leakedKey))
-	leakedKeys, _, err := Scan(accessKeyMetadata, eventContent)
+	leakedKeys, err := Scan(accessKeyMetadata, eventContent)
 	assert.True(t, err == nil)
 	assert.True(t, len(leakedKeys) == 1)
 	assert.True(t, contains(accessKeyMetadata[0:1], leakedKeys))
@@ -49,7 +49,7 @@ func TestAwsKeyScanner(t *testing.T) {
 	// Two non-adjacent leaked keys
 	log.Printf("--------------------- Two non-adjacent leaked keys")
 	eventContent = []byte(fmt.Sprintf(`"patch":"@@ -1,2 +1,2 @@\n \n-Oops I just leaked %s %s!`, leakedKey, leakedKey2))
-	leakedKeys, _, err = Scan(accessKeyMetadata, eventContent)
+	leakedKeys, err = Scan(accessKeyMetadata, eventContent)
 	assert.True(t, err == nil)
 	assert.True(t, len(leakedKeys) == 2)
 	assert.True(t, contains(accessKeyMetadata, leakedKeys))
@@ -57,7 +57,7 @@ func TestAwsKeyScanner(t *testing.T) {
 	// Two non-adjacent leaked keys
 	log.Printf("--------------------- Two adjacent leaked keys")
 	eventContent = []byte(fmt.Sprintf(`"patch":"@@ -1,2 +1,2 @@\n \n-Oops I just leaked %s%s!`, leakedKey, leakedKey2))
-	leakedKeys, _, err = Scan(accessKeyMetadata, eventContent)
+	leakedKeys, err = Scan(accessKeyMetadata, eventContent)
 	assert.True(t, err == nil)
 	assert.True(t, len(leakedKeys) == 2)
 	assert.True(t, contains(accessKeyMetadata, leakedKeys))
@@ -66,7 +66,7 @@ func TestAwsKeyScanner(t *testing.T) {
 	log.Printf("--------------------- Two leaked keys, leaked twice each -- should de-dupe")
 	eventContent = []byte(fmt.Sprintf(`"patch":"@@ -1,2 +1,2 @@\n \n-Oops I just leaked %s%s and again %s%s!`,
 		leakedKey, leakedKey2, leakedKey2, leakedKey))
-	leakedKeys, _, err = Scan(accessKeyMetadata, eventContent)
+	leakedKeys, err = Scan(accessKeyMetadata, eventContent)
 	assert.True(t, err == nil)
 	assert.True(t, len(leakedKeys) == 2)
 	assert.True(t, contains(accessKeyMetadata, leakedKeys))
@@ -74,7 +74,7 @@ func TestAwsKeyScanner(t *testing.T) {
 	// No leaked key
 	log.Printf("--------------------- No leaked key")
 	eventContent = []byte(fmt.Sprintf(`"patch":"@@ -1,2 +1,2 @@\n \n- I'm not a leaker'`))
-	noLeakedKeys, _, err2 := Scan(accessKeyMetadata, eventContent)
+	noLeakedKeys, err2 := Scan(accessKeyMetadata, eventContent)
 	assert.True(t, err2 == nil)
 	assert.True(t, len(noLeakedKeys) == 0)
 
@@ -97,7 +97,7 @@ func TestAwsKeyScannerOverlappingKeys(t *testing.T) {
 
 	// Leak the outer key, expect to find both
 	eventContent := []byte(fmt.Sprintf(`"patch":"@@ -1,2 +1,2 @@\n \n-Oops I just leaked %s!`, leakedKeyOuter))
-	leakedKeys, _, err := Scan(accessKeyMetadata, eventContent)
+	leakedKeys, err := Scan(accessKeyMetadata, eventContent)
 	assert.True(t, err == nil)
 	assert.True(t, len(leakedKeys) == 2)
 
@@ -139,7 +139,7 @@ func TestAwsKeyScannerLargeFileManyKeys(t *testing.T) {
 		t.Fatalf("Error: %v", err)
 	}
 
-	leaks, _, err := Scan(accessKeyMetadata, largeFileWithKeys)
+	leaks, err := Scan(accessKeyMetadata, largeFileWithKeys)
 
 	if len(leaks) != numKeys {
 		uniqueKeys := map[string]string{}
@@ -181,7 +181,7 @@ func TestAwsKeyScannerProblematicTest(t *testing.T) {
 	}
 	accessKeyMetadata = append(accessKeyMetadata, fetchedAwsAccessKey2)
 
-	leaks, _, err := Scan(accessKeyMetadata, problematicTest)
+	leaks, err := Scan(accessKeyMetadata, problematicTest)
 	assert.Equals(t, len(leaks), 1)
 
 }
@@ -197,7 +197,7 @@ func BenchmarkAwsKeyScanner(b *testing.B) {
 
 	for n := 0; n < b.N; n++ {
 		now := time.Now()
-		_, _, err := Scan(accessKeyMetadata, largeFileWithKeys)
+		_, err := Scan(accessKeyMetadata, largeFileWithKeys)
 		delta := time.Since(now)
 		log.Printf("Scanned content in %v", delta)
 		if err != nil {

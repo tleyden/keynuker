@@ -141,14 +141,14 @@ func TestScanGithubUserEventsForAwsKeys(t *testing.T) {
 					nil, // no error
 				)
 
-				// Tee up a response to fetcher.FetchDownstreamContent which returns some content
-				// 	FetchDownstreamContent(ctx context.Context, userEvent *github.Event) (content []byte, err error)
-				mockFetcher.On("FetchDownstreamContent", context.Background(), mockGithubEvent1).Return(
-					[]byte(fmt.Sprintf("Fake content intermixed w/ %s, which is a leaked key", leakedKey)),
+				// Tee up a response to fetcher.ScanDownstreamContent which returns some content
+				// 	ScanDownstreamContent(ctx context.Context, userEvent *github.Event) (content []byte, err error)
+				mockFetcher.On("ScanDownstreamContent", context.Background(), mockGithubEvent1, accessKeyMetadata).Return(
+					accessKeyMetadata,
 					nil, // no error
 				)
-				mockFetcher.On("FetchDownstreamContent", context.Background(), mockGithubEvent2).Return(
-					[]byte(fmt.Sprintf("Fake content sans leaked key")),
+				mockFetcher.On("ScanDownstreamContent", context.Background(), mockGithubEvent2, accessKeyMetadata).Return(
+					[]FetchedAwsAccessKey{},
 					nil, // no error
 				)
 			case githubUserNoEvents:
@@ -259,9 +259,9 @@ func TestScanGithubUserEventsForAwsKeys(t *testing.T) {
 		assert.True(t, checkpoint.CreatedAt.Equal(githubCheckpointEventCreatedAt))
 		assert.True(t, *checkpoint.ID == *githubCheckpointEvent.ID)
 
-		// There should only be two calls to FetchDownstreamContent -- this should catch cases where
-		// the event that is older than the checkpoint erroneously triggers a call to FetchDownstreamContent
-		mockFetcher.AssertNumberOfCalls(t, "FetchDownstreamContent", 2)
+		// There should only be two calls to ScanDownstreamContent -- this should catch cases where
+		// the event that is older than the checkpoint erroneously triggers a call to ScanDownstreamContent
+		mockFetcher.AssertNumberOfCalls(t, "ScanDownstreamContent", 2)
 
 	}
 

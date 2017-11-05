@@ -18,12 +18,12 @@ const (
 	ScannerStateOutsideToken
 )
 
-func Scan(accessKeysToScan []FetchedAwsAccessKey, content []byte) (leaks []FetchedAwsAccessKey, nearbyContent []byte, err error) {
+func Scan(accessKeysToScan []FetchedAwsAccessKey, content []byte) (leaks []FetchedAwsAccessKey, err error) {
 	return ScanViaRegexLoop(accessKeysToScan, content)
 }
 
 // This is grossly inefficient but it passes all of the tests
-func ScanViaRegexLoop(accessKeysToScan []FetchedAwsAccessKey, content []byte) (leaks []FetchedAwsAccessKey, nearbyContent []byte, err error) {
+func ScanViaRegexLoop(accessKeysToScan []FetchedAwsAccessKey, content []byte) (leaks []FetchedAwsAccessKey, err error) {
 
 	for _, keyMetadata := range accessKeysToScan {
 
@@ -31,7 +31,7 @@ func ScanViaRegexLoop(accessKeysToScan []FetchedAwsAccessKey, content []byte) (l
 
 		r, err := regexp.Compile(key)
 		if err != nil {
-			return nil, nil, err
+			return []FetchedAwsAccessKey{}, err
 		}
 
 		if r.Match(content) {
@@ -40,14 +40,14 @@ func ScanViaRegexLoop(accessKeysToScan []FetchedAwsAccessKey, content []byte) (l
 
 	}
 
-	return leaks, nil, nil
+	return leaks,nil
 
 }
 
 // Scan the input in a single pass and use a trie prefix match to figure out if any aws keys match.
 // This is approx 2x faster than ScanViaRegexLoop, but it still feels slow.
 // TODO: try using lexmachine and see if it's a lot faster.  Do some post-processing to deal with nested tokens (where one token contains another, which is one of the unit tests)
-func ScanViaTrie(accessKeysToScan []FetchedAwsAccessKey, content []byte) (leaks []FetchedAwsAccessKey, nearbyContent []byte, err error) {
+func ScanViaTrie(accessKeysToScan []FetchedAwsAccessKey, content []byte) (leaks []FetchedAwsAccessKey, err error) {
 
 	debug := false
 
@@ -167,5 +167,5 @@ func ScanViaTrie(accessKeysToScan []FetchedAwsAccessKey, content []byte) (leaks 
 		leaks = append(leaks, accessKeyMeta)
 	}
 
-	return leaks, nil, nil
+	return leaks, nil
 }

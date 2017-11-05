@@ -156,12 +156,13 @@ func (gues GithubUserEventsScanner) ScanAwsKeys(params ParamsScanGithubUserEvent
 		// since scanAwsKeysForUser() will only move it forward in the case there were no errors
 		githubEventCheckpoints[*scanResult.User.Login] = scanResult.CompactCheckpointEvent()
 
-		if scanResult.Error != nil {
-			log.Printf("Warning: Got error trying to scan github user events: %+v", scanResult.Error)
-			continue
+		if len(scanResult.LeakedKeyEvents) > 0 {
+			leakedKeyEvents = append(leakedKeyEvents, scanResult.LeakedKeyEvents...)
 		}
 
-		leakedKeyEvents = append(leakedKeyEvents, scanResult.LeakedKeyEvents...)
+		if scanResult.Error != nil {
+			log.Printf("Warning: Got error trying to scan github user events: %+v", scanResult.Error)
+		}
 
 		// if we've gone over 270 seconds, return early and leave remaining for next polling loop
 		if time.Since(startTime) > keynuker_go_common.HighWatermarkExecutionSeconds {
@@ -249,7 +250,36 @@ func (gues GithubUserEventsScanner) scanAwsKeysForUser(ctx context.Context, user
 		log.Printf(msg, *user.Login, *userEvent.ID, *userEvent.CreatedAt,
 			*fetchUserEventsInput.SinceEventTimestamp, fetchUserEventsInput.CheckpointID)
 
-		downstreamEventContent, err := gues.fetcher.FetchDownstreamContent(ctx, userEvent)
+		// Logging
+		msg = "Scanning event. User: %v. Event id: %v  Event created at: %v Stored checkpoint: %v Checkpoint ID: %v"
+		log.Printf(msg, *user.Login, *userEvent.ID, *userEvent.CreatedAt,
+			*fetchUserEventsInput.SinceEventTimestamp, fetchUserEventsInput.CheckpointID)
+
+		leakedKeys, err := gues.fetcher.ScanDownstreamContent(ctx, userEvent, params.AccessKeyMetadata)
+
+		// Before checking the error, update the scan result with any leaked keys.  It's possible that
+		// it found leaks, and returned an error.
+		leakerEmail := ""
+		if len(leakedKeys) > 0 {
+			log.Printf("Found %d leaked keys in event: %v", len(leakedKeys), *userEvent.ID)
+			leakerEmail, err = gues.discoverLeakerEmail(userEvent)
+			if err != nil {
+				log.Printf("Warning: error discovering leaker email: %v", err)
+			}
+		}
+		// Create LeakedKeyEvents from leaked keys, append to result
+		for _, leakedKey := range leakedKeys {
+			leakedKeyEvent := LeakedKeyEvent{
+				AccessKeyMetadata: leakedKey,
+				GithubUser:        user,
+				GithubEvent:       userEvent,
+				LeakerEmail:       leakerEmail,
+			}
+
+			scanResult.LeakedKeyEvents = append(scanResult.LeakedKeyEvents, leakedKeyEvent)
+		}
+
+		// Check the error
 		if err != nil {
 
 			// If it's a rate limit error, treat this as temporary / retryable.  Abort the current
@@ -265,41 +295,6 @@ func (gues GithubUserEventsScanner) scanAwsKeysForUser(ctx context.Context, user
 				continue
 			}
 
-		}
-
-		// Logging
-		msg = "Scanning %d bytes of content for event. " +
-			"User: %v. Event id: %v  Event created at: %v Stored checkpoint: %v Checkpoint ID: %v"
-		log.Printf(msg, len(downstreamEventContent), *user.Login, *userEvent.ID, *userEvent.CreatedAt,
-			*fetchUserEventsInput.SinceEventTimestamp, fetchUserEventsInput.CheckpointID)
-
-		// Scan for leaked keys
-		leakedKeys, nearbyContent, err := Scan(params.AccessKeyMetadata, downstreamEventContent)
-		if err != nil {
-			scanResult.Error = errors.Wrapf(err, "Failed to scan event content.  Event: %s", userEvent)
-			return scanResult, scanResult.Error
-		}
-
-		leakerEmail := ""
-		if len(leakedKeys) > 0 {
-			log.Printf("Found %d leaked keys in event: %v", len(leakedKeys), *userEvent.ID)
-			leakerEmail, err = gues.discoverLeakerEmail(userEvent)
-			if err != nil {
-				log.Printf("Warning: error discovering leaker email: %v", err)
-			}
-		}
-
-		// Create LeakedKeyEvents from leaked keys, append to result
-		for _, leakedKey := range leakedKeys {
-			leakedKeyEvent := LeakedKeyEvent{
-				AccessKeyMetadata: leakedKey,
-				GithubUser:        user,
-				GithubEvent:       userEvent,
-				NearbyContent:     nearbyContent,
-				LeakerEmail:       leakerEmail,
-			}
-
-			scanResult.LeakedKeyEvents = append(scanResult.LeakedKeyEvents, leakedKeyEvent)
 		}
 
 		// Update checkpoint.
