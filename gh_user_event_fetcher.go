@@ -80,7 +80,7 @@ func (guef GoGithubUserEventFetcher) FetchUserEvents(ctx context.Context, fetchU
 
 	// TODO: this is a bug!  Github pages are 1-based, and so if you get page 0 and page 1, it will
 	// TODO: be duplicate content.
-	curApiResultPage := 0
+	curApiResultPage := 1
 
 	events := []*github.Event{}
 
@@ -114,12 +114,12 @@ func (guef GoGithubUserEventFetcher) FetchUserEvents(ctx context.Context, fetchU
 			events = append(events, event)
 		}
 
-		if response.NextPage <= curApiResultPage {
+		if response.NextPage >= response.LastPage {
 			// Last page, we're done
 			break
 		}
 
-		curApiResultPage += 1
+		curApiResultPage = response.NextPage
 
 	}
 

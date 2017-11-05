@@ -87,7 +87,7 @@ func (gua GithubUserAggregator) CompactedUsers(users []*github.User) []*github.U
 func (gua GithubUserAggregator) ListMembersForOrg(ctx context.Context, org string) ([]*github.User, error) {
 
 	// Keep track of which page we are on when iterating over API results
-	curApiResultPage := 0
+	curApiResultPage := 1
 
 	// The resulting list of users for this org
 	users := []*github.User{}
@@ -123,12 +123,12 @@ func (gua GithubUserAggregator) ListMembersForOrg(ctx context.Context, org strin
 
 		users = appendUsersDeDupe(users, usersPerOrg)
 
-		if response.NextPage <= curApiResultPage {
+		if response.NextPage >= response.LastPage {
 			// Lost page, we're done
 			break
 		}
 
-		curApiResultPage += 1
+		curApiResultPage = response.NextPage
 
 	}
 

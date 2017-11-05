@@ -112,7 +112,7 @@ func TestGithubUserEventDownstreamContentFetcher(t *testing.T) {
 
 	githubUrl := "https://api.github.com"
 	eventsEndpoint := fmt.Sprintf("/users/%s/events", fetchUserEventsInput.Username)
-	nextPage := fmt.Sprintf("<%s/%s?page=2&per_page=100>; rel=\"next\"", githubUrl, eventsEndpoint)
+	nextPage := fmt.Sprintf("<%s/%s?page=2&per_page=100>; rel=\"next\", <%s/%s?page=2&per_page=100>; rel=\"last\"", githubUrl, eventsEndpoint)
 
 	gock.New(githubUrl).
 		Get(eventsEndpoint).
@@ -145,7 +145,10 @@ func TestGithubUserEventDownstreamContentFetcher(t *testing.T) {
 }
 
 // Run ghUserEventFetcher.FetchDownstreamContent() by hand in isolation
-func RunGithubUserEventDownstreamContentFetcher() {
+func TestRunGithubUserEventDownstreamContentFetcher(t *testing.T) {
+
+	SkipIfIntegrationsTestsNotEnabled(t)
+
 
 	accessToken, ok := os.LookupEnv(keynuker_go_common.EnvVarKeyNukerTestGithubAccessToken)
 	if !ok {
@@ -163,7 +166,10 @@ func RunGithubUserEventDownstreamContentFetcher() {
 	userEvents, err := ghUserEventFetcher.FetchUserEvents(ctx, fetchUserEventsInput)
 
 	userEvent := userEvents[0]
-	log.Printf("userEvent: %+v", userEvent)
+
+	for i, userEvent := range userEvents {
+		log.Printf("userEvent #%d ID: %v createdAt: %v", i, *userEvent.ID, userEvent.CreatedAt)
+	}
 
 	downstreamEventContent, err := ghUserEventFetcher.FetchDownstreamContent(ctx, userEvent)
 	if err != nil {
