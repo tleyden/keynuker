@@ -77,8 +77,10 @@ func eventCreatedAtBefore(event *github.Event, sinceEventTimestamp *time.Time) b
 func (guef GoGithubUserEventFetcher) FetchUserEvents(ctx context.Context, fetchUserEventsInput FetchUserEventsInput) ([]*github.Event, error) {
 
 	publicOnly := false
-	curApiResultPage := 0
-	events := []*github.Event{}
+	
+	curApiResultPage := 1
+
+	eventStack := NewEventStack()
 
 	// Loop over all pages returned by API and accumulate events
 	// TODO: #1 needs to also collect github gists
@@ -107,19 +109,19 @@ func (guef GoGithubUserEventFetcher) FetchUserEvents(ctx context.Context, fetchU
 
 		// Loop over events and append to result
 		for _, event := range eventsPerPage {
-			events = append(events, event)
+			eventStack.Push(event)
 		}
 
-		if response.NextPage <= curApiResultPage {
+		if curApiResultPage >= response.LastPage {
 			// Last page, we're done
 			break
 		}
 
-		curApiResultPage += 1
+		curApiResultPage = response.NextPage
 
 	}
 
-	return events, nil
+	return eventStack.PopAll(), nil
 
 }
 

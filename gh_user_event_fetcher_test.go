@@ -12,6 +12,12 @@ import (
 	"github.com/couchbaselabs/go.assert"
 	"github.com/google/go-github/github"
 	"github.com/tleyden/keynuker/keynuker-go-common"
+	"gopkg.in/h2non/gock.v1"
+	"fmt"
+	"io/ioutil"
+	"encoding/json"
+	"time"
+	"strconv"
 )
 
 // Not much of a unit test, just makes it easy to run ghUserEventFetcher.FetchUserEvents() by hand in isolation
@@ -40,14 +46,124 @@ func TestGithubUserEventFetcher(t *testing.T) {
 
 }
 
-// Not much of aunit test, just makes it easy to run ghUserEventFetcher.FetchDownstreamContent() by hand in isolation
 func TestGithubUserEventDownstreamContentFetcher(t *testing.T) {
+
+	// Return 200 mock events
+	// The checkpoint will be older than the oldest event, so that all events should be scanned
+	// The first attempt, it will return a github temporary error on the 150th event.
+	// At this point, it should return the checkpoint of the last event scanned before the error (149th event)
+	// Then rerun it with the same mock results, but with no github temp error
+	// Should scan all the content and return most recent event as the checkpoint
+
+	ctx := context.Background()
+
+	ghUserEventFetcher := NewGoGithubUserEventFetcher("mock_access_token", GetIntegrationGithubApiBaseUrl())
+
+	checkpointTime := time.Now().Add(time.Hour * -24)
+	fetchUserEventsInput := FetchUserEventsInput{
+		Username: "mock_user",
+		SinceEventTimestamp: &checkpointTime,
+	}
+
+	// ------------------------------------ Setup Gock HTTP mock -------------------------------------------------------
+
+	defer gock.Off() // Flush pending mocks after test execution
+
+	filename := "testdata/large_push_event.json"
+	largePushEventData, err := ioutil.ReadFile(filename)
+	if err != nil {
+		t.Fatalf("Unable to read file: %v.  Err: %v", filename, err)
+	}
+
+	largePushEvent := &github.Event{}
+	errUnmarshal := json.Unmarshal(largePushEventData, largePushEvent)
+	if errUnmarshal != nil {
+		t.Fatalf("Unable to unmarshal data: %v", errUnmarshal)
+	}
+
+	eventsPage1 := []*github.Event{}
+	for i := 0; i < 100; i++ {
+		eventPage1 := *largePushEvent
+		createdAt := time.Now().Add(time.Minute * -1 * time.Duration(i))
+		eventPage1.CreatedAt = &createdAt
+		eventId, err := strconv.Atoi(*eventPage1.ID)
+		if err != nil {
+			t.Fatalf("Failed to generate event id: %v", err)
+		}
+		eventIdStr := fmt.Sprintf("%d", eventId - i)
+		eventPage1.ID = &eventIdStr
+		eventsPage1 = append(eventsPage1, &eventPage1)
+	}
+
+	eventsPage2 := []*github.Event{}
+
+	for i := 100; i < 200; i++ {
+		eventPage2 := *largePushEvent
+		createdAt := time.Now().Add(time.Minute * -1 * time.Duration(i))
+		eventPage2.CreatedAt = &createdAt
+		eventId, err := strconv.Atoi(*eventPage2.ID)
+		if err != nil {
+			t.Fatalf("Failed to generate event id: %v", err)
+		}
+		eventIdStr := fmt.Sprintf("%d", eventId - i)
+		eventPage2.ID = &eventIdStr
+		eventsPage2 = append(eventsPage2, &eventPage2)
+	}
+
+	githubUrl := "https://api.github.com"
+	eventsEndpoint := fmt.Sprintf("/users/%s/events", fetchUserEventsInput.Username)
+	nextPage := fmt.Sprintf("<%s/%s?page=2&per_page=100>; rel=\"next\", <%s/%s?page=2&per_page=100>; rel=\"last\"",
+		githubUrl, eventsEndpoint, githubUrl, eventsEndpoint)
+
+	gock.New(githubUrl).
+		Get(eventsEndpoint).
+		MatchParam("per_page", "100").
+		Reply(200).
+		AddHeader("Link", nextPage).
+		JSON(eventsPage1)
+
+	gock.New(githubUrl).
+		Get(eventsEndpoint).
+		MatchParam("per_page", "100").
+		MatchParam("page", "2").
+		Reply(200).
+		JSON(eventsPage2)
+
+	userEvents, err := ghUserEventFetcher.FetchUserEvents(ctx, fetchUserEventsInput)
+	if err != nil {
+		t.Fatalf("Failed to fetch events: %v", err)
+	}
+
+	log.Printf("returned %d user events", len(userEvents))
+	assert.Equals(t, len(userEvents), 200)
+
+	for i, userEvent := range userEvents {
+		log.Printf("userEvent #%d ID: %v createdAt: %v", i, *userEvent.ID, userEvent.CreatedAt)
+	}
+
+	// These events should be returned in *reverse chronological order*.  Eg, userEvents[0] should have an older
+	// CreatedAt value than userEvents[-1] (last event).  That's because we want get the oldest event that's after
+	// the checkpoint and start scanning towards the most recent event.
+	firstEvent := userEvents[0]
+	lastEvent := userEvents[len(userEvents) - 1]
+
+	assert.True(t, (*firstEvent).CreatedAt.Before(*lastEvent.CreatedAt))
+
+	// log.Printf("userEvents: %+v, err", userEvents, err )
+
+
+}
+
+// Run ghUserEventFetcher.FetchDownstreamContent() by hand in isolation
+func TestRunGithubUserEventDownstreamContentFetcher(t *testing.T) {
 
 	SkipIfIntegrationsTestsNotEnabled(t)
 
+
 	accessToken, ok := os.LookupEnv(keynuker_go_common.EnvVarKeyNukerTestGithubAccessToken)
 	if !ok {
-		t.Skip("You must define environment variable keynuker_test_gh_access_token to run this test")
+		log.Printf("You must define environment variable keynuker_test_gh_access_token to run this test")
+		return
 	}
 
 	ctx := context.Background()
@@ -58,17 +174,17 @@ func TestGithubUserEventDownstreamContentFetcher(t *testing.T) {
 		Username: "tleyden",
 	}
 	userEvents, err := ghUserEventFetcher.FetchUserEvents(ctx, fetchUserEventsInput)
-	assert.True(t, err == nil)
-	assert.True(t, len(userEvents) > 0)
 
 	userEvent := userEvents[0]
-	log.Printf("userEvent: %+v", userEvent)
+
+	for i, userEvent := range userEvents {
+		log.Printf("userEvent #%d ID: %v createdAt: %v", i, *userEvent.ID, userEvent.CreatedAt)
+	}
 
 	downstreamEventContent, err := ghUserEventFetcher.FetchDownstreamContent(ctx, userEvent)
 	if err != nil {
 		log.Printf("error: %v", err)
 	}
-	assert.True(t, err == nil)
 
 	log.Printf("downstreamEventContent: %+v", string(downstreamEventContent))
 
