@@ -77,9 +77,7 @@ func eventCreatedAtBefore(event *github.Event, sinceEventTimestamp *time.Time) b
 func (guef GoGithubUserEventFetcher) FetchUserEvents(ctx context.Context, fetchUserEventsInput FetchUserEventsInput) ([]*github.Event, error) {
 
 	publicOnly := false
-
-	// TODO: this is a bug!  Github pages are 1-based, and so if you get page 0 and page 1, it will
-	// TODO: be duplicate content.
+	
 	curApiResultPage := 1
 
 	eventStack := NewEventStack()
