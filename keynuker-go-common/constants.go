@@ -72,6 +72,12 @@ const (
 	// This should be raised to 100 MB once the stream based scanning is implemented.
 	MaxSizeBytesBlobContent = 10000000 // 10 MB
 
+	// The max execution time for an action in seconds
+	MaxActionExecutionSeconds = time.Second * 300
+
+	// The high watermark at which point an action should be aborted since approaching max
+	HighWatermarkExecutionSeconds = MaxActionExecutionSeconds - (time.Second * 30)
+
 )
 
 var (

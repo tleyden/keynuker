@@ -83,11 +83,8 @@ func (guef GoGithubUserEventFetcher) FetchUserEvents(ctx context.Context, fetchU
 	eventStack := NewEventStack()
 
 	// Loop over all pages returned by API and accumulate events
-	// TODO: #1 needs to also collect github gists
-	// TODO: #2 filter out any events that aren't in EventTypesToInclude
-	// TODO: #3 the code to loop over all pages could be extracted out into a re-usable wrappr function
-	// TODO: #4 what should publicOnly be set to?  Seems like it depends on the permissions of the accesstoken
-	// TODO:    and it would be good to grab private events if the access token gives enough permissions
+
+	// TODO: #1 It can stop going back if the oldest event from the most recent page of results is older than the checkpoint event.
 
 	for {
 

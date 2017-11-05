@@ -88,52 +88,12 @@ func NewGithubUserEventsScanner(fetcher GithubUserEventFetcher) *GithubUserEvent
 
 }
 
+
+// For each github user, scan their event feed for leaked aws keys
+// This purposely does not make concurrent requests due to: https://developer.github.com/guides/best-practices-for-integrators/#dealing-with-abuse-rate-limits
 func (gues GithubUserEventsScanner) ScanAwsKeys(params ParamsScanGithubUserEventsForAwsKeys) (docWrapper DocumentScanGithubUserEventsForAwsKeys, err error) {
 
 	ctx := context.Background()
-
-	// TODO: this code needs review.  It works, and it's relatively efficient, but it's unnecessarily complicated
-
-	chUsersToProcess := make(chan *github.User)
-
-	chScanResults := make(chan ScanResult)
-
-	// TODO: #1 rip out code that processes users concurrently, per
-	// TODO: https://developer.github.com/guides/best-practices-for-integrators/#dealing-with-abuse-rate-limits
-	// TODO: #2 if we've gone over 250 seconds, return early and leave remaining for next polling loop
-
-	// Start goroutines for scanning github users
-	processUsersDone := sync.WaitGroup{}
-	processUsersDone.Add(50)
-	for i := 0; i < 50; i++ {
-		go func(id int) {
-			for {
-				user, ok := <-chUsersToProcess
-
-				if !ok {
-					// channel is closed, we're done
-					processUsersDone.Done()
-					return
-				}
-				scanResult, _ := gues.scanAwsKeysForUser(
-					ctx,
-					user,
-					params,
-				)
-				chScanResults <- scanResult
-			}
-		}(i)
-	}
-
-	// Send users down the chUsersToProcess channel
-	sentUsersWaitGroup := sync.WaitGroup{}
-	sentUsersWaitGroup.Add(1)
-	go func() {
-		defer sentUsersWaitGroup.Done()
-		for _, user := range params.GithubUsers {
-			chUsersToProcess <- user
-		}
-	}()
 
 	// Accumulate any leaked key events here
 	leakedKeyEvents := []LeakedKeyEvent{}
@@ -141,38 +101,38 @@ func (gues GithubUserEventsScanner) ScanAwsKeys(params ParamsScanGithubUserEvent
 	// Resulting checkpoints after processing
 	githubEventCheckpoints := GithubEventCheckpoints{}
 
-	collectedResultsWaitGroup := sync.WaitGroup{}
-	collectedResultsWaitGroup.Add(1)
-	go func() {
-		defer collectedResultsWaitGroup.Done()
-		for scanResult := range chScanResults {
+	startTime := time.Now()
 
-			githubEventCheckpoints[*scanResult.User.Login] = scanResult.CompactCheckpointEvent()
+	for _, user := range params.GithubUsers {
 
-			// TODO: partial errors are being absorbed/ignored here.  They should somehow be propagated back to the caller
-			if scanResult.Error != nil {
-				log.Printf("Warning: Got error trying to scan github user events: %+v", scanResult.Error)
-				continue
-			}
+		scanResult, err := gues.scanAwsKeysForUser(
+			ctx,
+			user,
+			params,
+		)
 
-			leakedKeyEvents = append(leakedKeyEvents, scanResult.LeakedKeyEvents...)
+		if err != nil {
+			log.Printf("Warning: scanAwsKeysForUser() returned err: %v", err)
 		}
-	}()
 
-	// Wait until all users have been sent down chUsersToProcess
-	sentUsersWaitGroup.Wait()
+		// Update the checkpoint with the scanresult.  This is done regardless of whether or not there was an error,
+		// since scanAwsKeysForUser() will only move it forward in the case there were no errors
+		githubEventCheckpoints[*scanResult.User.Login] = scanResult.CompactCheckpointEvent()
 
-	// Close chUsersToProcess to signal that no more users need to be processed
-	close(chUsersToProcess)
+		if scanResult.Error != nil {
+			log.Printf("Warning: Got error trying to scan github user events: %+v", scanResult.Error)
+			continue
+		}
 
-	// Wait until all user processing goroutines are done
-	processUsersDone.Wait()
+		leakedKeyEvents = append(leakedKeyEvents, scanResult.LeakedKeyEvents...)
 
-	// Close chScanResults to signal no more results will be coming
-	close(chScanResults)
+		// if we've gone over 270 seconds, return early and leave remaining for next polling loop
+		if time.Since(startTime) > keynuker_go_common.HighWatermarkExecutionSeconds {
+			log.Printf("Warning: over high watermark for action exuction time limit.  Returning current results so far")
+			break
+		}
 
-	// Wait until all results are collected
-	collectedResultsWaitGroup.Wait()
+	}
 
 	// Create result doc
 	doc := DocumentScanGithubUserEventsForAwsKeys{

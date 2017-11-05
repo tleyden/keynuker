@@ -117,13 +117,13 @@ func TestScanGithubUserEventsForAwsKeys(t *testing.T) {
 				mockGithubEvent1 = &github.Event{
 					Type:       aws.String("PushEvent"),
 					ID:         aws.String("mockGithubEvent1"),
-					CreatedAt:  aws.Time(time.Now()),
+					CreatedAt:  aws.Time(time.Now().Add(time.Minute * -5)),
 					RawPayload: &rawPayload, // not used except to satisfy go-github parser
 				}
 				mockGithubEvent2 = &github.Event{
 					Type:       aws.String("PushEvent"),
 					ID:         aws.String("mockGithubEvent2"),
-					CreatedAt:  aws.Time(time.Now()),
+					CreatedAt:  aws.Time(time.Now().Add(time.Minute * -10)),
 					RawPayload: &rawPayload, // not used except to satisfy go-github parser
 				}
 				mockGithubEvent3 = &github.Event{ // this event will be ignored since it's 24 hours before than checkpoint
@@ -236,7 +236,7 @@ func TestScanGithubUserEventsForAwsKeys(t *testing.T) {
 		assert.Equal(t, *docWrapper.LeakedKeyEvents[0].GithubEvent.ID, *mockGithubEvent1.ID)
 		assert.Equal(t, "testuser@gmail.com", docWrapper.LeakedKeyEvents[0].LeakerEmail)
 		assert.True(t, len(docWrapper.GithubEventCheckpoints) == 3)
-		assert.Equal(t, *docWrapper.GithubEventCheckpoints[*githubUser.Login].ID, *mockGithubEvent2.ID)
+		assert.Equal(t, *docWrapper.GithubEventCheckpoints[*githubUser.Login].ID, *mockGithubEvent1.ID)
 
 		// The user with actual events should have a non-nil checkpoint
 		assert.NotNil(t, docWrapper.GithubEventCheckpoints[*githubUser.Login])
