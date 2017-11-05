@@ -8,9 +8,10 @@ import (
 	"time"
 
 	"log"
-	"sync"
 
 	"strings"
+
+	"strconv"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/google/go-github/github"
@@ -32,7 +33,7 @@ type ScanResult struct {
 	Error           error
 }
 
-func (s *ScanResult) SetCheckpointIfMostRecent(latestEventScanned *github.Event) {
+func (s *ScanResult) SetCheckpointIfMostRecent(user *github.User, latestEventScanned *github.Event) {
 
 	if latestEventScanned == nil {
 		// Ignore nil events
@@ -41,15 +42,50 @@ func (s *ScanResult) SetCheckpointIfMostRecent(latestEventScanned *github.Event)
 
 	// If there is no checkpoint event yet whatsoever, set as current event no matter what it is
 	if s.CheckpointEvent == nil {
-		log.Printf("SetCheckpointIfMostRecent setting checkpoint from nil -> to %v", *latestEventScanned.ID)
+		log.Printf("SetCheckpointIfMostRecent setting checkpoint from nil -> to %v for user: %v", *latestEventScanned.ID, user)
 		s.CheckpointEvent = latestEventScanned
 	}
 
-	// Otherwise only set the checkpoint if current event happened after checkpoint
-	if (*latestEventScanned.CreatedAt).After(*s.CheckpointEvent.CreatedAt) {
-		log.Printf("SetCheckpointIfMostRecent setting checkpoint from %v -> to %v", *s.CheckpointEvent.ID, *latestEventScanned.ID)
+	// Otherwise only set the checkpoint if current event happened after or has a larger ID than current checkpoint
+	if EventMoreRecent(s.CheckpointEvent, latestEventScanned) {
+		log.Printf("SetCheckpointIfMostRecent setting checkpoint from %v -> to %v for user: %v", *s.CheckpointEvent.ID, *latestEventScanned.ID, user)
 		s.CheckpointEvent = latestEventScanned
 	}
+
+}
+
+// Is the incoming event more recent than the checkpoint event?
+func EventMoreRecent(checkpoint, incoming *github.Event) bool {
+
+	if checkpoint == nil || incoming == nil {
+		return false
+	}
+
+	// Compare by date, if it's after, then we're done
+	if (*incoming.CreatedAt).After(*checkpoint.CreatedAt) {
+		return true
+	}
+
+	// If the date is equal, then fallback to comparing by the checkpoint ID
+	if (*incoming.CreatedAt).Equal(*checkpoint.CreatedAt) {
+
+		incomingID, err := strconv.Atoi(*incoming.ID)
+		if err != nil {
+			log.Printf("Warning: error converting event id to int.  Event id: %v.  Err: %v", *incoming.ID, err)
+			return false
+		}
+
+		checkpointID, err := strconv.Atoi(*checkpoint.ID)
+		if err != nil {
+			log.Printf("Warning: error converting event id to int.  Event id: %v.  Err: %v", *checkpoint.ID, err)
+			return false
+		}
+
+		return incomingID > checkpointID
+
+	}
+
+	return false
 
 }
 
@@ -58,7 +94,7 @@ func (s *ScanResult) SetDefaultResultCheckpoint(user *github.User, checkpoints G
 	checkpoint, ok := checkpoints.CheckpointForUser(user)
 	if ok {
 		log.Printf("SetDefaultResultCheckpoint to %v for user %v", *checkpoint.ID, user)
-		s.SetCheckpointIfMostRecent(checkpoint)
+		s.SetCheckpointIfMostRecent(user, checkpoint)
 	}
 
 }
@@ -88,91 +124,52 @@ func NewGithubUserEventsScanner(fetcher GithubUserEventFetcher) *GithubUserEvent
 
 }
 
+// For each github user, scan their event feed for leaked aws keys
+// This purposely does not make concurrent requests due to: https://developer.github.com/guides/best-practices-for-integrators/#dealing-with-abuse-rate-limits
 func (gues GithubUserEventsScanner) ScanAwsKeys(params ParamsScanGithubUserEventsForAwsKeys) (docWrapper DocumentScanGithubUserEventsForAwsKeys, err error) {
 
 	ctx := context.Background()
 
-	// TODO: this code needs review.  It works, and it's relatively efficient, but it's unnecessarily complicated
-
-	chUsersToProcess := make(chan *github.User)
-
-	chScanResults := make(chan ScanResult)
-
-	// TODO: #1 rip out code that processes users concurrently, per
-	// TODO: https://developer.github.com/guides/best-practices-for-integrators/#dealing-with-abuse-rate-limits
-	// TODO: #2 if we've gone over 250 seconds, return early and leave remaining for next polling loop
-
-	// Start goroutines for scanning github users
-	processUsersDone := sync.WaitGroup{}
-	processUsersDone.Add(50)
-	for i := 0; i < 50; i++ {
-		go func(id int) {
-			for {
-				user, ok := <-chUsersToProcess
-
-				if !ok {
-					// channel is closed, we're done
-					processUsersDone.Done()
-					return
-				}
-				scanResult, _ := gues.scanAwsKeysForUser(
-					ctx,
-					user,
-					params,
-				)
-				chScanResults <- scanResult
-			}
-		}(i)
-	}
-
-	// Send users down the chUsersToProcess channel
-	sentUsersWaitGroup := sync.WaitGroup{}
-	sentUsersWaitGroup.Add(1)
-	go func() {
-		defer sentUsersWaitGroup.Done()
-		for _, user := range params.GithubUsers {
-			chUsersToProcess <- user
-		}
-	}()
-
 	// Accumulate any leaked key events here
 	leakedKeyEvents := []LeakedKeyEvent{}
 
-	// Resulting checkpoints after processing
-	githubEventCheckpoints := GithubEventCheckpoints{}
+	// Resulting checkpoints after processing.  Initialize them with a copy of the starting checkpoints.
+	// Even if the process exits early, this must return _all_ of the checkpoints, since any missing checkpoints
+	// will effectively erase them in the database (until a smarter checkpoint DB updater/merger is added)
+	githubEventCheckpoints := params.CopyGithubEventCheckpoints()
 
-	collectedResultsWaitGroup := sync.WaitGroup{}
-	collectedResultsWaitGroup.Add(1)
-	go func() {
-		defer collectedResultsWaitGroup.Done()
-		for scanResult := range chScanResults {
+	startTime := time.Now()
 
-			githubEventCheckpoints[*scanResult.User.Login] = scanResult.CompactCheckpointEvent()
+	for _, user := range params.GithubUsers {
 
-			// TODO: partial errors are being absorbed/ignored here.  They should somehow be propagated back to the caller
-			if scanResult.Error != nil {
-				log.Printf("Warning: Got error trying to scan github user events: %+v", scanResult.Error)
-				continue
-			}
+		scanResult, err := gues.scanAwsKeysForUser(
+			ctx,
+			user,
+			params,
+		)
 
-			leakedKeyEvents = append(leakedKeyEvents, scanResult.LeakedKeyEvents...)
+		if err != nil {
+			log.Printf("Warning: scanAwsKeysForUser() returned err: %v", err)
 		}
-	}()
 
-	// Wait until all users have been sent down chUsersToProcess
-	sentUsersWaitGroup.Wait()
+		// Update the checkpoint with the scanresult.  This is done regardless of whether or not there was an error,
+		// since scanAwsKeysForUser() will only move it forward in the case there were no errors
+		githubEventCheckpoints[*scanResult.User.Login] = scanResult.CompactCheckpointEvent()
 
-	// Close chUsersToProcess to signal that no more users need to be processed
-	close(chUsersToProcess)
+		if scanResult.Error != nil {
+			log.Printf("Warning: Got error trying to scan github user events: %+v", scanResult.Error)
+			continue
+		}
 
-	// Wait until all user processing goroutines are done
-	processUsersDone.Wait()
+		leakedKeyEvents = append(leakedKeyEvents, scanResult.LeakedKeyEvents...)
 
-	// Close chScanResults to signal no more results will be coming
-	close(chScanResults)
+		// if we've gone over 270 seconds, return early and leave remaining for next polling loop
+		if time.Since(startTime) > keynuker_go_common.HighWatermarkExecutionSeconds {
+			log.Printf("Warning: over high watermark for action exuction time limit.  Returning current results so far")
+			break
+		}
 
-	// Wait until all results are collected
-	collectedResultsWaitGroup.Wait()
+	}
 
 	// Create result doc
 	doc := DocumentScanGithubUserEventsForAwsKeys{
@@ -186,7 +183,6 @@ func (gues GithubUserEventsScanner) ScanAwsKeys(params ParamsScanGithubUserEvent
 
 func (gues GithubUserEventsScanner) scanAwsKeysForUser(ctx context.Context, user *github.User,
 	params ParamsScanGithubUserEventsForAwsKeys) (scanResult ScanResult, err error) {
-
 
 	scanResult.User = user
 
@@ -228,7 +224,7 @@ func (gues GithubUserEventsScanner) scanAwsKeysForUser(ctx context.Context, user
 			// Update the checkpoint, if it's the most recent event, despite the fact that we are skipping this event.
 			// This covers the edge case where _all_ events returned by the user are older than the checkpoint -- in
 			// that case it's still necessary to bump the checkpoint to the most recent event in that event set.
-			scanResult.SetCheckpointIfMostRecent(userEvent)
+			scanResult.SetCheckpointIfMostRecent(user, userEvent)
 
 			continue
 		}
@@ -242,7 +238,7 @@ func (gues GithubUserEventsScanner) scanAwsKeysForUser(ctx context.Context, user
 			boundedLogger.Printf(msg, *user.Login, *userEvent.ID, *userEvent.CreatedAt,
 				*fetchUserEventsInput.SinceEventTimestamp, fetchUserEventsInput.CheckpointID)
 
-			scanResult.SetCheckpointIfMostRecent(userEvent)
+			scanResult.SetCheckpointIfMostRecent(user, userEvent)
 
 			continue
 		}
@@ -264,7 +260,7 @@ func (gues GithubUserEventsScanner) scanAwsKeysForUser(ctx context.Context, user
 			} else {
 				// Otherwise, treat this as a permanent error and log a warning and skip this event (which is bad, since now
 				// that event's content will never be scanned)
-				scanResult.SetCheckpointIfMostRecent(userEvent)
+				scanResult.SetCheckpointIfMostRecent(user, userEvent)
 				log.Printf("WARNING: Failed to fetch user event content due to unexpected error.  Permanently skipping Event: %+v Error: %v", userEvent, err)
 				continue
 			}
@@ -307,7 +303,7 @@ func (gues GithubUserEventsScanner) scanAwsKeysForUser(ctx context.Context, user
 		}
 
 		// Update checkpoint.
-		scanResult.SetCheckpointIfMostRecent(userEvent)
+		scanResult.SetCheckpointIfMostRecent(user, userEvent)
 
 	}
 
@@ -371,6 +367,15 @@ func (p ParamsScanGithubUserEventsForAwsKeys) Validate() error {
 		return errors.Errorf("You must supply the GithubAccessToken")
 	}
 	return nil
+}
+
+func (p ParamsScanGithubUserEventsForAwsKeys) CopyGithubEventCheckpoints() GithubEventCheckpoints {
+	result := GithubEventCheckpoints{}
+	for userLogin, startingCheckpoint := range p.GithubEventCheckpoints {
+		checkpoint := *startingCheckpoint
+		result[userLogin] = &checkpoint
+	}
+	return result
 }
 
 func (p ParamsScanGithubUserEventsForAwsKeys) CreateFetchUserEventsInput(user *github.User) FetchUserEventsInput {
