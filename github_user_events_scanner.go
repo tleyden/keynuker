@@ -11,8 +11,6 @@ import (
 
 	"strings"
 
-	"runtime"
-
 	"strconv"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -169,15 +167,6 @@ func (gues GithubUserEventsScanner) ScanAwsKeys(params ParamsScanGithubUserEvent
 		if time.Since(startTime) > keynuker_go_common.HighWatermarkExecutionSeconds {
 			log.Printf("Warning: over high watermark for action exuction time limit.  Returning current results so far")
 			break
-		}
-
-		// desperate attempt to have the process avoid blowing up with memory usage, since if it blows up in memory it will
-		// fail to return the checkpoints, and get stuck in a death spiral.  The deeper fix is to have it avoid using
-		// so much memory in the first place.
-		var m runtime.MemStats
-		runtime.ReadMemStats(&m)
-		if m.Alloc > keynuker_go_common.HighWatermarkHeapSizeBytes {
-			runtime.GC()
 		}
 
 	}

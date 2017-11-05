@@ -54,7 +54,6 @@ const (
 	EnvVarKeyNukerMailerApiKey = "KEYNUKER_MAILER_API_KEY"
 
 	EnvVarKeyNukerMailerPublicApiKey = "KEYNUKER_MAILER_PUBLIC_API_KEY"
-
 )
 
 // Misc
@@ -77,13 +76,6 @@ const (
 
 	// The high watermark at which point an action should be aborted since approaching max
 	HighWatermarkExecutionSeconds = MaxActionExecutionSeconds - (time.Second * 30)
-
-	// The approximate max heap size before the action will be killed by the platform.
-	MaxHeapSizeBytes = 512000000
-
-	// The heap size at which it tries to do a clean exit and abort (but push checkpoints forward)
-	HighWatermarkHeapSizeBytes = MaxHeapSizeBytes / 3
-
 )
 
 var (
@@ -94,6 +86,5 @@ var (
 
 func init() {
 	DefaultCheckpointEventTimeWindow = time.Hour * -12
-
 
 }
