@@ -169,14 +169,6 @@ func (gues GithubUserEventsScanner) ScanAwsKeys(params ParamsScanGithubUserEvent
 			break
 		}
 
-		// ensure that the heap size is not getting too large, since if it blows up in memory it will
-		// fail to return the checkpoints, and get stuck in a death spiral
-		var m runtime.MemStats
-		runtime.ReadMemStats(&m)
-		if m.Alloc > keynuker_go_common.HighWatermarkHeapSizeBytes {
-			log.Printf("Warning: Current allocated heap (%d) over high watermark (%d) for memory usage.  Returning current results so far", m.Alloc, keynuker_go_common.HighWatermarkHeapSizeBytes)
-			break
-		}
 
 	}
 
