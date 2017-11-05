@@ -119,7 +119,7 @@ func (guef GoGithubUserEventFetcher) FetchUserEvents(ctx context.Context, fetchU
 
 }
 
-func (guef GoGithubUserEventFetcher) ScanContentForCommits(ctx context.Context, username, repoName, sha string, commits []WrappedCommit, accessKeysToScan []FetchedAwsAccessKey) (leaks []FetchedAwsAccessKey, err error) {
+func (guef GoGithubUserEventFetcher) ScanContentForCommits(ctx context.Context, username, repoName string, commits []WrappedCommit, accessKeysToScan []FetchedAwsAccessKey) (leaks []FetchedAwsAccessKey, err error) {
 
 	leaks = []FetchedAwsAccessKey{}
 
@@ -136,14 +136,13 @@ func (guef GoGithubUserEventFetcher) ScanContentForCommits(ctx context.Context, 
 		if err != nil {
 			if keynuker_go_common.IsTemporaryGithubError(err) {
 				// Abort now since this will prevent checkpoint from getting pushed, and will be retried later
-				// Nasty bug: return nil instead of leaks here
+				// ErrorInjection: return nil instead of leaks here.  It will discard the leaks collected so far from previous commits.
 				return leaks, errors.Wrapf(err, "Temporary error getting content for commit: %v url: %v", commit.Sha(), commit.Url())
 			} else {
-				log.Printf("Permanent error getting commit for username: %s, reponame: %s, sha: %s.  Skipping commit", username, repoName, commit.Sha())
+				log.Printf("Permanent error getting commit for username: %s, reponame: %s, sha: %s.  Skipping commit.  Error: %v", username, repoName, commit.Sha(), err)
 				continue
 			}
 		}
-
 
 		for _, repoCommitFile := range repoCommit.Files {
 			if repoCommitFile.Patch != nil {
@@ -262,7 +261,6 @@ func (guef GoGithubUserEventFetcher) ScanDownstreamContent(ctx context.Context, 
 				ctx,
 				username,
 				repoName,
-				*v.Ref,
 				ConvertRepositoryCommits(commits),
 				accessKeysToScan,
 			)
@@ -297,7 +295,6 @@ func (guef GoGithubUserEventFetcher) ScanDownstreamContent(ctx context.Context, 
 			ctx,
 			username,
 			repoName,
-			*v.Ref,
 			ConvertPushEventCommits(v.Commits),
 			accessKeysToScan,
 		)
