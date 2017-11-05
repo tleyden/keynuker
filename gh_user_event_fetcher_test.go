@@ -139,6 +139,14 @@ func TestGithubUserEventDownstreamContentFetcher(t *testing.T) {
 		log.Printf("userEvent #%d ID: %v createdAt: %v", i, *userEvent.ID, userEvent.CreatedAt)
 	}
 
+	// These events should be returned in *reverse chronological order*.  Eg, userEvents[0] should have an older
+	// CreatedAt value than userEvents[-1] (last event).  That's because we want get the oldest event that's after
+	// the checkpoint and start scanning towards the most recent event.
+	firstEvent := userEvents[0]
+	lastEvent := userEvents[len(userEvents) - 1]
+
+	assert.True(t, (*firstEvent).CreatedAt.Before(*lastEvent.CreatedAt))
+
 	// log.Printf("userEvents: %+v, err", userEvents, err )
 
 
