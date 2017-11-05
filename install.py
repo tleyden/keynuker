@@ -174,7 +174,7 @@ def no_op_update_openwhisk_actions(packaging_params):
 
     action_params_to_env = get_action_params_to_env()
 
-    for openwhisk_action, params in action_params_to_env:
+    for openwhisk_action in action_params_to_env:
 
         command = "wsk action update {}".format(
             openwhisk_action
