@@ -133,14 +133,17 @@ func (guef GoGithubUserEventFetcher) ScanContentForCommits(ctx context.Context, 
 			repoName,
 			commit.Sha(),
 		)
-		if keynuker_go_common.IsTemporaryGithubError(err) {
-			// Abort now since this will prevent checkpoint from getting pushed, and will be retried later
-			// Nasty bug: return nil instead of leaks here
-			return leaks, errors.Wrapf(err, "Temporary error getting content for commit: %v url: %v", commit.Sha(), commit.Url())
-		} else {
-			log.Printf("Permanent error getting commit for username: %s, reponame: %s, sha: %s.  Skipping commit", username, repoName, commit.Sha())
-			continue
+		if err != nil {
+			if keynuker_go_common.IsTemporaryGithubError(err) {
+				// Abort now since this will prevent checkpoint from getting pushed, and will be retried later
+				// Nasty bug: return nil instead of leaks here
+				return leaks, errors.Wrapf(err, "Temporary error getting content for commit: %v url: %v", commit.Sha(), commit.Url())
+			} else {
+				log.Printf("Permanent error getting commit for username: %s, reponame: %s, sha: %s.  Skipping commit", username, repoName, commit.Sha())
+				continue
+			}
 		}
+
 
 		for _, repoCommitFile := range repoCommit.Files {
 			if repoCommitFile.Patch != nil {
@@ -484,12 +487,14 @@ func (guef GoGithubUserEventFetcher) ScanBlob(owner string, repo string, sha str
 		repo,
 		sha,
 	)
-	if keynuker_go_common.IsTemporaryGithubError(err) {
-		// Abort now since this will prevent checkpoint from getting pushed, and will be retried later
-		return leaks, errors.Wrapf(err, "Temporary error getting content for commit file via blob api.  Owner: %v Repo: %v Sha: %v", owner, repo, sha)
-	} else {
-		log.Printf("Permanent error getting content for commit file via blob api. Skipping commit.  Owner: %v Repo: %v Sha: %v", owner, repo, sha)
-		return leaks, nil
+	if err != nil {
+		if keynuker_go_common.IsTemporaryGithubError(err) {
+			// Abort now since this will prevent checkpoint from getting pushed, and will be retried later
+			return leaks, errors.Wrapf(err, "Temporary error getting content for commit file via blob api.  Owner: %v Repo: %v Sha: %v", owner, repo, sha)
+		} else {
+			log.Printf("Permanent error getting content for commit file via blob api. Skipping commit.  Owner: %v Repo: %v Sha: %v", owner, repo, sha)
+			return leaks, nil
+		}
 	}
 
 	if *blob.Encoding != "base64" {
