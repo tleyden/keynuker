@@ -135,8 +135,10 @@ func (gues GithubUserEventsScanner) ScanAwsKeys(params ParamsScanGithubUserEvent
 	// Accumulate any leaked key events here
 	leakedKeyEvents := []LeakedKeyEvent{}
 
-	// Resulting checkpoints after processing
-	githubEventCheckpoints := GithubEventCheckpoints{}
+	// Resulting checkpoints after processing.  Initialize them with a copy of the starting checkpoints.
+	// Even if the process exits early, this must return _all_ of the checkpoints, since any missing checkpoints
+	// will effectively erase them in the database (until a smarter checkpoint DB updater/merger is added)
+	githubEventCheckpoints := params.CopyGithubEventCheckpoints()
 
 	startTime := time.Now()
 
@@ -368,6 +370,15 @@ func (p ParamsScanGithubUserEventsForAwsKeys) Validate() error {
 		return errors.Errorf("You must supply the GithubAccessToken")
 	}
 	return nil
+}
+
+func (p ParamsScanGithubUserEventsForAwsKeys) CopyGithubEventCheckpoints() GithubEventCheckpoints {
+	result := GithubEventCheckpoints{}
+	for userLogin, startingCheckpoint := range p.GithubEventCheckpoints {
+		checkpoint := *startingCheckpoint
+		result[userLogin] = &checkpoint
+	}
+	return result
 }
 
 func (p ParamsScanGithubUserEventsForAwsKeys) CreateFetchUserEventsInput(user *github.User) FetchUserEventsInput {
