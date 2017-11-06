@@ -17,6 +17,8 @@ import (
 	"github.com/aws/aws-sdk-go/service/sts"
 	"github.com/satori/go.uuid"
 	"github.com/tleyden/keynuker/keynuker-go-common"
+	"github.com/aws/aws-sdk-go/service/iam/iamiface"
+	"github.com/pkg/errors"
 )
 
 // Look up all the AWS keys associated with the AWS account corresponding to AwsAccessKeyId
@@ -155,23 +157,43 @@ func FetchAwsKeysTargetAccount(initiatingAwsAccount AwsCredentials, targetAwsAcc
 
 }
 
-func FetchIAMUsers(svc *iam.IAM) (users []*iam.User, err error) {
+func FetchIAMUsers(svc iamiface.IAMAPI) (users []*iam.User, err error) {
 
-	// Discover list of IAM users in account
-	listUsersInput := &iam.ListUsersInput{
-		MaxItems: aws.Int64(1000),
-	}
-	listUsersOutput, err := svc.ListUsers(listUsersInput)
-	if err != nil {
-		return nil, fmt.Errorf("Error listing users: %v", err)
-	}
-	// Panic if more than 1K results, which is not handled
-	if *listUsersOutput.IsTruncated {
-		// TODO: remove panic and put in a paginated loop.  Move to tleyden/awsutils + unit tests against mocks
-		return nil, fmt.Errorf("Output is truncated and this code does not handle it")
+	fetchedUsers := []*iam.User{}
+
+	var pageMarker *string
+
+	for {
+		// Discover list of IAM users in account
+		listUsersInput := &iam.ListUsersInput{
+			MaxItems: aws.Int64(1000),
+			Marker: pageMarker,
+		}
+		listUsersOutput, err := svc.ListUsers(listUsersInput)
+		if err != nil {
+			return []*iam.User{}, fmt.Errorf("Error listing users: %v", err)
+		}
+		if listUsersOutput == nil {
+			return []*iam.User{}, errors.Errorf("ListUsers returned nil output")
+		}
+
+		fetchedUsers = append(fetchedUsers, listUsersOutput.Users...)
+
+		// If the output isn't truncated, there are no more results, so break out of the for loop.  Otherwise
+		// keep pulling users.
+		if *listUsersOutput.IsTruncated == false {
+			break
+		}
+
+		// Increment page marker so that next iteration will fetch next page of results
+		pageMarker = listUsersOutput.Marker
+
+
 	}
 
-	return listUsersOutput.Users, nil
+
+
+	return fetchedUsers, nil
 
 }
 

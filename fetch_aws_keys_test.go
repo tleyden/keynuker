@@ -7,9 +7,71 @@ import (
 
 	"os"
 
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/service/iam"
 	"github.com/stretchr/testify/assert"
 	"github.com/tleyden/keynuker/keynuker-go-common"
 )
+
+//go:generate goautomock -template=testify -pkg github.com/aws/aws-sdk-go/service/iam/iamiface IAMAPI
+
+func TestFetchIAMUsers(t *testing.T) {
+
+	mockIAMService := NewIAMAPIMock()
+
+	// -------------------- Setup mock: 1st invocation ------------------------------
+
+	listUsersInputFirstInvocation := &iam.ListUsersInput{
+		MaxItems: aws.Int64(1000),
+	}
+
+	// Create mock output with IsTruncated = true, meaning our code should make another request
+	// to get the rest of the output
+	mockListUsersOutputFirstInvocation := &iam.ListUsersOutput{
+		IsTruncated: aws.Bool(true),
+		Users: []*iam.User{
+			{
+				UserId: aws.String("fakeuser"),
+			},
+		},
+		Marker: aws.String("2"),
+	}
+
+	mockIAMService.On("ListUsers", listUsersInputFirstInvocation).Return(
+		mockListUsersOutputFirstInvocation,
+		nil,
+	).Once()
+
+	// -------------------- Setup mock: 2nd invocation ------------------------------
+
+	listUsersInputSecondInvocation := &iam.ListUsersInput{
+		MaxItems: aws.Int64(1000),
+		Marker: aws.String("2"),
+	}
+
+	// Create mock output with IsTruncated = true, meaning our code should make another request
+	// to get the rest of the output
+	mockListUsersOutputSecondInvocation := &iam.ListUsersOutput{
+		IsTruncated: aws.Bool(false),
+		Users: []*iam.User{
+			{
+				UserId: aws.String("fakeuser2"),
+			},
+		},
+	}
+
+	mockIAMService.On("ListUsers", listUsersInputSecondInvocation).Return(
+		mockListUsersOutputSecondInvocation,
+		nil,
+	).Once()
+
+
+	// -------------------- Invoke API call ------------------------------
+	users, err := FetchIAMUsers(mockIAMService)
+	assert.NoError(t, err, "Unexpected error")
+	assert.Equal(t, 2, len(users))
+
+}
 
 func TestFetchAwsKeysViaSTSAssumeRole(t *testing.T) {
 
