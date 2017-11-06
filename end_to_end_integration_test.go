@@ -917,6 +917,10 @@ func (lkvc *LeakKeyViaNewGithubIssue) Leak(accessKey *iam.AccessKey) error {
 		return err
 	}
 
+	// TODO: lkvoc.WaitForCreateEvent()
+	// TODO: it could get the latest event on the feed before calling PushCommitToNewBranch(),
+	// TODO: and then wait for a CreateEvent after that.
+
 	return nil
 
 }
