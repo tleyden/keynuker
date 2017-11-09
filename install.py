@@ -154,6 +154,13 @@ def get_action_params_to_env():
             "mailer_public_api_key": "KEYNUKER_MAILER_PUBLIC_API_KEY",
             "mailer_domain": "KEYNUKER_MAILER_DOMAIN",
         },
+        "activity-report": {
+            "email_from_address": "KEYNUKER_EMAIL_FROM_ADDRESS",
+            "admin_email_cc_address": "KEYNUKER_ADMIN_EMAIL_CC_ADDRESS",
+            "mailer_api_key": "KEYNUKER_MAILER_API_KEY",
+            "mailer_public_api_key": "KEYNUKER_MAILER_PUBLIC_API_KEY",
+            "mailer_domain": "KEYNUKER_MAILER_DOMAIN",
+        },
     }
 
     return action_params_to_env
