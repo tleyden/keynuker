@@ -70,8 +70,8 @@ func SendReportNotifications(params ParamsMonitorActivations, report RecentActiv
 	)
 
 	var messageBody string
-	if len(report.FailedActivations) > 0 {
-		messageBody += fmt.Sprintf("Failed activations: %+v\n", report.FailedActivations)
+	if len(report.FailedActivationIds) > 0 {
+		messageBody += fmt.Sprintf("WARNING: %d failed activations. IDs: %+v\n\n", len(report.FailedActivationIds), report.FailedActivationIds)
 	}
 	messageBody += fmt.Sprintf("Num bytes scanned: %d", report.TotalNumBytesScanned)
 
@@ -98,7 +98,7 @@ type RecentActivationsReportInput struct {
 }
 
 type RecentActivationsReportOutput struct {
-	FailedActivations []whisk.Activation
+	FailedActivationIds []string
 	TotalNumBytesScanned int64
 }
 
@@ -131,6 +131,7 @@ func OpenWhiskRecentActivationsReport(input RecentActivationsReportInput) (outpu
 		numActivationsScanned := skipOffset
 		if numActivationsScanned >= input.MaxActivationsToScan {
 			// return what we have so far (should be no failures)
+			log.Printf("Exceeded max activations to scan: %d.  Returning results.", input.MaxActivationsToScan)
 			return output, nil
 		}
 
@@ -139,6 +140,8 @@ func OpenWhiskRecentActivationsReport(input RecentActivationsReportInput) (outpu
 			Limit: pageSize,
 			Skip:  skipOffset,
 		}
+
+		log.Printf("Getting activation list %+v.  Max activations to scan: %d", listActivationsOptions, input.MaxActivationsToScan)
 
 		// Make REST call to OpenWhisk API to load list of activations
 		activations, _, err := client.Activations.List(listActivationsOptions)
@@ -154,11 +157,13 @@ func OpenWhiskRecentActivationsReport(input RecentActivationsReportInput) (outpu
 
 		// Loop over activations and look for failures and total up bytes scanned by scanning logs
 		for _, activation := range activations {
-			if activation.Name == "monitor-activations" {
+			if activation.Name == "monitor-activations" || activation.Name == "activity-report" {
 				continue
 			}
+			log.Printf("CalculateBytesScanned for activation %v w/ id: %v", activation.Name, activation.ActivationID)
+
 			if activation.Response.Success == false {
-				output.FailedActivations = append(output.FailedActivations, activation)
+				output.FailedActivationIds = append(output.FailedActivationIds, activation.ActivationID)
 			}
 			bytesScanned, err := CalculateBytesScanned(activation.Logs)
 			if err != nil {
@@ -166,6 +171,9 @@ func OpenWhiskRecentActivationsReport(input RecentActivationsReportInput) (outpu
 			}
 			output.TotalNumBytesScanned += bytesScanned
 		}
+
+		// Go to the next page of data
+		skipOffset += pageSize
 
 	}
 
@@ -176,6 +184,9 @@ func OpenWhiskRecentActivationsReport(input RecentActivationsReportInput) (outpu
 //    Scanning 1833 bytes
 // and extract the number of bytes, and then add them up
 func CalculateBytesScanned(logs []string) (int64, error) {
+
+	log.Printf("CalculateBytesScanned called with %d log lines", len(logs))
+	defer log.Printf("/CalculateBytesScanned finished scanning %d log lines", len(logs))
 
 	numBytesAccumulated := int64(0)
 
