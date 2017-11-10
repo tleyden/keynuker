@@ -36,7 +36,7 @@ func CreateDBClient(params ParamsWriteDoc) (db *kivik.DB, err error) {
 	ctx := context.TODO()
 
 	dataSourceName := fmt.Sprintf(
-		"http://%s:%s@%s",
+		"https://%s:%s@%s",
 		params.Username,
 		params.Password,
 		params.Host,

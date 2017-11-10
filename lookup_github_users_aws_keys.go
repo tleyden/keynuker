@@ -29,7 +29,7 @@ func LookupGithubUsersAwsKeys(params ParamsLookupGithubUsersAwsKeys) (docWrapper
 	}
 
 	dataSourceName := fmt.Sprintf(
-		"http://%s:%s@%s",
+		"https://%s:%s@%s",
 		params.Username,
 		params.Password,
 		params.Host,
