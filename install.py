@@ -8,6 +8,9 @@ import os
 import collections
 import shutil
 
+KEYNUKER_ALARM_TRIGGER = "keynukerAlarmTrigger"
+KEYNUKER_WEEKLY_ALARM_TRIGGER = "keynukerWeelyAlarmTrigger"
+
 def main():
 
     packaging_params = get_default_packaging_params()
@@ -361,7 +364,8 @@ def install_openwhisk_alarm_triggers():
     $ wsk trigger create keynukerAlarmTrigger --feed /whisk.system/alarms/alarm -p cron '*/30 * * * *'
     """
     alarm_triggers = {
-        "keynukerAlarmTrigger": "*/30 * * * *",
+        KEYNUKER_ALARM_TRIGGER: "*/30 * * * *",
+        KEYNUKER_WEEKLY_ALARM_TRIGGER: "14 0 * * 1",  # 2pm every Monday (GMT)
     }
     for alarm_trigger, schedule in alarm_triggers.iteritems():
 
@@ -373,7 +377,8 @@ def install_openwhisk_alarm_triggers():
             schedule,
         )
 
-    subprocess.check_call(command, shell=True)
+        print(command)
+        subprocess.check_call(command, shell=True)
 
 def install_openwhisk_rules(available_sequences, available_actions):
     """
@@ -385,12 +390,16 @@ def install_openwhisk_rules(available_sequences, available_actions):
 
     rules = {
         "scheduled-github-user-events-scanner-nuker": {
-            "trigger": "keynukerAlarmTrigger",
+            "trigger": KEYNUKER_ALARM_TRIGGER,
             "action": "github-user-events-scanner-nuker",
         },
         "scheduled-monitor-activations": {
-            "trigger": "keynukerAlarmTrigger",
+            "trigger": KEYNUKER_ALARM_TRIGGER,
             "action": "monitor-activations",
+        },
+        "scheduled-activity-report": {
+            "trigger": KEYNUKER_WEEKLY_ALARM_TRIGGER,
+            "action": "activity-report",
         },
     }
 
@@ -411,7 +420,8 @@ def install_openwhisk_rules(available_sequences, available_actions):
             trigger,
             action,
         )
-        
+
+        print(command)
         subprocess.check_call(command, shell=True)
 
 
