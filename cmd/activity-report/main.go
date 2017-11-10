@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"log"
 
 	"github.com/tleyden/keynuker"
 	"github.com/tleyden/keynuker/keynuker-go-common"
@@ -21,15 +22,22 @@ func OpenWhiskCallback(value json.RawMessage) (interface{}, error) {
 		return nil, err
 	}
 
-	activationsStatus := keynuker.OpenWhiskRecentActivationsStatus(50)
-	if activationsStatus["status"] == "failure" {
-		deliveryId, err := keynuker.SendMonitorNotifications(params, activationsStatus)
-		if err != nil {
-			return nil, err
-		}
-		activationsStatus["notificationDeliveryId"] = deliveryId
+	input := keynuker.RecentActivationsReportInput{
+		MaxActivationsToScan: 200,
+	}
+	output, err := keynuker.OpenWhiskRecentActivationsReport(input)
+
+	if err != nil {
+		return nil, err
 	}
 
-	return activationsStatus, nil
+	deliveryId, err := keynuker.SendReportNotifications(params, output)
+	if err != nil {
+		return nil, err
+	}
+
+	log.Printf("Report delivery id: %v", deliveryId)
+
+	return output, nil
 
 }

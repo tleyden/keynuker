@@ -9,8 +9,13 @@ import (
 	"os"
 	"strings"
 
+	"regexp"
+	"strconv"
+
 	"github.com/apache/incubator-openwhisk-client-go/whisk"
+	"github.com/pkg/errors"
 	"gopkg.in/mailgun/mailgun-go.v1"
+	"github.com/dustin/go-humanize"
 )
 
 type ParamsMonitorActivations struct {
@@ -57,11 +62,158 @@ func SendMonitorNotifications(params ParamsMonitorActivations, activationStatus 
 
 }
 
+func SendReportNotifications(params ParamsMonitorActivations, report RecentActivationsReportOutput) (deliveryId string, err error) {
+
+	mailer := mailgun.NewMailgun(
+		params.MailerParams.Domain,
+		params.MailerParams.ApiKey,
+		params.MailerParams.PublicApiKey,
+	)
+
+	var messageBody string
+	if len(report.FailedActivationIds) > 0 {
+		messageBody += fmt.Sprintf("WARNING: %d failed activations. IDs: %+v\n\n", len(report.FailedActivationIds), report.FailedActivationIds)
+	}
+	messageBody += fmt.Sprintf("Raw content scanned in most recent 200 activations: %s", humanize.Bytes(uint64(report.TotalNumBytesScanned)))
+
+	message := mailgun.NewMessage(
+		params.EmailFromAddress,
+		"KeyNuker Activity Report 🔐",
+		messageBody,
+		params.KeynukerAdminEmailCCAddress,
+	)
+
+	mes, id, err := mailer.Send(message)
+	if err != nil {
+		return "", fmt.Errorf("Error sending message: %v.  Mes: %v", err, mes)
+	}
+
+	return id, nil
+
+}
+
+type RecentActivationsReportInput struct {
+	MaxActivationsToScan int
+}
+
+type RecentActivationsReportOutput struct {
+	FailedActivationIds  []string
+	TotalNumBytesScanned int64
+}
+
+// A more generalized version of OpenWhiskRecentActivationsStatus
+// TODO #1: Moving to structured logging (logrus?) will make this a lot more tenable.  Either that or json stats.
+func OpenWhiskRecentActivationsReport(input RecentActivationsReportInput) (output RecentActivationsReportOutput, err error) {
+
+	whiskConfig, err := WhiskConfigFromEnvironment()
+	if err != nil {
+		return output, errors.Wrapf(err, "Error getting whisk config from environment")
+	}
+
+	client, err := whisk.NewClient(http.DefaultClient, whiskConfig)
+	if err != nil {
+		return output, errors.Wrapf(err, "Error creating whisk.NewClient")
+	}
+
+	// TODO: is this needed?
+	// output.FailedActivations = []whisk.Activation{}
+
+	// This must limited to a small number, otherwise it will exceed memory limits and get killed abruptly
+	pageSize := 25
+
+	// Keep track
+	skipOffset := 0
+
+	for {
+
+		// Check to see if we've already scanned far enough back
+		numActivationsScanned := skipOffset
+		if numActivationsScanned >= input.MaxActivationsToScan {
+			// return what we have so far (should be no failures)
+			log.Printf("Exceeded max activations to scan: %d.  Returning results.", input.MaxActivationsToScan)
+			return output, nil
+		}
+
+		listActivationsOptions := &whisk.ActivationListOptions{
+			Docs:  true, // Need to include this to get the activation doc body, which ends up using lots of memory
+			Limit: pageSize,
+			Skip:  skipOffset,
+		}
+
+		log.Printf("Getting activation list %+v.  Max activations to scan: %d", listActivationsOptions, input.MaxActivationsToScan)
+
+		// Make REST call to OpenWhisk API to load list of activations
+		activations, _, err := client.Activations.List(listActivationsOptions)
+
+		if err != nil {
+			return output, errors.Wrapf(err, "client.Activations.List with options %+v returned error", listActivationsOptions)
+		}
+
+		if len(activations) == 0 {
+			// Looks like we hit the end of list of total avaialable activations
+			return output, nil
+		}
+
+		// Loop over activations and look for failures and total up bytes scanned by scanning logs
+		for _, activation := range activations {
+			if activation.Name == "monitor-activations" || activation.Name == "activity-report" {
+				continue
+			}
+			log.Printf("CalculateBytesScanned for activation %v w/ id: %v", activation.Name, activation.ActivationID)
+
+			if activation.Response.Success == false {
+				output.FailedActivationIds = append(output.FailedActivationIds, activation.ActivationID)
+			}
+			bytesScanned, err := CalculateBytesScanned(activation.Logs)
+			if err != nil {
+				return output, errors.Wrapf(err, "Error calculating bytes scanned from activation %v logs", activation.ActivationID)
+			}
+			output.TotalNumBytesScanned += bytesScanned
+		}
+
+		// Go to the next page of data
+		skipOffset += pageSize
+
+	}
+
+	return output, nil
+}
+
+// Look for log messages with form:
+//    Scanning 1833 bytes
+// and extract the number of bytes, and then add them up
+func CalculateBytesScanned(logs []string) (int64, error) {
+
+	log.Printf("CalculateBytesScanned called with %d log lines", len(logs))
+	defer log.Printf("/CalculateBytesScanned finished scanning %d log lines", len(logs))
+
+	numBytesAccumulated := int64(0)
+
+	r, err := regexp.Compile(`Scanning (\d*) bytes`)
+	if err != nil {
+		return 0, errors.Wrapf(err, "Error compiling regex")
+	}
+
+	for _, logLine := range logs {
+		result := r.FindStringSubmatch(logLine)
+		if len(result) > 0 {
+			numBytesAsStr := result[1]
+			numBytes, err := strconv.Atoi(numBytesAsStr)
+			if err != nil {
+				return 0, errors.Wrapf(err, "Error converting %s to a number", numBytesAsStr)
+			}
+			numBytesAccumulated += int64(numBytes)
+		}
+	}
+
+	return numBytesAccumulated, nil
+}
+
 // Connect to OpenWhisk API and scan the list of recent activations and look for any failures.
 // If any failures found, return {"status": "failure"}.  Otherwise return {"status": "success"}.
 // The idea is that this would be served up by a web action that a monitoring tool could poll
 // and send alerts if any failures occurred.
-func OpenWhiskRecentActivationsStatus() (keynukerStatus map[string]interface{}) {
+func OpenWhiskRecentActivationsStatus(maxActivationsToScan int) (keynukerStatus map[string]interface{}) {
 
 	keynukerStatus = map[string]interface{}{}
 	keynukerStatus["status"] = "failure"
@@ -76,7 +228,7 @@ func OpenWhiskRecentActivationsStatus() (keynukerStatus map[string]interface{}) 
 
 	// whiskConfig.Debug = true
 
-	failedActivations, err := ScanActivationsForFailures(whiskConfig, 50)
+	failedActivations, err := ScanActivationsForFailures(whiskConfig, maxActivationsToScan)
 	log.Printf("ScanActivationsForFailures returned %d failedActivations", len(failedActivations))
 
 	if err != nil {
@@ -265,7 +417,7 @@ func WhiskConfigFromOwEnvVars() (config *whisk.Config, err error) {
 	config.AuthToken = owApiKey
 
 	config.Host = owApiHost
-	
+
 	return config, nil
 
 }
