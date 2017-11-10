@@ -9,11 +9,13 @@ import (
 	"os"
 	"strings"
 
-	"github.com/apache/incubator-openwhisk-client-go/whisk"
-	"gopkg.in/mailgun/mailgun-go.v1"
-	"github.com/pkg/errors"
 	"regexp"
 	"strconv"
+
+	"github.com/apache/incubator-openwhisk-client-go/whisk"
+	"github.com/pkg/errors"
+	"gopkg.in/mailgun/mailgun-go.v1"
+	"github.com/dustin/go-humanize"
 )
 
 type ParamsMonitorActivations struct {
@@ -60,7 +62,6 @@ func SendMonitorNotifications(params ParamsMonitorActivations, activationStatus 
 
 }
 
-
 func SendReportNotifications(params ParamsMonitorActivations, report RecentActivationsReportOutput) (deliveryId string, err error) {
 
 	mailer := mailgun.NewMailgun(
@@ -73,7 +74,7 @@ func SendReportNotifications(params ParamsMonitorActivations, report RecentActiv
 	if len(report.FailedActivationIds) > 0 {
 		messageBody += fmt.Sprintf("WARNING: %d failed activations. IDs: %+v\n\n", len(report.FailedActivationIds), report.FailedActivationIds)
 	}
-	messageBody += fmt.Sprintf("Num bytes scanned: %d", report.TotalNumBytesScanned)
+	messageBody += fmt.Sprintf("Raw content scanned: %s", humanize.Bytes(uint64(report.TotalNumBytesScanned)))
 
 	message := mailgun.NewMessage(
 		params.EmailFromAddress,
@@ -91,14 +92,12 @@ func SendReportNotifications(params ParamsMonitorActivations, report RecentActiv
 
 }
 
-
 type RecentActivationsReportInput struct {
 	MaxActivationsToScan int
-
 }
 
 type RecentActivationsReportOutput struct {
-	FailedActivationIds []string
+	FailedActivationIds  []string
 	TotalNumBytesScanned int64
 }
 
@@ -108,7 +107,7 @@ func OpenWhiskRecentActivationsReport(input RecentActivationsReportInput) (outpu
 
 	whiskConfig, err := WhiskConfigFromEnvironment()
 	if err != nil {
-		return output, errors.Wrapf(err,"Error getting whisk config from environment")
+		return output, errors.Wrapf(err, "Error getting whisk config from environment")
 	}
 
 	client, err := whisk.NewClient(http.DefaultClient, whiskConfig)
@@ -206,7 +205,6 @@ func CalculateBytesScanned(logs []string) (int64, error) {
 			numBytesAccumulated += int64(numBytes)
 		}
 	}
-
 
 	return numBytesAccumulated, nil
 }
@@ -419,7 +417,7 @@ func WhiskConfigFromOwEnvVars() (config *whisk.Config, err error) {
 	config.AuthToken = owApiKey
 
 	config.Host = owApiHost
-	
+
 	return config, nil
 
 }
