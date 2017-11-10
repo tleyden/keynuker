@@ -74,7 +74,7 @@ func SendReportNotifications(params ParamsMonitorActivations, report RecentActiv
 	if len(report.FailedActivationIds) > 0 {
 		messageBody += fmt.Sprintf("WARNING: %d failed activations. IDs: %+v\n\n", len(report.FailedActivationIds), report.FailedActivationIds)
 	}
-	messageBody += fmt.Sprintf("Raw content scanned: %s", humanize.Bytes(uint64(report.TotalNumBytesScanned)))
+	messageBody += fmt.Sprintf("Raw content scanned in most recent 200 activations: %s", humanize.Bytes(uint64(report.TotalNumBytesScanned)))
 
 	message := mailgun.NewMessage(
 		params.EmailFromAddress,

@@ -1,9 +1,12 @@
 package keynuker
 
 import (
-	"github.com/stretchr/testify/assert"
+	"log"
 	"strings"
 	"testing"
+
+	"github.com/dustin/go-humanize"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestCreateApiHostBaseUrl(t *testing.T) {
@@ -39,6 +42,8 @@ func TestCalculateBytesScanned(t *testing.T) {
 
 	bytesScanned, err := CalculateBytesScanned(testInput)
 	assert.NoError(t, err, "Unexpected error")
-	assert.Equal(t, int(bytesScanned), (3732+1251))
+	assert.Equal(t, int(bytesScanned), (3732 + 1251))
+
+	log.Printf("Raw content scanned: %s", humanize.Bytes(uint64(bytesScanned)))
 
 }
