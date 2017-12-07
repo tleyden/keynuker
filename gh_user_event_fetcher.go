@@ -5,7 +5,6 @@ package keynuker
 
 import (
 	"context"
-	"io/ioutil"
 	"net/http"
 	"time"
 
@@ -208,6 +207,8 @@ func (guef GoGithubUserEventFetcher) ScanDownstreamContent(ctx context.Context, 
 		if err != nil {
 			return nil, err
 		}
+		log.Printf("Scanning %d bytes of content for event: %v url: %v", len(content), *userEvent.ID, v.PullRequest.GetPatchURL())
+
 		return Scan(accessKeysToScan, content)
 
 	case *github.CreateEvent:
@@ -547,9 +548,18 @@ func (guef GoGithubUserEventFetcher) FetchUrlContent(ctx context.Context, url st
 	}
 
 	defer resp.Body.Close()
-	resp_body, err := ioutil.ReadAll(resp.Body)
+
+	// Read from the response, but limit the number of bytes read to 10MB to avoid blowing up the memory
+	// for extra large commits
+	resp_body, err := keynuker_go_common.ReadLimited(resp.Body, keynuker_go_common.MaxSizeBytesBlobContent)
 	if err != nil {
 		return nil, err
+	}
+
+	if len(resp_body) == keynuker_go_common.MaxSizeBytesBlobContent {
+		// TODO: This gives a false warning if the content was _exactly_ keynuker_go_common.MaxSizeBytesBlobContent bytes.
+		// TODO: The ReadLimited() function should return a boolean indicating if there was unread content
+		log.Printf("WARNING: only %d bytes of content were scanned for url: %v.  Some content was not scanned.", keynuker_go_common.MaxSizeBytesBlobContent, url)
 	}
 
 	return resp_body, nil

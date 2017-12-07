@@ -75,7 +75,7 @@ const (
 	MaxActionExecutionSeconds = time.Second * 300
 
 	// The high watermark at which point an action should be aborted since approaching max
-	HighWatermarkExecutionSeconds = MaxActionExecutionSeconds - (time.Second * 30)
+	HighWatermarkExecutionSeconds = MaxActionExecutionSeconds - (time.Second * 60)
 )
 
 var (

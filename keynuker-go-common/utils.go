@@ -15,6 +15,8 @@ import (
 	"github.com/google/go-github/github"
 	"github.com/pkg/errors"
 	"strings"
+	"io"
+	"bytes"
 )
 
 var UseDockerSkeleton bool
@@ -133,4 +135,41 @@ func IsTemporaryGithubError(err error) bool {
 	}
 
 }
+
+// Read up to maxBytes from reader
+func ReadLimited(r io.Reader, maxBytes int) ([]byte, error) {
+
+	readBuf := make([]byte, 2048, 2048)
+
+	//numBytesRead := 0
+	resultBuf := bytes.NewBuffer(make([]byte, 0, maxBytes))
+
+	for {
+
+		n, err := r.Read(readBuf)
+
+		// figure out the max number of bytes that can be added to resultBuf before going over limit
+		maxBytesToAdd := maxBytes - resultBuf.Len()
+
+		// figure out how many bytes to add, given number of bytes read and taking maxBytesToAdd into account
+		numBytesToAdd := n
+		if numBytesToAdd > maxBytesToAdd {
+			numBytesToAdd = maxBytesToAdd
+		}
+
+		bufToAdd := readBuf[:numBytesToAdd]
+
+		resultBuf.Write(bufToAdd)
+
+		if err == io.EOF {
+			break
+		}
+
+	}
+
+
+	return resultBuf.Bytes(), nil
+
+}
+
 
