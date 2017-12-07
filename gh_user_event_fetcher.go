@@ -556,6 +556,12 @@ func (guef GoGithubUserEventFetcher) FetchUrlContent(ctx context.Context, url st
 		return nil, err
 	}
 
+	if len(resp_body) == keynuker_go_common.MaxSizeBytesBlobContent {
+		// TODO: This gives a false warning if the content was _exactly_ keynuker_go_common.MaxSizeBytesBlobContent bytes.
+		// TODO: The ReadLimited() function should return a boolean indicating if there was unread content
+		log.Printf("WARNING: only %d bytes of content were scanned for url: %v.  Some content was not scanned.", keynuker_go_common.MaxSizeBytesBlobContent, url)
+	}
+
 	return resp_body, nil
 
 }
