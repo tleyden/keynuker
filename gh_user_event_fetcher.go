@@ -5,7 +5,6 @@ package keynuker
 
 import (
 	"context"
-	"io/ioutil"
 	"net/http"
 	"time"
 
@@ -208,6 +207,8 @@ func (guef GoGithubUserEventFetcher) ScanDownstreamContent(ctx context.Context, 
 		if err != nil {
 			return nil, err
 		}
+		log.Printf("Scanning %d bytes of content for event: %v url: %v", len(content), *userEvent.ID, v.PullRequest.GetPatchURL())
+
 		return Scan(accessKeysToScan, content)
 
 	case *github.CreateEvent:
@@ -547,7 +548,10 @@ func (guef GoGithubUserEventFetcher) FetchUrlContent(ctx context.Context, url st
 	}
 
 	defer resp.Body.Close()
-	resp_body, err := ioutil.ReadAll(resp.Body)
+
+	// Read from the response, but limit the number of bytes read to 10MB to avoid blowing up the memory
+	// for extra large commits
+	resp_body, err := keynuker_go_common.ReadLimited(resp.Body, keynuker_go_common.MaxSizeBytesBlobContent)
 	if err != nil {
 		return nil, err
 	}

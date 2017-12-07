@@ -24,6 +24,8 @@ func TestReadLimited1(t *testing.T) {
 	result, err := ReadLimited(buffer, 100)
 	assert.True(t, len(result) == 100)
 	assert.True(t, result[0] == bufferBytes[0])
+	assert.True(t, result[99] == bufferBytes[99])
+
 	assert.True(t, err == nil)
 
 }
