@@ -514,7 +514,7 @@ func (guef GoGithubUserEventFetcher) ScanBlob(owner string, repo string, sha str
 		return leaks, nil
 	}
 
-	log.Printf("Scanning %d bytes of content for blob commit with owner: %v Repo: %v Sha: %v", owner, repo, sha)
+	log.Printf("Scanning %d bytes of content for blob commit with owner: %v Repo: %v Sha: %v", len(decodedBlobContent), owner, repo, sha)
 
 	leaksForFile, err := Scan(accessKeysToScan, decodedBlobContent)
 	if err != nil {
