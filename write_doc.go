@@ -8,12 +8,11 @@ import (
 	"fmt"
 
 	f "github.com/fauna/faunadb-go/faunadb"
+	"github.com/go-kivik/kivik"
 
-	_ "github.com/flimzy/kivik/driver/couchdb" // The CouchDB driver
+	_ "github.com/go-kivik/couchdb" // The CouchDB driver
 
 	"strings"
-
-	"github.com/flimzy/kivik"
 )
 
 // Write an object specified in params to the underlying database, and return the
