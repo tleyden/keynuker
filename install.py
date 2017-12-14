@@ -21,6 +21,7 @@ def main():
     parser.add_argument('--bluemix', action='store_true', help='Deploy to IBM Cloud (bluemix)')
     args = parser.parse_args()
     if args.bluemix:
+        global WSK_CMD
         WSK_CMD = "bx wsk"
         print("Deploying to IBM Bluemix using the bx wsk command")
     else:
