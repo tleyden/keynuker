@@ -188,13 +188,13 @@ The `install.py` script will do the following things:
 
 ```
 $ cd $GOPATH/src/github.com/tleyden/keynuker/
-$ python install.py
+$ python install.py --bluemix
 ```
 
 Congrats!  KeyNuker is now installed.  You can do a quick verification by running `wsk action list`, which should return a list of actions:
 
 ```
-$ wsk action list
+$ bx wsk action list
 actions
 /yourusername_dev/github-user-events-scanner-nuker                     private sequence
 /yourusername_dev/fetch-aws-keys-write-doc                             private sequence

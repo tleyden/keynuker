@@ -7,13 +7,29 @@ import subprocess
 import os
 import collections
 import shutil
+import argparse
 
 KEYNUKER_ALARM_TRIGGER = "keynukerAlarmTrigger"
 KEYNUKER_WEEKLY_ALARM_TRIGGER = "keynukerWeelyAlarmTrigger"
 
+# This is the command to use to invoke the "wsk" CLI utility for interacting with OpenWhisk
+WSK_CMD = "wsk"
+
 def main():
 
+    parser = argparse.ArgumentParser(description='Deploy KeyNuker to OpenWhisk')
+    parser.add_argument('--bluemix', action='store_true', help='Deploy to IBM Cloud (bluemix) as opposed to vanilla OpenWhisk')
+    parser.add_argument('--dev', action='store_true', help='In dev mode, it skips installing the alarm triggers')
+    args = parser.parse_args()
+    if args.bluemix:
+        global WSK_CMD
+        WSK_CMD = "bx wsk"
+        print("Deploying to IBM Bluemix using the bx wsk command")
+    else:
+        print("Deploying to OpenWhisk using the wsk command")
+
     packaging_params = get_default_packaging_params()
+    packaging_params.devMode = args.dev
 
     # Make sure all of the openwhisk actions we are about to install have the proper env variables set that they require
     verify_openwhisk_actions_env_variables(packaging_params)
@@ -186,7 +202,8 @@ def no_op_update_openwhisk_actions(packaging_params):
 
     for openwhisk_action in action_params_to_env:
 
-        command = "wsk action update {}".format(
+        command = "{} action update {}".format(
+            WSK_CMD,
             openwhisk_action
         )
 
@@ -219,6 +236,11 @@ def install_openwhisk_actions(packaging_params):
         return
 
     sequences = install_openwhisk_action_sequences(actions)
+
+    # If it's in "dev mode", there is no need to install alarm triggers or rules
+    # that associate triggers to actions.  So return early.
+    if not packaging_params.devMode:
+        return
 
     install_openwhisk_alarm_triggers()
     
@@ -284,7 +306,8 @@ def install_openwhisk_action_sequences(available_actions):
         comma_delimited_actions = ",".join(actions)
 
         # Default the action timeout to 5 minutes, which is the max value on the hosted IBM bluemix platform
-        command = "wsk action create {} --timeout 300000 --sequence {}".format(
+        command = "{} action create {} --timeout 300000 --sequence {}".format(
+            WSK_CMD,
             action_sequence,
             comma_delimited_actions,
         )
@@ -372,7 +395,8 @@ def install_openwhisk_alarm_triggers():
         if openwhisk_trigger_exists(alarm_trigger):
             delete_openwhisk_trigger(alarm_trigger)
         
-        command = "wsk trigger create {} --feed /whisk.system/alarms/alarm --param cron '{}'".format(
+        command = "{} trigger create {} --feed /whisk.system/alarms/alarm --param cron '{}'".format(
+            WSK_CMD,
             alarm_trigger,
             schedule,
         )
@@ -415,7 +439,8 @@ def install_openwhisk_rules(available_sequences, available_actions):
         if openwhisk_rule_exists(rule):
             delete_openwhisk_rule(rule)
         
-        command = "wsk rule create {} {} {}".format(
+        command = "{} rule create {} {} {}".format(
+            WSK_CMD,
             rule,
             trigger,
             action,
@@ -426,19 +451,22 @@ def install_openwhisk_rules(available_sequences, available_actions):
 
 
 def delete_openwhisk_action(openwhisk_action):
-    command = "wsk action delete {}".format(
+    command = "{} action delete {}".format(
+        WSK_CMD,
         openwhisk_action,
     )
     subprocess.check_call(command, shell=True)
 
 def delete_openwhisk_trigger(openwhisk_trigger):
-    command = "wsk trigger delete {}".format(
+    command = "{} trigger delete {}".format(
+        WSK_CMD,
         openwhisk_trigger,
     )
     subprocess.check_call(command, shell=True)
 
 def delete_openwhisk_rule(openwhisk_rule):
-    command = "wsk rule delete {}".format(
+    command = "{} rule delete {}".format(
+        WSK_CMD,
         openwhisk_rule,
     )
     subprocess.check_call(command, shell=True)
@@ -450,7 +478,8 @@ def install_openwhisk_action(packaging_params, openwhisk_action, params_to_env):
 
     if packaging_params.useDockerSkeleton == True:
         # Default the action timeout to 5 minutes, which is the max value on the hosted IBM bluemix platform
-        command = "wsk action create {} --memory 512 --timeout 300000 --docker tleyden5iwx/openwhisk-dockerskeleton action.zip {}".format(
+        command = "{} action create {} --memory 512 --timeout 300000 --docker tleyden5iwx/openwhisk-dockerskeleton action.zip {}".format(
+            WSK_CMD,
             openwhisk_action,
             expanded_params,
         )
@@ -459,7 +488,8 @@ def install_openwhisk_action(packaging_params, openwhisk_action, params_to_env):
         build_docker_in_path(packaging_params)
 
         # Default the action timeout to 5 minutes, which is the max value on the hosted IBM bluemix platform
-        command = "wsk action create {} --memory 512 --timeout 300000 --docker {}/{}:{} {}".format(
+        command = "{} action create {} --memory 512 --timeout 300000 --docker {}/{}:{} {}".format(
+            WSK_CMD,
             openwhisk_action,
             discover_dockerhub_user(),
             openwhisk_action,
@@ -562,19 +592,22 @@ def update_openwhisk_action(openwhisk_action, params_to_env):
     raise Exception("Not implemented")
 
 def openwhisk_action_exists(openwhisk_action):
-    command = "wsk action get {} parameters".format(
+    command = "{} action get {} parameters".format(
+        WSK_CMD,
         openwhisk_action,
     )
     return subprocess.call(command, shell=True) == 0
 
 def openwhisk_trigger_exists(openwhisk_trigger):
-    command = "wsk trigger get {}".format(
+    command = "{} trigger get {}".format(
+        WSK_CMD,
         openwhisk_trigger,
     )
     return subprocess.call(command, shell=True) == 0
 
 def openwhisk_rule_exists(openwhisk_rule):
-    command = "wsk rule get {}".format(
+    command = "{} rule get {}".format(
+        WSK_CMD,
         openwhisk_rule,
     )
     return subprocess.call(command, shell=True) == 0
@@ -669,7 +702,7 @@ def dockerSkeletonBuildParam(useDockerSkeleton):
 def get_default_packaging_params():
 
     # Parameters to specify how the openwhisk actions are packaged
-    packaging_params = collections.namedtuple('PackagingParams', 'useDockerSkeleton path dryRun dockerTag')
+    packaging_params = collections.namedtuple('PackagingParams', 'useDockerSkeleton path dryRun dockerTag devMode')
 
     # Whether or not to build zip for generic DockerSkeleton, or build a custom docker image for this action.
     packaging_params.useDockerSkeleton = useDockerSkeleton()
@@ -683,6 +716,9 @@ def get_default_packaging_params():
 
     # Doesn't do anything, just prints out what it would do if it did
     packaging_params.dryRun = False
+
+    # If it's in devMode, it skips the alarm triggers since usually you want to run things manually
+    packaging_params.devMode = False
 
     return packaging_params
 
