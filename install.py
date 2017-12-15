@@ -18,7 +18,8 @@ WSK_CMD = "wsk"
 def main():
 
     parser = argparse.ArgumentParser(description='Deploy KeyNuker to OpenWhisk')
-    parser.add_argument('--bluemix', action='store_true', help='Deploy to IBM Cloud (bluemix)')
+    parser.add_argument('--bluemix', action='store_true', help='Deploy to IBM Cloud (bluemix) as opposed to vanilla OpenWhisk')
+    parser.add_argument('--dev', action='store_true', help='In dev mode, it skips installing the alarm triggers')
     args = parser.parse_args()
     if args.bluemix:
         global WSK_CMD
@@ -28,6 +29,7 @@ def main():
         print("Deploying to OpenWhisk using the wsk command")
 
     packaging_params = get_default_packaging_params()
+    packaging_params.devMode = args.dev
 
     # Make sure all of the openwhisk actions we are about to install have the proper env variables set that they require
     verify_openwhisk_actions_env_variables(packaging_params)
@@ -234,6 +236,11 @@ def install_openwhisk_actions(packaging_params):
         return
 
     sequences = install_openwhisk_action_sequences(actions)
+
+    # If it's in "dev mode", there is no need to install alarm triggers or rules
+    # that associate triggers to actions.  So return early.
+    if not packaging_params.devMode:
+        return
 
     install_openwhisk_alarm_triggers()
     
@@ -695,7 +702,7 @@ def dockerSkeletonBuildParam(useDockerSkeleton):
 def get_default_packaging_params():
 
     # Parameters to specify how the openwhisk actions are packaged
-    packaging_params = collections.namedtuple('PackagingParams', 'useDockerSkeleton path dryRun dockerTag')
+    packaging_params = collections.namedtuple('PackagingParams', 'useDockerSkeleton path dryRun dockerTag devMode')
 
     # Whether or not to build zip for generic DockerSkeleton, or build a custom docker image for this action.
     packaging_params.useDockerSkeleton = useDockerSkeleton()
@@ -709,6 +716,9 @@ def get_default_packaging_params():
 
     # Doesn't do anything, just prints out what it would do if it did
     packaging_params.dryRun = False
+
+    # If it's in devMode, it skips the alarm triggers since usually you want to run things manually
+    packaging_params.devMode = False
 
     return packaging_params
 
