@@ -7,12 +7,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-
-	"github.com/flimzy/kivik"
-	_ "github.com/flimzy/kivik/driver/couchdb" // The CouchDB driver
-	"github.com/tleyden/keynuker/keynuker-go-common"
 	"log"
+
+	_ "github.com/go-kivik/couchdb" // The CouchDB driver
+	"github.com/go-kivik/kivik"
 	"github.com/pkg/errors"
+	"github.com/tleyden/keynuker/keynuker-go-common"
 )
 
 // For a given KeyNuker org (or default org), look up:
