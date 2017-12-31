@@ -78,7 +78,15 @@ func TestWriteDoc(t *testing.T) {
 		DocId:    testDocID,
 	}
 
+	// Write initial revision
 	docWrapper, err := WriteDocToDb(params)
+	if err != nil {
+		log.Printf("Error: %v", err)
+	}
+	assert.True(t, err == nil)
+
+	// Write another revision
+	docWrapper, err = WriteDocToDb(params)
 	if err != nil {
 		log.Printf("Error: %v", err)
 	}
