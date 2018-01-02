@@ -7,7 +7,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 
 	_ "github.com/go-kivik/couchdb" // The CouchDB driver
 	"github.com/go-kivik/kivik"
@@ -52,10 +51,7 @@ func LookupGithubUsersAwsKeys(params ParamsLookupGithubUsersAwsKeys) (docWrapper
 	)
 
 	options := kivik.Options{}
-	rowGithubUsers, err := db.Get(ctx, docIdGithubUsers, options)
-	if err != nil {
-		return docWrapper, err
-	}
+	rowGithubUsers := db.Get(ctx, docIdGithubUsers, options)
 
 	docGithubUsers := DocumentWithGithubUsers{}
 	if err := rowGithubUsers.ScanDoc(&docGithubUsers); err != nil {
@@ -68,10 +64,8 @@ func LookupGithubUsersAwsKeys(params ParamsLookupGithubUsersAwsKeys) (docWrapper
 		keynuker_go_common.DocIdPrefixAwsKeys,
 		params.KeyNukerOrg,
 	)
-	rowAwsKeys, err := db.Get(ctx, docIdAwsKeys, options)
-	if err != nil {
-		return docWrapper, err
-	}
+	rowAwsKeys := db.Get(ctx, docIdAwsKeys, options)
+
 	docAwsKeys := DocumentWithAwsKeys{}
 	if err := rowAwsKeys.ScanDoc(&docAwsKeys); err != nil {
 		return docWrapper, err
@@ -83,13 +77,7 @@ func LookupGithubUsersAwsKeys(params ParamsLookupGithubUsersAwsKeys) (docWrapper
 		keynuker_go_common.DocIdPrefixGithubEventCheckpoints,
 		params.KeyNukerOrg,
 	)
-	rowGithubEventCheckpoints, err := db.Get(ctx, docIdGithubEventCheckpoints, options)
-	if err != nil {
-		// An error looking up the doc should not be propagated, since it might be normal (eg, first time run there will be no checkpoint doc)
-		// TODO: verify this is a 404 error and not some other error, which should emit a logging warning or error
-		msg := "Unable to find existing github event checkpoints doc %v.  Assuming this is the first time run.  Underling db error: %v"
-		log.Printf(msg, docIdGithubEventCheckpoints, err)
-	}
+	rowGithubEventCheckpoints := db.Get(ctx, docIdGithubEventCheckpoints, options)
 
 	if rowGithubEventCheckpoints != nil {
 		docGithubEventCheckpoints := DocumentWithGithubEventCheckpoints{}

@@ -62,18 +62,17 @@ func WriteDocToCloudant(params ParamsWriteDoc) (interface{}, error) {
 	// Cas loop where we get the latest rev of the doc
 	for {
 
-		fetchedDocRow, err := db.Get(ctx, params.DocId)
-		if err != nil {
+		fetchedDocRow := db.Get(ctx, params.DocId)
+
+		// Try to get existing doc
+		fetchedDoc := map[string]interface{}{}
+		scanDocErr := fetchedDocRow.ScanDoc(&fetchedDoc)
+
+		if scanDocErr != nil {
 			// Assume this will be the first rev of the doc, so do nothing in this case
 		} else {
 			// Got an existing doc, update the doc being inserted to be based on this rev
 			// we had a valid previous rev
-			fetchedDoc := map[string]interface{}{}
-
-			scanDocErr := fetchedDocRow.ScanDoc(&fetchedDoc)
-			if scanDocErr != nil {
-				return nil, err
-			}
 			revRaw, ok := fetchedDoc["_rev"]
 			if !ok {
 				return nil, fmt.Errorf("Doc does not have _rev field.  Doc: %+v", fetchedDoc)
@@ -91,13 +90,15 @@ func WriteDocToCloudant(params ParamsWriteDoc) (interface{}, error) {
 
 		break
 
+
 	}
 
-	fetchedDocRow, err := db.Get(ctx, params.DocId)
+	// Read the doc back from the DB
+	fetchedDocRow := db.Get(ctx, params.DocId)
 	fetchedDoc := map[string]interface{}{}
 	scanDocErr := fetchedDocRow.ScanDoc(&fetchedDoc)
 	if scanDocErr != nil {
-		return nil, err
+		return nil, scanDocErr
 	}
 
 	return fetchedDoc, nil

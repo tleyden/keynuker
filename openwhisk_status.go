@@ -16,6 +16,7 @@ import (
 	"github.com/pkg/errors"
 	"gopkg.in/mailgun/mailgun-go.v1"
 	"github.com/dustin/go-humanize"
+	"encoding/json"
 )
 
 type ParamsMonitorActivations struct {
@@ -41,9 +42,14 @@ func SendMonitorNotifications(params ParamsMonitorActivations, activationStatus 
 		params.MailerParams.PublicApiKey,
 	)
 
+	activationStatusMarshalled, err := json.MarshalIndent(activationStatus, "", "    ")
+	if err != nil {
+		return "", err
+	}
+
 	messageBody := fmt.Sprintf(
-		"Failed activations: %+v",
-		activationStatus,
+		"Failed activations: %s",
+		activationStatusMarshalled,
 	)
 
 	message := mailgun.NewMessage(
@@ -100,6 +106,7 @@ type RecentActivationsReportOutput struct {
 	FailedActivationIds  []string
 	TotalNumBytesScanned int64
 }
+
 
 // A more generalized version of OpenWhiskRecentActivationsStatus
 // TODO #1: Moving to structured logging (logrus?) will make this a lot more tenable.  Either that or json stats.
@@ -243,11 +250,12 @@ func OpenWhiskRecentActivationsStatus(maxActivationsToScan int) (keynukerStatus 
 	if len(failedActivations) == 0 {
 		keynukerStatus["status"] = "success"
 	} else {
-		failedActivationIds := []string{}
-		for _, failedActivation := range failedActivations {
-			failedActivationIds = append(failedActivationIds, failedActivation.ActivationID)
+		for i, failedActivation := range failedActivations {
+			log.Printf("Trimming %d activation logs", len(failedActivation.Logs))
+			failedActivation.Logs = failedActivation.Logs[:0]
+			failedActivations[i] = failedActivation
 		}
-		keynukerStatus["failedActivationIds"] = failedActivationIds
+		keynukerStatus["failedActivations"] = failedActivations
 	}
 
 	log.Printf("keynukerStatus: %+v", keynukerStatus)
