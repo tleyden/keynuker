@@ -4,19 +4,20 @@
 package keynuker_go_common
 
 import (
-	"fmt"
-	"log"
-	"time"
-	"runtime"
+	"bytes"
 	"encoding/json"
+	"fmt"
+	"io"
 	"io/ioutil"
+	"log"
 	"os"
-	"github.com/tleyden/ow"
+	"runtime"
+	"strings"
+	"time"
+
 	"github.com/google/go-github/github"
 	"github.com/pkg/errors"
-	"strings"
-	"io"
-	"bytes"
+	"github.com/tleyden/ow"
 )
 
 var UseDockerSkeleton bool
@@ -45,12 +46,11 @@ func LogMemoryUsageLoop() {
 	}()
 }
 
-
 func LogMemoryUsage() {
 
 	var m runtime.MemStats
 	runtime.ReadMemStats(&m)
-	log.Printf("\nAlloc = %v KB\nStackSys = %v KB\nSys = %v KB \nNumGC = %v\n\n", m.Alloc/1024, m.StackSys/1024, m.Sys/1024, m.NumGC)
+	log.Printf(" Alloc = %v KB || StackSys = %v KB || Sys = %v KB || NumGC = %v\n", m.Alloc/1024, m.StackSys/1024, m.Sys/1024, m.NumGC)
 
 }
 
@@ -167,9 +167,6 @@ func ReadLimited(r io.Reader, maxBytes int) ([]byte, error) {
 
 	}
 
-
 	return resultBuf.Bytes(), nil
 
 }
-
-
