@@ -14,11 +14,11 @@ import (
 	"github.com/aws/aws-sdk-go/aws/credentials/stscreds"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/iam"
-	"github.com/aws/aws-sdk-go/service/sts"
-	"github.com/satori/go.uuid"
-	"github.com/tleyden/keynuker/keynuker-go-common"
 	"github.com/aws/aws-sdk-go/service/iam/iamiface"
+	"github.com/aws/aws-sdk-go/service/sts"
 	"github.com/pkg/errors"
+	uuid "github.com/satori/go.uuid"
+	"github.com/tleyden/keynuker/keynuker-go-common"
 )
 
 // Look up all the AWS keys associated with the AWS account corresponding to AwsAccessKeyId
@@ -91,6 +91,7 @@ func FetchAwsKeysTargetAccount(initiatingAwsAccount AwsCredentials, targetAwsAcc
 		}
 		tempSession := session.New(AWSConfig)
 
+		uuid, _ := uuid.NewV4()
 		assumedConfig := &aws.Config{
 			Credentials: credentials.NewCredentials(&stscreds.AssumeRoleProvider{
 				// Client: sts.New(tempSession, &aws.Config{Region: aws.String(region)}),
@@ -100,7 +101,7 @@ func FetchAwsKeysTargetAccount(initiatingAwsAccount AwsCredentials, targetAwsAcc
 					targetAwsAccount.TargetAwsAccountId,
 					targetAwsAccount.TargetRoleName,
 				),
-				RoleSessionName: uuid.NewV4().String(),
+				RoleSessionName: uuid.String(),
 				ExternalID:      aws.String(targetAwsAccount.AssumeRoleExternalId),
 				ExpiryWindow:    3600 * time.Second,
 			}),
@@ -167,7 +168,7 @@ func FetchIAMUsers(svc iamiface.IAMAPI) (users []*iam.User, err error) {
 		// Discover list of IAM users in account
 		listUsersInput := &iam.ListUsersInput{
 			MaxItems: aws.Int64(1000),
-			Marker: pageMarker,
+			Marker:   pageMarker,
 		}
 		listUsersOutput, err := svc.ListUsers(listUsersInput)
 		if err != nil {
@@ -188,10 +189,7 @@ func FetchIAMUsers(svc iamiface.IAMAPI) (users []*iam.User, err error) {
 		// Increment page marker so that next iteration will fetch next page of results
 		pageMarker = listUsersOutput.Marker
 
-
 	}
-
-
 
 	return fetchedUsers, nil
 
