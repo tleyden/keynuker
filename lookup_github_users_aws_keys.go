@@ -79,16 +79,16 @@ func LookupGithubUsersAwsKeys(params ParamsLookupGithubUsersAwsKeys) (docWrapper
 	)
 	rowGithubEventCheckpoints := db.Get(ctx, docIdGithubEventCheckpoints, options)
 
-	if rowGithubEventCheckpoints != nil {
-		docGithubEventCheckpoints := DocumentWithGithubEventCheckpoints{}
+	docGithubEventCheckpoints := DocumentWithGithubEventCheckpoints{}
+
+	if rowGithubEventCheckpoints.Err == nil {
 		if err := rowGithubEventCheckpoints.ScanDoc(&docGithubEventCheckpoints); err != nil {
 			return docWrapper, err
 		}
-		docWrapper.GithubEventCheckpoints = docGithubEventCheckpoints.GithubEventCheckpoints
 	}
 
+	docWrapper.GithubEventCheckpoints = docGithubEventCheckpoints.GithubEventCheckpoints
 	return docWrapper, nil
-
 }
 
 type ParamsLookupGithubUsersAwsKeys struct {
