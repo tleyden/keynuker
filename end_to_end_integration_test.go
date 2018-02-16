@@ -494,7 +494,11 @@ func (lkvoc *LeakKeyViaOlderCommit) Leak(accessKey *iam.AccessKey) error {
 		body := fmt.Sprintf("%s access key id: %v", largeFile, *accessKey.AccessKeyId)
 
 		// Make filename unique, otherwise will end up with a small diff from previous test rather than entire file content
-		path := fmt.Sprintf("KeyNukerEndToEndIntegrationTestLeakedKeyLargefile-%s.txt", uuid.NewV4())
+		uuidStr, err := uuid.NewV4()
+		if err != nil {
+			return err
+		}
+		path := fmt.Sprintf("KeyNukerEndToEndIntegrationTestLeakedKeyLargefile-%s.txt", uuidStr)
 		log.Printf("Large commit filename: %v", path)
 		commit, errPushCommit := lkvoc.PushCommitToExistingBranch(path, body)
 		if errPushCommit != nil {
