@@ -13,6 +13,7 @@ import (
 	_ "github.com/go-kivik/couchdb" // The CouchDB driver
 
 	"strings"
+	"log"
 )
 
 // Write an object specified in params to the underlying database, and return the
@@ -61,8 +62,19 @@ func WriteDocToCloudant(params ParamsWriteDoc) (interface{}, error) {
 		return nil, err
 	}
 
+	// After maxTries, give up.. this far too many CAS errors than expected under normal operations
+	maxTries := 100
+	numTries := 0
+	var lastErr error
+
 	// Cas loop where we get the latest rev of the doc
 	for {
+
+		if numTries >= maxTries {
+			return nil, fmt.Errorf("Giving up after %d tries.  Last error: %v", numTries, lastErr)
+		}
+
+		numTries++
 
 		fetchedDocRow := db.Get(ctx, params.DocId)
 
@@ -87,6 +99,8 @@ func WriteDocToCloudant(params ParamsWriteDoc) (interface{}, error) {
 		if err != nil {
 			// Assume this is a 409 conflict error
 			// TODO: check error status and act accordingly, otherwise will end up in toxic busy loop
+			log.Printf("Error putting doc %v into db.  Err: %v.  Assuming 409 conflict error, retrying", params.DocId, err)
+			lastErr = err
 			continue
 		}
 
