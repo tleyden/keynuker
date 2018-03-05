@@ -10,7 +10,7 @@ import (
 	f "github.com/fauna/faunadb-go/faunadb"
 	"github.com/go-kivik/kivik"
 
-	_ "github.com/go-kivik/couchdb" // The CouchDB driver
+	_ "github.com/tleyden/couchdb" // The CouchDB driver
 
 	"strings"
 	"log"
@@ -97,8 +97,14 @@ func WriteDocToCloudant(params ParamsWriteDoc) (interface{}, error) {
 
 		_, err = db.Put(context.TODO(), params.DocId, params.Doc)
 		if err != nil {
+
+			// If it it's a bad request, abort immediately
+			if strings.Contains(err.Error(), "Bad Request") {
+				return nil, err
+			}
+
 			// Assume this is a 409 conflict error
-			// TODO: check error status and act accordingly, otherwise will end up in toxic busy loop
+			// TODO: do better error matching here to distinguish 409 conflict errors, otherwise will end up in toxic busy loop
 			log.Printf("Error putting doc %v into db.  Err: %v.  Assuming 409 conflict error, retrying", params.DocId, err)
 			lastErr = err
 			continue

@@ -8,7 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	_ "github.com/go-kivik/couchdb" // The CouchDB driver
+	_ "github.com/tleyden/couchdb" // The CouchDB driver
 	"github.com/go-kivik/kivik"
 	"github.com/pkg/errors"
 	"github.com/tleyden/keynuker/keynuker-go-common"

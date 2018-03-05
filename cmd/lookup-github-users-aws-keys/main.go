@@ -6,7 +6,7 @@ package main
 import (
 	"encoding/json"
 
-	_ "github.com/go-kivik/couchdb" // The CouchDB driver
+	_ "github.com/tleyden/couchdb" // The CouchDB driver
 	"github.com/tleyden/keynuker"
 	"github.com/tleyden/keynuker/keynuker-go-common"
 )
