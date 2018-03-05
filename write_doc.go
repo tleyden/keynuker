@@ -38,7 +38,7 @@ func CreateDBClient(params ParamsWriteDoc) (db *kivik.DB, err error) {
 	// NOTE regarding http vs https.  I was previously using https, but I needed to revert to http
 	// due to the following issue w/ Cloudant: https://gist.github.com/tleyden/d8c69f6cee3a2b32a7a1609539a1dade (filed to Cloudant support)
 	dataSourceName := fmt.Sprintf(
-		"http://%s:%s@%s",
+		"https://%s:%s@%s",
 		params.Username,
 		params.Password,
 		params.Host,
